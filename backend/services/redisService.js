@@ -29,15 +29,26 @@ class RedisService {
    */
   async connect() {
     try {
-      this.client = new Redis({
-        host: redis.host,
-        port: redis.port,
-        password: redis.password,
-        db: redis.db,
-        retryStrategy: redis.retryStrategy,
-        lazyConnect: true,
-        maxRetriesPerRequest: 3
-      });
+      // Si existe REDIS_URL (Railway, Heroku, etc), usarla
+      if (process.env.REDIS_URL) {
+        this.client = new Redis(process.env.REDIS_URL, {
+          retryStrategy: redis.retryStrategy,
+          lazyConnect: true,
+          maxRetriesPerRequest: 3,
+          tls: process.env.REDIS_URL.includes('rediss://') ? {} : undefined
+        });
+      } else {
+        // Usar configuración individual para desarrollo local
+        this.client = new Redis({
+          host: redis.host,
+          port: redis.port,
+          password: redis.password,
+          db: redis.db,
+          retryStrategy: redis.retryStrategy,
+          lazyConnect: true,
+          maxRetriesPerRequest: 3
+        });
+      }
 
       // Eventos de conexión
       this.client.on('connect', () => {
