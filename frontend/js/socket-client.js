@@ -17,34 +17,70 @@ const SocketClient = {
   async connect() {
     return new Promise((resolve, reject) => {
       try {
-        this.socket = io(CONFIG.SERVER_URL, {
+        const serverUrl = CONFIG.SERVER_URL || window.location.origin;
+        console.log('🔌 Conectando a:', serverUrl);
+
+        this.socket = io(serverUrl, {
           transports: CONFIG.SOCKET.TRANSPORTS,
           reconnection: CONFIG.SOCKET.RECONNECTION,
           reconnectionAttempts: CONFIG.SOCKET.RECONNECTION_ATTEMPTS,
           reconnectionDelay: CONFIG.SOCKET.RECONNECTION_DELAY,
-          timeout: CONFIG.SOCKET.TIMEOUT
+          timeout: CONFIG.SOCKET.TIMEOUT,
+          autoConnect: true,
+          forceNew: false
         });
+
+        let connectionTimeout = setTimeout(() => {
+          if (!this.connected) {
+            reject(new Error('Timeout de conexión al servidor'));
+          }
+        }, 10000);
 
         this.socket.on('connect', () => {
           console.log('✅ Conectado al servidor');
+          clearTimeout(connectionTimeout);
           this.connected = true;
           resolve();
         });
 
-        this.socket.on('disconnect', () => {
-          console.log('❌ Desconectado del servidor');
+        this.socket.on('disconnect', (reason) => {
+          console.log('❌ Desconectado del servidor:', reason);
           this.connected = false;
-          UI.showToast('Conexión perdida', 'error');
+          if (reason === 'io server disconnect') {
+            // Reconectar manualmente si el servidor desconectó
+            this.socket.connect();
+          }
+        });
+
+        this.socket.on('reconnect', (attemptNumber) => {
+          console.log('🔄 Reconectado después de', attemptNumber, 'intentos');
+          UI.showToast('Conexión restablecida', 'success');
+          this.connected = true;
+        });
+
+        this.socket.on('reconnect_attempt', (attemptNumber) => {
+          console.log('🔄 Intento de reconexión', attemptNumber);
+        });
+
+        this.socket.on('reconnect_error', (error) => {
+          console.error('❌ Error de reconexión:', error);
+        });
+
+        this.socket.on('reconnect_failed', () => {
+          console.error('❌ Falló la reconexión');
+          UI.showToast('No se pudo reconectar al servidor', 'error');
         });
 
         this.socket.on('connect_error', (error) => {
-          console.error('Error de conexión:', error);
-          reject(error);
+          console.error('❌ Error de conexión:', error.message);
+          clearTimeout(connectionTimeout);
+          reject(new Error('No se pudo conectar al servidor. Verifica tu conexión.'));
         });
 
         this.setupDefaultHandlers();
 
       } catch (error) {
+        console.error('❌ Error al crear socket:', error);
         reject(error);
       }
     });

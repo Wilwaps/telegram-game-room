@@ -29,13 +29,22 @@ class RedisService {
    */
   async connect() {
     try {
-      // Si existe REDIS_URL (Railway, Heroku, etc), usarla
-      if (process.env.REDIS_URL) {
-        this.client = new Redis(process.env.REDIS_URL, {
+      // Detectar URL desde variables comunes de proveedores (Railway/Upstash/Heroku)
+      const urlFromEnv =
+        process.env.REDIS_URL ||
+        process.env.REDIS_PUBLIC_URL ||
+        process.env.REDIS_TLS_URL ||
+        process.env.REDIS_INTERNAL_URL ||
+        process.env.REDIS_PRIVATE_URL ||
+        process.env.UPSTASH_REDIS_URL;
+
+      if (urlFromEnv) {
+        const useTLS = urlFromEnv.startsWith('rediss://');
+        this.client = new Redis(urlFromEnv, {
           retryStrategy: redis.retryStrategy,
           lazyConnect: true,
           maxRetriesPerRequest: 3,
-          tls: process.env.REDIS_URL.includes('rediss://') ? {} : undefined
+          tls: useTLS ? {} : undefined,
         });
       } else {
         // Usar configuración individual para desarrollo local
