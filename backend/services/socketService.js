@@ -79,7 +79,8 @@ class SocketService {
         await this.handleMakeMove(socket, data);
       });
 
-      socket.on(constants.SOCKET_EVENTS.PLAY_AGAIN, async (roomCode) => {
+      socket.on(constants.SOCKET_EVENTS.PLAY_AGAIN, async (data) => {
+        const roomCode = typeof data === 'string' ? data : data.roomCode;
         await this.handlePlayAgain(socket, roomCode);
       });
 

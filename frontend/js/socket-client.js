@@ -215,8 +215,10 @@ const SocketClient = {
   /**
    * Jugar de nuevo
    */
-  playAgain() {
-    this.socket.emit(CONFIG.EVENTS.PLAY_AGAIN, this.currentRoom);
+  playAgain(roomCode) {
+    const room = roomCode || this.currentRoom;
+    console.log('Solicitando revancha en sala:', room);
+    this.socket.emit(CONFIG.EVENTS.PLAY_AGAIN, { roomCode: room });
   },
 
   /**
