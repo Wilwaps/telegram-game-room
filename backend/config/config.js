@@ -164,6 +164,7 @@ const constants = {
     
     // Salas
     CREATE_ROOM: 'create_room',
+    ROOM_CREATED: 'room_created',
     JOIN_ROOM: 'join_room',
     LEAVE_ROOM: 'leave_room',
     CLOSE_ROOM: 'close_room',
