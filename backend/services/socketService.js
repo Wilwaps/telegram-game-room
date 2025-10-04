@@ -410,6 +410,14 @@ class SocketService {
             board: room.board,
             message: '¡Empate!'
           });
+          // Recompensa de fuegos a ambos jugadores
+          try {
+            for (const p of room.players) {
+              await this.economy.earn(p.userId, 1, { reason: 'draw' });
+            }
+          } catch (e) {
+            logger.error('Error otorgando fuegos en empate:', e);
+          }
         } else {
           // Victoria
           this.io.to(roomCode).emit(constants.SOCKET_EVENTS.GAME_OVER, {
@@ -419,6 +427,14 @@ class SocketService {
             board: room.board,
             message: `¡${player.userName} ha ganado!`
           });
+          // Recompensa de fuegos a ambos jugadores
+          try {
+            for (const p of room.players) {
+              await this.economy.earn(p.userId, 1, { reason: 'game_finish' });
+            }
+          } catch (e) {
+            logger.error('Error otorgando fuegos en victoria:', e);
+          }
         }
 
         logger.logGameEvent('game_finished', roomCode, {
