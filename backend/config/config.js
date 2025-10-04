@@ -97,8 +97,6 @@ const security = {
     credentials: true
   }
 };
-};
-
 /**
  * Configuración de logging
  */
