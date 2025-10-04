@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="css/splash.css">
     <link rel="stylesheet" href="css/lobby.css">
     <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/bingo.css">
     <link rel="stylesheet" href="css/animations.css">
     
     <!-- Preconnect para mejor rendimiento -->
@@ -35,10 +36,99 @@
             <div class="splash-logo">🎮</div>
             <h1 class="splash-title">Sala de Juegos</h1>
             <p class="splash-subtitle">Tic Tac Toe Multijugador</p>
-            <div class="splash-loader">
                 <div class="splash-dot"></div>
                 <div class="splash-dot"></div>
                 <div class="splash-dot"></div>
+            </div>
+
+    <!-- Modal código de sala (Tic Tac Toe) -->
+    <div id="code-modal" class="modal">
+        <div class="modal-overlay" data-close="code-modal"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Unirse con código</h3>
+                <button class="modal-close" data-close="code-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Código de sala</label>
+                    <input id="room-code-input" class="input" placeholder="ABC123" maxlength="6">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-close="code-modal">Cancelar</button>
+                <button id="join-room-btn" class="btn btn-primary">Unirse</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal crear Bingo -->
+    <div id="bingo-config-modal" class="modal">
+        <div class="modal-overlay" data-close="bingo-config-modal"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Crear sala de Bingo</h3>
+                <button class="modal-close" data-close="bingo-config-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Modo de juego</label>
+                    <select id="bingo-mode-select" class="input">
+                        <option value="line">Línea</option>
+                        <option value="double">Doble Línea</option>
+                        <option value="full">Cartón lleno</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cartones para el anfitrión</label>
+                    <div class="counter">
+                        <button id="bingo-host-cards-decrease" class="counter-btn">-</button>
+                        <input id="bingo-host-cards" class="counter-value" value="1" readonly>
+                        <button id="bingo-host-cards-increase" class="counter-btn">+</button>
+                    </div>
+                    <p class="bingo-cost-hint">Costo: <span id="bingo-host-cost">1 🔥</span></p>
+                </div>
+                <div class="form-group">
+                    <label>Modo de canto</label>
+                    <label class="toggle">
+                        <input type="checkbox" id="bingo-auto-draw">
+                        <span>Autocantar números</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-close="bingo-config-modal">Cancelar</button>
+                <button id="confirm-create-bingo" class="btn btn-primary">Crear Sala</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal unirse a Bingo -->
+    <div id="bingo-join-modal" class="modal">
+        <div class="modal-overlay" data-close="bingo-join-modal"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Unirse a Bingo</h3>
+                <button class="modal-close" data-close="bingo-join-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Código de sala</label>
+                    <input id="bingo-room-code" class="input" placeholder="ABC123" maxlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Cartones</label>
+                    <div class="counter">
+                        <button id="bingo-cards-decrease" class="counter-btn">-</button>
+                        <input id="bingo-cards-count" class="counter-value" value="1" readonly>
+                        <button id="bingo-cards-increase" class="counter-btn">+</button>
+                    </div>
+                    <p class="bingo-cost-hint">Costo: <span id="bingo-total-cost">1 🔥</span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-close="bingo-join-modal">Cancelar</button>
+                <button id="confirm-join-bingo" class="btn btn-primary">Unirse</button>
             </div>
         </div>
     </div>
@@ -103,16 +193,30 @@
           </button>
         </div>
 
-        <!-- Botones de acción -->
-        <div class="action-buttons">
-            <button id="create-room-btn" class="btn btn-primary btn-large">
-                <span class="btn-icon">➕</span>
-                <span class="btn-text">Crear Nueva Partida</span>
-            </button>
-            <button id="join-code-btn" class="btn btn-secondary">
-                <span class="btn-icon">🔗</span>
-                <span class="btn-text">Unirse con Código</span>
-            </button>
+        <!-- Selector de juego -->
+        <div class="game-selector">
+            <div class="game-card" id="select-tictactoe">
+                <div class="game-icon">❌⭕</div>
+                <div class="game-info">
+                    <h3>Tic Tac Toe</h3>
+                    <p>Partidas rápidas 1 vs 1</p>
+                </div>
+                <div class="game-actions">
+                    <button id="create-room-btn" class="btn btn-primary btn-small">Crear</button>
+                    <button id="join-code-btn" class="btn btn-secondary btn-small">Unirse</button>
+                </div>
+            </div>
+            <div class="game-card" id="select-bingo">
+                <div class="game-icon">🎱</div>
+                <div class="game-info">
+                    <h3>Bingo</h3>
+                    <p>Hasta 30 jugadores en simultáneo</p>
+                </div>
+                <div class="game-actions">
+                    <button id="create-bingo-btn" class="btn btn-primary btn-small">Crear</button>
+                    <button id="join-bingo-btn" class="btn btn-secondary btn-small">Unirse</button>
+                </div>
+            </div>
         </div>
 
         <!-- Sección de salas -->
@@ -149,7 +253,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- SALA DE ESPERA -->
+    <!-- SALA DE ESPERA (Tic Tac Toe) -->
     <!-- ========================================== -->
     <div id="waiting-room-screen" class="screen">
         <div class="waiting-container">
@@ -228,6 +332,76 @@
                 <span class="info-icon">💡</span>
                 <p>Comparte el código o invita amigos para comenzar la partida</p>
             </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SALA DE ESPERA BINGO -->
+    <!-- ========================================== -->
+    <div id="bingo-waiting-screen" class="screen">
+        <div class="bingo-waiting">
+            <div class="bingo-waiting-header">
+                <button id="bingo-back-btn" class="btn-icon">←</button>
+                <div>
+                    <h2>Sala de Bingo</h2>
+                    <p class="bingo-share" id="bingo-share-code">Código: -----</p>
+                </div>
+                <div class="bingo-pot">🔥 Pot: <span id="bingo-pot">0</span></div>
+            </div>
+
+            <div class="bingo-waiting-content">
+                <div class="bingo-players-panel">
+                    <h3>Jugadores</h3>
+                    <div id="bingo-players-list" class="bingo-players-list"></div>
+                </div>
+                <div class="bingo-waiting-actions">
+                    <button id="bingo-invite-btn" class="btn btn-secondary">Invitar</button>
+                    <button id="bingo-leave-btn" class="btn btn-danger">Salir</button>
+                    <button id="bingo-start-btn" class="btn btn-primary">Iniciar partida</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PANTALLA BINGO -->
+    <!-- ========================================== -->
+    <div id="bingo-game-screen" class="screen bingo-screen">
+        <div class="bingo-header">
+            <div class="bingo-header-left">
+                <button id="bingo-exit-btn" class="btn-icon">←</button>
+                <div>
+                    <h2>Bingo</h2>
+                    <p id="bingo-mode-label" class="subtitle">Modo línea</p>
+                </div>
+            </div>
+            <div class="bingo-header-right">
+                <div class="bingo-pot">🔥 Pot: <span id="bingo-game-pot">0</span></div>
+                <div class="bingo-players-counter">👥 <span id="bingo-players-count">0</span>/30</div>
+            </div>
+        </div>
+
+        <div class="bingo-main">
+            <div class="bingo-draw-board">
+                <div class="bingo-recent-draws">
+                    <h3>Últimas fichas</h3>
+                    <div id="bingo-recent-draws" class="bingo-recent-draws-list"></div>
+                </div>
+                <div id="bingo-draw-grid" class="bingo-draw-grid"></div>
+            </div>
+
+            <div class="bingo-cards-area">
+                <div class="bingo-cards-header">
+                    <h3>Tus cartones</h3>
+                    <button id="bingo-claim-btn" class="btn btn-success" disabled>¡Bingo!</button>
+                </div>
+                <div id="bingo-cards-grid" class="bingo-cards-grid"></div>
+            </div>
+        </div>
+
+        <div class="bingo-actions">
+            <button id="bingo-draw-btn" class="btn btn-primary">Cantar siguiente</button>
+            <button id="bingo-leave-game-btn" class="btn btn-secondary">Salir</button>
         </div>
     </div>
 
@@ -413,6 +587,7 @@
     <script src="js/waiting-room.js"></script>
     <script src="js/game.js"></script>
     <script src="js/economy.js"></script>
+    <script src="js/bingo.js"></script>
     <script src="js/result.js"></script>
     <script src="js/app.js"></script>
 </body>

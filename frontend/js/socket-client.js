@@ -106,6 +106,39 @@ const SocketClient = {
   },
 
   /**
+   * ======================
+   * BINGO - MÉTODOS
+   * ======================
+   */
+  createBingoRoom({ isPublic = true, mode = 'line', autoDraw = false, drawIntervalMs = 5000 } = {}) {
+    this.socket.emit(CONFIG.EVENTS.CREATE_BINGO_ROOM, { isPublic, mode, autoDraw, drawIntervalMs });
+  },
+
+  joinBingo(roomCode, cardsCount = 1) {
+    this.socket.emit(CONFIG.EVENTS.JOIN_BINGO, { roomCode, cardsCount });
+  },
+
+  leaveBingo(roomCode) {
+    const code = roomCode || this.currentBingoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.LEAVE_BINGO, { roomCode: code });
+  },
+
+  startBingo(roomCode) {
+    const code = roomCode || this.currentBingoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.START_BINGO, { roomCode: code });
+  },
+
+  drawNext(roomCode) {
+    const code = roomCode || this.currentBingoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.DRAW_NEXT, { roomCode: code });
+  },
+
+  claimBingo(roomCode, cardId) {
+    const code = roomCode || this.currentBingoRoom;
+    if (code && cardId) this.socket.emit(CONFIG.EVENTS.CLAIM_BINGO, { roomCode: code, cardId });
+  },
+
+  /**
    * Configurar manejadores por defecto
    */
   setupDefaultHandlers() {
@@ -124,6 +157,52 @@ const SocketClient = {
     this.socket.on(CONFIG.EVENTS.ROOM_CREATED, (room) => {
       this.currentRoom = room.code;
       this.emit('room_created', room);
+    });
+
+    // ======================
+    // BINGO - EVENTOS
+    // ======================
+    this.socket.on(CONFIG.EVENTS.BINGO_ROOM_CREATED, (payload) => {
+      this.currentBingoRoom = payload?.room?.code;
+      this.emit(CONFIG.EVENTS.BINGO_ROOM_CREATED, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.BINGO_JOINED, (payload) => {
+      this.currentBingoRoom = payload?.room?.code;
+      this.emit(CONFIG.EVENTS.BINGO_JOINED, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.PLAYER_JOINED_BINGO, (payload) => {
+      this.emit(CONFIG.EVENTS.PLAYER_JOINED_BINGO, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.PLAYER_LEFT_BINGO, (payload) => {
+      this.emit(CONFIG.EVENTS.PLAYER_LEFT_BINGO, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.BINGO_STARTED, (payload) => {
+      this.emit(CONFIG.EVENTS.BINGO_STARTED, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.NUMBER_DRAWN, (payload) => {
+      this.emit(CONFIG.EVENTS.NUMBER_DRAWN, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.BINGO_INVALID, (payload) => {
+      this.emit(CONFIG.EVENTS.BINGO_INVALID, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.BINGO_WINNER, (payload) => {
+      this.emit(CONFIG.EVENTS.BINGO_WINNER, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.BINGO_FINISHED, (payload) => {
+      this.emit(CONFIG.EVENTS.BINGO_FINISHED, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.HOST_LEFT_BINGO, (payload) => {
+      this.currentBingoRoom = null;
+      this.emit(CONFIG.EVENTS.HOST_LEFT_BINGO, payload);
     });
 
     // Sala agregada

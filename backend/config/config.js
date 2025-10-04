@@ -202,6 +202,7 @@ const constants = {
     CREATE_BINGO_ROOM: 'create_bingo_room',
     BINGO_ROOM_CREATED: 'bingo_room_created',
     JOIN_BINGO: 'join_bingo',
+    BINGO_JOINED: 'bingo_joined',
     LEAVE_BINGO: 'leave_bingo',
     START_BINGO: 'start_bingo',
     BINGO_STARTED: 'bingo_started',
@@ -235,9 +236,12 @@ const constants = {
     USER: 'user:',
     SESSION: 'session:',
     STATS: 'stats:',
-    CACHE: 'cache:'
+    CACHE: 'cache:',
+    BINGO_ROOM: 'bingo:room:',
+    BINGO_CARDS: 'bingo:cards:'
   }
-};
+}
+;
 
 /**
  * Exportar configuración completa

@@ -17,11 +17,69 @@ const { redis, constants } = require('../config/config');
 const logger = require('../config/logger');
 const Room = require('../models/Room');
 const User = require('../models/User');
+const BingoRoom = require('../models/BingoRoom');
 
 class RedisService {
   constructor() {
     this.client = null;
     this.isConnected = false;
+  }
+
+  // ============================================
+  // BINGO - OPERACIONES ESPECÍFICAS
+  // ============================================
+
+  /**
+   * Guardar sala de Bingo
+   */
+  async setBingoRoom(roomCode, room, ttl = redis.ttl.room) {
+    const key = `${constants.REDIS_PREFIXES.BINGO_ROOM}${roomCode}`;
+    const data = JSON.stringify(room.toJSON ? room.toJSON() : room);
+    await this.client.setex(key, ttl, data);
+    if (room.isPublic) {
+      await this.client.sadd('public_bingo_rooms', roomCode);
+    }
+  }
+
+  /** Obtener sala de Bingo */
+  async getBingoRoom(roomCode) {
+    const key = `${constants.REDIS_PREFIXES.BINGO_ROOM}${roomCode}`;
+    const data = await this.client.get(key);
+    if (!data) return null;
+    return BingoRoom.fromJSON(JSON.parse(data));
+  }
+
+  /** Eliminar sala de Bingo */
+  async deleteBingoRoom(roomCode) {
+    const key = `${constants.REDIS_PREFIXES.BINGO_ROOM}${roomCode}`;
+    await this.client.del(key);
+    await this.client.srem('public_bingo_rooms', roomCode);
+  }
+
+  /** Guardar cartones de usuario en una sala */
+  async setBingoCards(roomCode, userId, cards, ttl = redis.ttl.room) {
+    const key = `${constants.REDIS_PREFIXES.BINGO_CARDS}${roomCode}:${userId}`;
+    const normalized = cards.map(c => ({
+      id: c.id,
+      userId: c.userId,
+      numbers: c.numbers,
+      marked: Array.from(c.marked || []),
+      patterns: c.patterns || {}
+    }));
+    await this.client.setex(key, ttl, JSON.stringify(normalized));
+  }
+
+  /** Obtener cartones de usuario en una sala */
+  async getBingoCards(roomCode, userId) {
+    const key = `${constants.REDIS_PREFIXES.BINGO_CARDS}${roomCode}:${userId}`;
+    const data = await this.client.get(key);
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    // Restaurar Set marked
+    return parsed.map(c => ({
+      ...c,
+      marked: new Set(c.marked || [])
+    }));
   }
 
   /**

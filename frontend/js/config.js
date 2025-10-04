@@ -67,19 +67,38 @@ const CONFIG = {
     // Notificaciones
     PLAYER_LEFT: 'player_left',
     PLAYER_JOINED: 'player_joined',
-    ROOM_UPDATED: 'room_updated',
     ROOM_ADDED: 'room_added',
     ROOM_REMOVED: 'room_removed',
     ROOM_CLOSED: 'room_closed',
     ROOMS_LIST: 'rooms_list',
     ROOM_CREATED: 'room_created',
-    
+
+    // Bingo
+    CREATE_BINGO_ROOM: 'create_bingo_room',
+    BINGO_ROOM_CREATED: 'bingo_room_created',
+    JOIN_BINGO: 'join_bingo',
+    BINGO_JOINED: 'bingo_joined',
+    PLAYER_JOINED_BINGO: 'player_joined_bingo',
+    PLAYER_LEFT_BINGO: 'player_left_bingo',
+    START_BINGO: 'start_bingo',
+    BINGO_STARTED: 'bingo_started',
+    DRAW_NEXT: 'draw_next',
+    NUMBER_DRAWN: 'number_drawn',
+    CLAIM_BINGO: 'claim_bingo',
+    BINGO_VALID: 'bingo_valid',
+    BINGO_INVALID: 'bingo_invalid',
+    BINGO_WINNER: 'bingo_winner',
+    BINGO_FINISHED: 'bingo_finished',
+    HOST_LEFT_BINGO: 'host_left_bingo',
+    BINGO_PAUSED: 'bingo_paused',
+    BINGO_RESUMED: 'bingo_resumed',
+    ROOM_FULL: 'room_full',
+
     // Economía - Fuegos
     GET_FIRES: 'get_fires',
     FIRES_BALANCE: 'fires_balance',
     EARN_FIRE: 'earn_fire',
     SPEND_FIRES: 'spend_fires',
-    TRANSFER_FIRES: 'transfer_fires',
     FIRES_UPDATED: 'fires_updated',
     
     // Errores
