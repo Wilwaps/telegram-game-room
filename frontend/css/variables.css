@@ -1,0 +1,202 @@
+/**
+ * ============================================
+ * VARIABLES CSS - SISTEMA DE DISEÑO
+ * ============================================
+ * 
+ * Variables CSS globales para mantener
+ * consistencia en todo el diseño.
+ */
+
+:root {
+  /* ========================================== */
+  /* COLORES DE TELEGRAM */
+  /* ========================================== */
+  --tg-theme-bg-color: var(--tg-theme-bg-color, #ffffff);
+  --tg-theme-text-color: var(--tg-theme-text-color, #000000);
+  --tg-theme-hint-color: var(--tg-theme-hint-color, #999999);
+  --tg-theme-link-color: var(--tg-theme-link-color, #2481cc);
+  --tg-theme-button-color: var(--tg-theme-button-color, #2481cc);
+  --tg-theme-button-text-color: var(--tg-theme-button-text-color, #ffffff);
+  --tg-theme-secondary-bg-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  
+  /* ========================================== */
+  /* COLORES PERSONALIZADOS */
+  /* ========================================== */
+  --color-primary: #2481cc;
+  --color-primary-dark: #1a6ba8;
+  --color-primary-light: #4a9de0;
+  
+  --color-success: #4CAF50;
+  --color-success-dark: #388E3C;
+  --color-success-light: #66BB6A;
+  
+  --color-danger: #f44336;
+  --color-danger-dark: #d32f2f;
+  --color-danger-light: #ef5350;
+  
+  --color-warning: #ff9800;
+  --color-warning-dark: #f57c00;
+  --color-warning-light: #ffb74d;
+  
+  --color-info: #2196F3;
+  --color-info-dark: #1976D2;
+  --color-info-light: #42A5F5;
+  
+  /* Grises */
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #eeeeee;
+  --color-gray-300: #e0e0e0;
+  --color-gray-400: #bdbdbd;
+  --color-gray-500: #9e9e9e;
+  --color-gray-600: #757575;
+  --color-gray-700: #616161;
+  --color-gray-800: #424242;
+  --color-gray-900: #212121;
+  
+  /* ========================================== */
+  /* ESPACIADO */
+  /* ========================================== */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  
+  /* ========================================== */
+  /* TIPOGRAFÍA */
+  /* ========================================== */
+  --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
+                       'Helvetica Neue', Arial, sans-serif;
+  --font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+  
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+  --font-size-4xl: 36px;
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* ========================================== */
+  /* BORDES */
+  /* ========================================== */
+  --border-radius-sm: 6px;
+  --border-radius-md: 12px;
+  --border-radius-lg: 16px;
+  --border-radius-xl: 20px;
+  --border-radius-full: 9999px;
+  
+  --border-width-thin: 1px;
+  --border-width-medium: 2px;
+  --border-width-thick: 4px;
+  
+  /* ========================================== */
+  /* SOMBRAS */
+  /* ========================================== */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.18);
+  --shadow-2xl: 0 16px 32px rgba(0, 0, 0, 0.2);
+  
+  /* Sombras de color */
+  --shadow-primary: 0 4px 12px rgba(36, 129, 204, 0.3);
+  --shadow-success: 0 4px 12px rgba(76, 175, 80, 0.3);
+  --shadow-danger: 0 4px 12px rgba(244, 67, 54, 0.3);
+  
+  /* ========================================== */
+  /* TRANSICIONES */
+  /* ========================================== */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  
+  --transition-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* ========================================== */
+  /* Z-INDEX */
+  /* ========================================== */
+  --z-index-base: 1;
+  --z-index-dropdown: 100;
+  --z-index-sticky: 200;
+  --z-index-fixed: 300;
+  --z-index-modal-backdrop: 400;
+  --z-index-modal: 500;
+  --z-index-popover: 600;
+  --z-index-tooltip: 700;
+  --z-index-toast: 800;
+  
+  /* ========================================== */
+  /* TAMAÑOS */
+  /* ========================================== */
+  --size-icon-sm: 16px;
+  --size-icon-md: 24px;
+  --size-icon-lg: 32px;
+  --size-icon-xl: 48px;
+  
+  --size-avatar-sm: 32px;
+  --size-avatar-md: 48px;
+  --size-avatar-lg: 64px;
+  --size-avatar-xl: 96px;
+  
+  --size-button-sm: 32px;
+  --size-button-md: 40px;
+  --size-button-lg: 48px;
+  --size-button-xl: 56px;
+  
+  /* ========================================== */
+  /* BREAKPOINTS (para referencia) */
+  /* ========================================== */
+  --breakpoint-xs: 320px;
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  
+  /* ========================================== */
+  /* ANIMACIONES */
+  /* ========================================== */
+  --animation-duration-fast: 200ms;
+  --animation-duration-normal: 300ms;
+  --animation-duration-slow: 500ms;
+  
+  /* ========================================== */
+  /* OPACIDADES */
+  /* ========================================== */
+  --opacity-disabled: 0.5;
+  --opacity-hover: 0.8;
+  --opacity-overlay: 0.6;
+}
+
+/* ========================================== */
+/* TEMA OSCURO (OPCIONAL) */
+/* ========================================== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-gray-50: #212121;
+    --color-gray-100: #424242;
+    --color-gray-200: #616161;
+    --color-gray-300: #757575;
+    --color-gray-400: #9e9e9e;
+    --color-gray-500: #bdbdbd;
+    --color-gray-600: #e0e0e0;
+    --color-gray-700: #eeeeee;
+    --color-gray-800: #f5f5f5;
+    --color-gray-900: #fafafa;
+  }
+}

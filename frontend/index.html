@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Sala de Juegos Multijugador - Tic Tac Toe en tiempo real">
+    <meta name="theme-color" content="#2481cc">
+    <title>Sala de Juegos - Tic Tac Toe</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Socket.io Client -->
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    
+    <!-- Estilos -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/lobby.css">
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/animations.css">
+    
+    <!-- Preconnect para mejor rendimiento -->
+    <link rel="preconnect" href="https://telegram.org">
+    <link rel="preconnect" href="https://cdn.socket.io">
+</head>
+<body>
+    
+    <!-- ========================================== -->
+    <!-- PANTALLA DE CARGA -->
+    <!-- ========================================== -->
+    <div id="loading-screen" class="screen active">
+        <div class="loading-container">
+            <div class="loader"></div>
+            <p class="loading-text">Conectando...</p>
+            <p class="loading-subtext">Preparando la sala de juegos</p>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- LOBBY - LISTA DE SALAS -->
+    <!-- ========================================== -->
+    <div id="lobby-screen" class="screen">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <h1 class="title">🎮 Sala de Juegos</h1>
+                <p class="subtitle">Tic Tac Toe Multijugador</p>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <img id="user-avatar" src="" alt="Avatar" class="user-avatar">
+                    <div class="user-details">
+                        <span id="user-name" class="user-name">Usuario</span>
+                        <span id="user-level" class="user-level">Nivel 1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de estadísticas -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-icon">🏆</div>
+                <div class="stat-content">
+                    <span class="stat-label">Victorias</span>
+                    <span class="stat-value" id="wins">0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">❌</div>
+                <div class="stat-content">
+                    <span class="stat-label">Derrotas</span>
+                    <span class="stat-value" id="losses">0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🤝</div>
+                <div class="stat-content">
+                    <span class="stat-label">Empates</span>
+                    <span class="stat-value" id="draws">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones de acción -->
+        <div class="action-buttons">
+            <button id="create-room-btn" class="btn btn-primary btn-large">
+                <span class="btn-icon">➕</span>
+                <span class="btn-text">Crear Nueva Partida</span>
+            </button>
+            <button id="join-code-btn" class="btn btn-secondary">
+                <span class="btn-icon">🔗</span>
+                <span class="btn-text">Unirse con Código</span>
+            </button>
+        </div>
+
+        <!-- Sección de salas -->
+        <div class="rooms-section">
+            <div class="section-header">
+                <h2 class="section-title">Salas Disponibles</h2>
+                <button id="refresh-rooms-btn" class="btn-icon-small">
+                    <span>🔄</span>
+                </button>
+            </div>
+            
+            <!-- Filtros de salas -->
+            <div class="filter-tabs">
+                <button class="tab active" data-filter="all">
+                    <span>Todas</span>
+                    <span class="tab-badge" id="all-count">0</span>
+                </button>
+                <button class="tab" data-filter="waiting">
+                    <span>Esperando</span>
+                    <span class="tab-badge" id="waiting-count">0</span>
+                </button>
+            </div>
+            
+            <!-- Lista de salas -->
+            <div id="rooms-list" class="rooms-list">
+                <!-- Las salas se cargarán dinámicamente -->
+                <div class="empty-state">
+                    <div class="empty-icon">🎮</div>
+                    <p class="empty-title">No hay salas disponibles</p>
+                    <p class="empty-text">Crea una nueva partida para comenzar</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SALA DE ESPERA -->
+    <!-- ========================================== -->
+    <div id="waiting-room-screen" class="screen">
+        <div class="waiting-container">
+            <!-- Header de sala -->
+            <div class="waiting-header">
+                <button id="back-to-lobby-btn" class="btn-back">
+                    <span>←</span>
+                </button>
+                <h2 class="waiting-title">Sala de Espera</h2>
+                <div class="waiting-status">
+                    <span class="status-dot"></span>
+                    <span>Esperando...</span>
+                </div>
+            </div>
+
+            <!-- Código de sala -->
+            <div class="room-code-section">
+                <label class="room-code-label">Código de Sala</label>
+                <div class="room-code-display">
+                    <span id="room-code-display" class="room-code-text">------</span>
+                    <button id="copy-code-btn" class="btn-icon-small" title="Copiar código">
+                        <span>📋</span>
+                    </button>
+                </div>
+                <p class="room-code-hint">Comparte este código con tus amigos</p>
+            </div>
+
+            <!-- Jugadores -->
+            <div class="players-waiting">
+                <div class="player-slot filled" id="host-slot">
+                    <div class="player-avatar-wrapper">
+                        <img id="host-avatar" src="" alt="Host" class="player-avatar">
+                        <div class="player-symbol player-x">❌</div>
+                    </div>
+                    <div class="player-info">
+                        <span id="host-name" class="player-name">Jugador 1</span>
+                        <span class="player-badge host-badge">Host</span>
+                    </div>
+                </div>
+
+                <div class="vs-divider">
+                    <span class="vs-text">VS</span>
+                </div>
+
+                <div class="player-slot empty" id="guest-slot">
+                    <div class="player-avatar-wrapper waiting-pulse">
+                        <div class="player-avatar-placeholder">
+                            <span>?</span>
+                        </div>
+                        <div class="player-symbol player-o">⭕</div>
+                    </div>
+                    <div class="player-info">
+                        <span class="player-name">Esperando jugador...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones de sala de espera -->
+            <div class="waiting-actions">
+                <button id="invite-friends-btn" class="btn btn-primary">
+                    <span class="btn-icon">📤</span>
+                    <span class="btn-text">Invitar Amigos</span>
+                </button>
+                <button id="make-public-btn" class="btn btn-secondary">
+                    <span class="btn-icon">🌐</span>
+                    <span class="btn-text">Hacer Sala Pública</span>
+                </button>
+                <button id="leave-waiting-btn" class="btn btn-danger">
+                    <span class="btn-icon">❌</span>
+                    <span class="btn-text">Salir de la Sala</span>
+                </button>
+            </div>
+
+            <!-- Mensaje informativo -->
+            <div class="info-message">
+                <span class="info-icon">💡</span>
+                <p>Comparte el código o invita amigos para comenzar la partida</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PANTALLA DE JUEGO -->
+    <!-- ========================================== -->
+    <div id="game-screen" class="screen">
+        <!-- Header del juego -->
+        <div class="game-header">
+            <!-- Jugador X -->
+            <div class="player-panel player-x-panel" id="player-x-panel">
+                <img id="player-x-avatar" src="" alt="Player X" class="game-avatar">
+                <div class="player-game-info">
+                    <span id="player-x-name" class="player-game-name">Jugador X</span>
+                    <div class="player-symbol-badge">
+                        <span class="symbol-icon">❌</span>
+                        <span class="symbol-text">X</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Indicador de turno y temporizador -->
+            <div class="game-status-panel">
+                <div id="turn-indicator" class="turn-indicator">
+                    <span id="current-turn-text" class="turn-text">Tu turno</span>
+                </div>
+                <div id="timer-container" class="timer-container">
+                    <svg class="timer-circle" width="60" height="60">
+                        <circle class="timer-circle-bg" cx="30" cy="30" r="25"></circle>
+                        <circle id="timer-circle-progress" class="timer-circle-progress" cx="30" cy="30" r="25"></circle>
+                    </svg>
+                    <span id="timer" class="timer-text">30</span>
+                </div>
+                <div class="game-moves-counter">
+                    <span>Movimientos: </span>
+                    <span id="moves-count">0</span>
+                </div>
+            </div>
+
+            <!-- Jugador O -->
+            <div class="player-panel player-o-panel" id="player-o-panel">
+                <img id="player-o-avatar" src="" alt="Player O" class="game-avatar">
+                <div class="player-game-info">
+                    <span id="player-o-name" class="player-game-name">Jugador O</span>
+                    <div class="player-symbol-badge">
+                        <span class="symbol-icon">⭕</span>
+                        <span class="symbol-text">O</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tablero de juego -->
+        <div class="game-board-container">
+            <div id="game-board" class="game-board">
+                <div class="cell" data-index="0"></div>
+                <div class="cell" data-index="1"></div>
+                <div class="cell" data-index="2"></div>
+                <div class="cell" data-index="3"></div>
+                <div class="cell" data-index="4"></div>
+                <div class="cell" data-index="5"></div>
+                <div class="cell" data-index="6"></div>
+                <div class="cell" data-index="7"></div>
+                <div class="cell" data-index="8"></div>
+            </div>
+            
+            <!-- Línea de victoria -->
+            <svg class="winning-line" id="winning-line">
+                <line x1="0" y1="0" x2="0" y2="0" stroke="var(--color-success)" stroke-width="8" stroke-linecap="round"/>
+            </svg>
+        </div>
+
+        <!-- Acciones del juego -->
+        <div class="game-actions">
+            <button id="leave-game-btn" class="btn btn-secondary">
+                <span class="btn-icon">🚪</span>
+                <span class="btn-text">Salir</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PANTALLA DE RESULTADOS -->
+    <!-- ========================================== -->
+    <div id="result-screen" class="screen">
+        <div class="result-container">
+            <!-- Animación de resultado -->
+            <div class="result-animation" id="result-animation">
+                <div class="result-icon" id="result-icon">🏆</div>
+            </div>
+            
+            <!-- Título y mensaje -->
+            <h2 id="result-title" class="result-title">¡Victoria!</h2>
+            <p id="result-message" class="result-message">Has ganado la partida</p>
+
+            <!-- Estadísticas de la partida -->
+            <div class="result-stats">
+                <div class="result-stat-item">
+                    <span class="result-stat-icon">⏱️</span>
+                    <div class="result-stat-content">
+                        <span class="result-stat-label">Duración</span>
+                        <span class="result-stat-value" id="game-duration">0:00</span>
+                    </div>
+                </div>
+                <div class="result-stat-item">
+                    <span class="result-stat-icon">🎯</span>
+                    <div class="result-stat-content">
+                        <span class="result-stat-label">Movimientos</span>
+                        <span class="result-stat-value" id="total-moves">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones de resultado -->
+            <div class="result-actions">
+                <button id="play-again-btn" class="btn btn-primary btn-large">
+                    <span class="btn-icon">🔄</span>
+                    <span class="btn-text">Jugar de Nuevo</span>
+                </button>
+                <div class="result-secondary-actions">
+                    <button id="share-result-btn" class="btn btn-secondary">
+                        <span class="btn-icon">📤</span>
+                        <span class="btn-text">Compartir</span>
+                    </button>
+                    <button id="back-lobby-result-btn" class="btn btn-secondary">
+                        <span class="btn-icon">🏠</span>
+                        <span class="btn-text">Lobby</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL DE CÓDIGO -->
+    <!-- ========================================== -->
+    <div id="code-modal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Unirse a Sala</h3>
+                <button id="close-modal-btn" class="btn-close">
+                    <span>×</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <label for="room-code-input" class="input-label">Código de Sala</label>
+                <input 
+                    type="text" 
+                    id="room-code-input" 
+                    class="input-text" 
+                    placeholder="Ingresa el código (6 caracteres)" 
+                    maxlength="6"
+                    autocomplete="off"
+                >
+                <p class="input-hint">El código debe tener 6 caracteres alfanuméricos</p>
+            </div>
+            <div class="modal-actions">
+                <button id="join-room-btn" class="btn btn-primary">
+                    <span class="btn-text">Unirse</span>
+                </button>
+                <button id="cancel-join-btn" class="btn btn-secondary">
+                    <span class="btn-text">Cancelar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TOAST DE NOTIFICACIONES -->
+    <!-- ========================================== -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- ========================================== -->
+    <!-- SCRIPTS -->
+    <!-- ========================================== -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/telegram.js"></script>
+    <script src="js/socket-client.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/lobby.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
