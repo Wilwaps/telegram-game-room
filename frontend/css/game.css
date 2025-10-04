@@ -303,8 +303,17 @@
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-lg);
-  background: var(--tg-theme-secondary-bg-color);
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: var(--border-radius-lg);
+}
+
+/* Tema oscuro */
+@media (prefers-color-scheme: dark) {
+  .result-stat-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 }
 
 .result-stat-icon {
@@ -321,8 +330,9 @@
 
 .result-stat-label {
   font-size: var(--font-size-xs);
-  color: var(--tg-theme-hint-color);
+  color: var(--tg-theme-subtitle-text-color, #999);
   margin-bottom: 4px;
+  font-weight: 500;
 }
 
 .result-stat-value {

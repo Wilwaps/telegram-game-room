@@ -46,12 +46,26 @@ const Result = {
     SocketClient.on('rematch_requested', (data) => {
       console.log('Revancha solicitada por:', data.userName);
       UI.showToast(`${data.userName} quiere la revancha`, 'info');
+      
+      // Actualizar botón para mostrar estado
+      const playAgainBtn = document.getElementById('play-again-btn');
+      if (playAgainBtn && data.ready && data.total) {
+        playAgainBtn.innerHTML = `<span class="btn-icon">⏳</span><span class="btn-text">Esperando (${data.ready}/${data.total})</span>`;
+      }
     });
 
     // Juego reiniciado
     SocketClient.on('game_restart', (data) => {
       console.log('Juego reiniciado:', data);
       UI.showToast('¡Nueva partida iniciada!', 'success');
+      
+      // Resetear botón antes de cambiar de pantalla
+      const playAgainBtn = document.getElementById('play-again-btn');
+      if (playAgainBtn) {
+        playAgainBtn.disabled = false;
+        playAgainBtn.innerHTML = '<span class="btn-icon">🔄</span><span class="btn-text">Jugar de Nuevo</span>';
+      }
+      
       Game.restart(data.room);
     });
   },
