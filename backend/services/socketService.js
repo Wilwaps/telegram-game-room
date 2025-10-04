@@ -434,7 +434,11 @@ class SocketService {
       if (allReady) {
         logger.info(`Ambos jugadores listos, reiniciando juego en sala ${roomCode}`);
         room.resetGame();
-        await redisService.setRoom(roomCode, room);
+        
+        // Guardar con TTL extendido para evitar expiración
+        await redisService.setRoom(roomCode, room, 7200); // 2 horas
+        
+        logger.info(`Sala guardada después de reset. Status: ${room.status}, Revancha requests: ${room.rematchRequests.length}`);
 
         this.io.to(roomCode).emit(constants.SOCKET_EVENTS.GAME_RESTART, {
           room: room.toJSON(),

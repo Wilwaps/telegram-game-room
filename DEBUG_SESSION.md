@@ -40,7 +40,33 @@
 4. ⏳ Usar Chrome DevTools MCP para inspeccionar en tiempo real
 
 ## Próximos Pasos
-- [ ] Revisar backend/services/socketService.js línea de emisión `room_created`
-- [ ] Agregar console.log en cada handler de socket
-- [ ] Verificar que Result.init() existe (mencionado en app.js)
-- [ ] Probar con dos usuarios simultáneos
+- [x] Revisar backend/services/socketService.js línea de emisión `room_created`
+- [x] Agregar console.log en cada handler de socket
+- [x] Verificar que Result.init() existe (mencionado en app.js)
+- [x] Probar con dos usuarios simultáneos
+
+## Problemas Resueltos
+1. ✅ Constante `ROOM_CREATED` faltante en backend
+2. ✅ Módulo `WaitingRoom` creado
+3. ✅ Módulo `Result` creado
+4. ✅ Scroll eliminado en WebView
+5. ✅ WebSocket con reconexión automática
+6. ✅ Salas públicas funcionando
+7. ✅ Juego completo funciona
+
+## Problema Actual: Revancha
+- **[síntoma]** "Sala no encontrada" al solicitar revancha
+- **[causa]** roomCode puede estar undefined o la sala expiró
+- **[fix aplicado]** 
+  - Frontend usa `SocketClient.currentRoom` como fallback
+  - Backend intenta `socket.currentRoom` si roomCode falla
+  - Logs detallados para debugging
+
+## Próxima Prueba (Deploy en curso)
+1. Jugar partida completa
+2. Ambos pulsan "Jugar de Nuevo"
+3. Verificar logs de Railway:
+   - "Revancha solicitada - Usuario: X, Sala: Y"
+   - "Revancha: 1/2 jugadores listos"
+   - "Ambos jugadores listos, reiniciando juego"
+4. Deberían volver al tablero limpio
