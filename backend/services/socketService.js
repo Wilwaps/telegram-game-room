@@ -603,20 +603,39 @@ class SocketService {
       }
     }
 
-    // Eliminar sala si está vacía o después de un tiempo
+    // Verificar si el que se va es el host
+    const wasHost = room.host === socket.userId;
+    
+    // Eliminar jugador
     room.removePlayer(socket.userId);
     
     if (room.isEmpty()) {
-      setTimeout(async () => {
-        const currentRoom = await redisService.getRoom(roomCode);
-        if (currentRoom && currentRoom.isEmpty()) {
-          await redisService.deleteRoom(roomCode);
-          if (room.isPublic) {
-            this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, roomCode);
-          }
-        }
-      }, 60000); // 1 minuto
+      // Sala vacía - eliminar inmediatamente
+      logger.info(`Sala ${roomCode} vacía, eliminando...`);
+      await redisService.deleteRoom(roomCode);
+      if (room.isPublic) {
+        this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, roomCode);
+      }
     } else {
+      // Hay jugadores restantes
+      if (wasHost) {
+        // Transferir host al primer jugador restante
+        const newHost = room.players[0];
+        room.host = newHost.userId;
+        logger.info(`Host transferido de ${socket.userId} a ${newHost.userId} en sala ${roomCode}`);
+        
+        // Notificar cambio de host
+        this.io.to(roomCode).emit(constants.SOCKET_EVENTS.ROOM_UPDATED, room.toJSON());
+        
+        // Notificar a todos en la sala
+        this.io.to(roomCode).emit('host_transferred', {
+          newHostId: newHost.userId,
+          newHostName: newHost.userName,
+          message: `${newHost.userName} es ahora el anfitrión`
+        });
+      }
+      
+      // Guardar sala actualizada
       await redisService.setRoom(roomCode, room);
     }
   }

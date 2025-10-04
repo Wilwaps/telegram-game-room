@@ -410,24 +410,36 @@ const Game = {
    * Reiniciar juego
    */
   restart(room) {
+    console.log('🔄 Reiniciando juego:', room);
+    
     this.currentRoom = room;
     this.board = room.board;
     this.currentTurn = room.currentTurn;
     this.gameStartTime = Date.now();
 
-    // Limpiar línea ganadora
+    // Limpiar línea ganadora SVG
     const line = document.getElementById('winning-line');
-    if (line) line.classList.remove('show');
+    if (line) {
+      line.classList.remove('show');
+      line.style.display = 'none';
+    }
 
+    // Limpiar todas las clases de las celdas
     const cells = document.querySelectorAll('.cell');
-    cells.forEach(cell => cell.classList.remove('winning'));
+    cells.forEach(cell => {
+      cell.classList.remove('winning', 'disabled');
+      cell.style.backgroundColor = '';
+      cell.style.border = '';
+    });
 
+    // Renderizar tablero limpio
     this.renderBoard();
     this.updateTurnIndicator();
     this.startTimer();
     this.enableBoard();
 
     UI.showScreen('game-screen');
+    console.log('✅ Juego reiniciado correctamente');
   },
 
   /**

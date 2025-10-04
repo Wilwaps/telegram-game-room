@@ -81,6 +81,16 @@ const WaitingRoom = {
       this.currentRoom = null;
       UI.showScreen('lobby-screen');
     });
+
+    // Host transferido
+    SocketClient.on('host_transferred', (data) => {
+      console.log('Host transferido:', data);
+      UI.showToast(data.message, 'info');
+      if (this.currentRoom) {
+        this.currentRoom.host = data.newHostId;
+        this.render();
+      }
+    });
   },
 
   /**
