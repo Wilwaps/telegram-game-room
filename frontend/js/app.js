@@ -18,6 +18,9 @@ const App = {
     try {
       console.log('🚀 Iniciando aplicación...');
 
+      // Mostrar splash por 1.5 segundos
+      await this.showSplash();
+
       // Inicializar Telegram WebApp
       TelegramApp.init();
 
@@ -28,19 +31,35 @@ const App = {
       this.user = TelegramApp.getUser();
       console.log('Usuario:', this.user);
 
+      // Validar que estamos en Telegram
+      if (!this.user || !this.user.userId) {
+        throw new Error('Esta aplicación solo funciona dentro de Telegram');
+      }
+
+      // Mostrar pantalla de autenticación
+      UI.showScreen('auth-screen');
+      await this.delay(500);
+
       // Conectar al servidor
-      UI.showLoading('Conectando al servidor...');
       await SocketClient.connect();
+      await this.delay(300);
 
       // Autenticar usuario
-      UI.showLoading('Autenticando...');
       SocketClient.authenticate(this.user);
 
       // Esperar autenticación
       await this.waitForAuthentication();
 
+      // Transición a pantalla de carga
+      UI.showLoading('Preparando tu sala de juegos...');
+      await this.delay(800);
+
       // Inicializar módulos
       this.initModules();
+
+      // Mostrar lobby
+      UI.showScreen('lobby-screen');
+      UI.hideLoading();
 
       // Verificar parámetros de URL
       this.handleUrlParams();
@@ -125,9 +144,26 @@ const App = {
         }
       }
     }
-
     // Si no hay parámetros, mostrar lobby
     Lobby.show();
+  },
+
+  /**
+   * Mostrar splash screen
+   */
+  async showSplash() {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 1500);
+    });
+  },
+
+  /**
+   * Delay helper
+   */
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   },
 
   /**
@@ -135,24 +171,34 @@ const App = {
    */
   handleInitError(error) {
     console.error('Error de inicialización:', error);
-
-    // Mostrar mensaje de error
-    const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) {
-      loadingScreen.innerHTML = `
-        <div class="loading-container">
-          <div class="error-icon" style="font-size: 64px; margin-bottom: 20px;">❌</div>
-          <h2 style="margin-bottom: 10px;">Error de Conexión</h2>
-          <p style="color: var(--tg-theme-hint-color); margin-bottom: 20px;">
-            No se pudo conectar al servidor
-          </p>
-          <button class="btn btn-primary" onclick="location.reload()">
-            <span class="btn-text">Reintentar</span>
-          </button>
-        </div>
-      `;
+    
+    // Mostrar en pantalla de auth si estamos ahí
+    const authScreen = document.getElementById('auth-screen');
+    if (authScreen && authScreen.classList.contains('active')) {
+      const authMessage = authScreen.querySelector('.auth-message');
+      const authTitle = authScreen.querySelector('.auth-title');
+      if (authMessage) authMessage.textContent = error.message || 'Error al conectar';
+      if (authTitle) authTitle.textContent = '❌ Error';
+    } else {
+      // Mostrar en loading screen
+      const loadingText = document.getElementById('loading-text');
+      const loadingSubtext = document.getElementById('loading-subtext');
+      
+      if (loadingText) {
+        loadingText.textContent = '❌ Error';
+      }
+      
+      if (loadingSubtext) {
+        loadingSubtext.textContent = error.message || 'No se pudo conectar al servidor';
+      }
     }
-
+    
+    UI.showToast(
+      error.message || 'Error al inicializar la aplicación',
+      'error',
+      5000
+    );
+    
     TelegramApp.hapticFeedback('error');
   },
 

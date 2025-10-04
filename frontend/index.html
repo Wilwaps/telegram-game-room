@@ -16,6 +16,7 @@
     <!-- Estilos -->
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/splash.css">
     <link rel="stylesheet" href="css/lobby.css">
     <link rel="stylesheet" href="css/game.css">
     <link rel="stylesheet" href="css/animations.css">
@@ -27,13 +28,44 @@
 <body>
     
     <!-- ========================================== -->
+    <!-- PANTALLA DE SPLASH -->
+    <!-- ========================================== -->
+    <div id="splash-screen" class="screen active">
+        <div class="splash-container">
+            <div class="splash-logo">🎮</div>
+            <h1 class="splash-title">Sala de Juegos</h1>
+            <p class="splash-subtitle">Tic Tac Toe Multijugador</p>
+            <div class="splash-loader">
+                <div class="splash-dot"></div>
+                <div class="splash-dot"></div>
+                <div class="splash-dot"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PANTALLA DE AUTENTICACIÓN -->
+    <!-- ========================================== -->
+    <div id="auth-screen" class="screen">
+        <div class="auth-container">
+            <div class="auth-icon">🔐</div>
+            <h2 class="auth-title">Autenticando</h2>
+            <p class="auth-message">Verificando tu identidad de Telegram...</p>
+            <div class="auth-loader">
+                <div class="auth-spinner"></div>
+            </div>
+            <p class="auth-hint">Esto solo tomará un momento</p>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
     <!-- PANTALLA DE CARGA -->
     <!-- ========================================== -->
-    <div id="loading-screen" class="screen active">
+    <div id="loading-screen" class="screen">
         <div class="loading-container">
             <div class="loader"></div>
-            <p class="loading-text">Conectando...</p>
-            <p class="loading-subtext">Preparando la sala de juegos</p>
+            <p class="loading-text" id="loading-text">Conectando...</p>
+            <p class="loading-subtext" id="loading-subtext">Preparando la sala de juegos</p>
         </div>
     </div>
 
