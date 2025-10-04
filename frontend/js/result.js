@@ -149,13 +149,7 @@ const Result = {
     const playAgainBtn = document.getElementById('play-again-btn');
     if (playAgainBtn) {
       playAgainBtn.disabled = true;
-      playAgainBtn.textContent = 'Esperando...';
-      
-      // Rehabilitar después de 5 segundos
-      setTimeout(() => {
-        playAgainBtn.disabled = false;
-        playAgainBtn.innerHTML = '<span class="btn-icon">🔄</span><span class="btn-text">Jugar de Nuevo</span>';
-      }, 5000);
+      playAgainBtn.innerHTML = '<span class="btn-icon">⏳</span><span class="btn-text">Esperando...</span>';
     }
   },
 
