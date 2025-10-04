@@ -87,7 +87,11 @@ class BingoService {
    */
   validateBingo(card, drawnSet, mode = 'line') {
     const numbers = card.numbers;
-    const marked = new Set(card.marked);
+    // Unir números cantados (drawnSet) con los marcados del cartón
+    const marked = new Set(card.marked || []);
+    if (drawnSet && typeof drawnSet.forEach === 'function') {
+      drawnSet.forEach(n => marked.add(n));
+    }
 
     // Verificar que todos los números marcados estén en drawnSet
     for (const num of marked) {
