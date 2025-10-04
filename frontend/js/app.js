@@ -108,6 +108,9 @@ const App = {
 
     Lobby.init();
     WaitingRoom.init();
+    if (typeof Bingo !== 'undefined') {
+      Bingo.init();
+    }
     Game.init();
     Result.init();
 
