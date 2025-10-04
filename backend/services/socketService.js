@@ -398,25 +398,41 @@ class SocketService {
         return this.emitError(socket, 'Usuario no autenticado');
       }
 
-      const room = await redisService.getRoom(roomCode);
+      logger.info(`Revancha solicitada - Usuario: ${socket.userId}, Sala: ${roomCode}`);
+
+      // Intentar obtener sala
+      let room = await redisService.getRoom(roomCode);
+      
+      // Si no se encuentra, intentar con socket.currentRoom
+      if (!room && socket.currentRoom) {
+        logger.warn(`Sala ${roomCode} no encontrada, intentando con socket.currentRoom: ${socket.currentRoom}`);
+        room = await redisService.getRoom(socket.currentRoom);
+        roomCode = socket.currentRoom;
+      }
+
       if (!room) {
+        logger.error(`Sala no encontrada para revancha: ${roomCode}`);
         return this.emitError(socket, 'Sala no encontrada');
       }
 
       // Agregar solicitud de revancha
       const allReady = room.addRematchRequest(socket.userId);
+      logger.info(`Revancha: ${room.rematchRequests.length}/${room.players.length} jugadores listos`);
 
       await redisService.setRoom(roomCode, room);
 
       // Notificar solicitud
+      const player = room.getPlayer(socket.userId);
       this.io.to(roomCode).emit(constants.SOCKET_EVENTS.REMATCH_REQUESTED, {
         userId: socket.userId,
+        userName: player?.userName || 'Jugador',
         ready: room.rematchRequests.length,
         total: room.players.length
       });
 
       // Si ambos están listos, reiniciar juego
       if (allReady) {
+        logger.info(`Ambos jugadores listos, reiniciando juego en sala ${roomCode}`);
         room.resetGame();
         await redisService.setRoom(roomCode, room);
 

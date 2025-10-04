@@ -113,17 +113,20 @@ const Result = {
    * Manejar jugar de nuevo
    */
   handlePlayAgain() {
-    if (!this.currentResult || !this.currentResult.roomCode) {
+    // Usar socket.currentRoom como fuente de verdad
+    const roomCode = SocketClient.currentRoom || this.currentResult?.roomCode;
+    
+    if (!roomCode) {
       console.error('No hay sala actual para revancha');
       UI.showToast('Error al solicitar revancha', 'error');
       return;
     }
 
-    console.log('Solicitando revancha en sala:', this.currentResult.roomCode);
+    console.log('Solicitando revancha en sala:', roomCode);
     TelegramApp.hapticFeedback('medium');
     
     // Emitir evento de revancha
-    SocketClient.playAgain(this.currentResult.roomCode);
+    SocketClient.playAgain(roomCode);
     
     // Mostrar feedback
     UI.showToast('Esperando al otro jugador...', 'info');
