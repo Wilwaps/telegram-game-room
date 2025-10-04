@@ -17,6 +17,16 @@ const UI = {
   },
 
   /**
+   * Actualizar saldo de fuegos (🔥)
+   */
+  updateFiresBalance(fires) {
+    const badge = document.getElementById('fires-count');
+    const inline = document.getElementById('fires-inline');
+    if (badge) badge.textContent = String(fires ?? 0);
+    if (inline) inline.textContent = String(fires ?? 0);
+  },
+
+  /**
    * Configurar event listeners globales
    */
   setupEventListeners() {

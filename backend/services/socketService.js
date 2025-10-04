@@ -12,6 +12,7 @@
 const { constants } = require('../config/config');
 const logger = require('../config/logger');
 const redisService = require('./redisService');
+const economyService = require('./economyService');
 const gameLogic = require('../utils/gameLogic');
 const validation = require('../utils/validation');
 const Room = require('../models/Room');
@@ -22,6 +23,7 @@ class SocketService {
     this.io = null;
     this.connectedUsers = new Map(); // socketId -> userId
     this.rateLimitMap = new Map(); // userId -> [timestamps]
+    this.economy = economyService;
   }
 
   /**
@@ -67,7 +69,7 @@ class SocketService {
       socket.on(constants.SOCKET_EVENTS.CLOSE_ROOM, async (roomCode) => {
         await this.handleCloseRoom(socket, roomCode);
       });
-
+      
       socket.on(constants.SOCKET_EVENTS.MAKE_PUBLIC, async (roomCode) => {
         await this.handleMakePublic(socket, roomCode);
       });
@@ -82,6 +84,61 @@ class SocketService {
       socket.on(constants.SOCKET_EVENTS.PLAY_AGAIN, async (data) => {
         const roomCode = typeof data === 'string' ? data : data.roomCode;
         await this.handlePlayAgain(socket, roomCode);
+      });
+
+      // ==========================================
+      // ECONOMÍA - FUEGOS
+      // ==========================================
+      socket.on(constants.SOCKET_EVENTS.GET_FIRES, async () => {
+        try {
+          const balance = await this.economy.getFires(socket.userId);
+          socket.emit(constants.SOCKET_EVENTS.FIRES_BALANCE, balance);
+        } catch (err) {
+          logger.error('Error GET_FIRES:', err);
+          this.emitError(socket, 'No se pudo obtener el saldo');
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.EARN_FIRE, async (amount = 1) => {
+        try {
+          const result = await this.economy.earn(socket.userId, amount, { reason: 'game_play' });
+          socket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, result);
+        } catch (err) {
+          logger.error('Error EARN_FIRE:', err);
+          this.emitError(socket, 'No se pudo acreditar fuegos');
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.SPEND_FIRES, async ({ amount = 1, reason = 'entry' } = {}) => {
+        try {
+          const result = await this.economy.spend(socket.userId, amount, { reason });
+          socket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, result);
+        } catch (err) {
+          logger.error('Error SPEND_FIRES:', err);
+          this.emitError(socket, err.message || 'No se pudieron descontar fuegos');
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.TRANSFER_FIRES, async ({ targetUserId, amount } = {}) => {
+        try {
+          // Solo admin por username
+          if (!socket.userName || socket.userName !== constants.ADMIN.USERNAME) {
+            return this.emitError(socket, 'No autorizado');
+          }
+          if (!targetUserId || !amount) {
+            return this.emitError(socket, 'Parámetros inválidos');
+          }
+          const result = await this.economy.grantToUser(targetUserId, amount, { by: socket.userId });
+          // Notificar al destinatario si está conectado
+          const targetSocket = [...this.connectedUsers.values()].find(s => s.userId === targetUserId);
+          if (targetSocket) {
+            targetSocket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, result);
+          }
+          socket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, await this.economy.getFires(socket.userId));
+        } catch (err) {
+          logger.error('Error TRANSFER_FIRES:', err);
+          this.emitError(socket, 'No se pudo transferir');
+        }
       });
 
       // ==========================================

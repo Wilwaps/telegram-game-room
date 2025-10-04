@@ -101,6 +101,11 @@ const App = {
   initModules() {
     console.log('Inicializando módulos...');
     
+    // Economía primero para disponer de saldo 🔥 en el lobby
+    if (typeof Economy !== 'undefined') {
+      Economy.init();
+    }
+
     Lobby.init();
     WaitingRoom.init();
     Game.init();

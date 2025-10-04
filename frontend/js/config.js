@@ -74,6 +74,14 @@ const CONFIG = {
     ROOMS_LIST: 'rooms_list',
     ROOM_CREATED: 'room_created',
     
+    // Economía - Fuegos
+    GET_FIRES: 'get_fires',
+    FIRES_BALANCE: 'fires_balance',
+    EARN_FIRE: 'earn_fire',
+    SPEND_FIRES: 'spend_fires',
+    TRANSFER_FIRES: 'transfer_fires',
+    FIRES_UPDATED: 'fires_updated',
+    
     // Errores
     ERROR: 'error'
   }

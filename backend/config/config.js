@@ -68,18 +68,17 @@ const telegram = {
 
 /**
  * Configuración del juego
- */
 const game = {
   turnTimeout: parseInt(process.env.TURN_TIMEOUT, 10) || 30,
   maxRooms: parseInt(process.env.MAX_ROOMS, 10) || 1000,
   maxPlayersPerRoom: parseInt(process.env.MAX_PLAYERS_PER_ROOM, 10) || 2,
   emptyRoomTimeout: parseInt(process.env.EMPTY_ROOM_TIMEOUT, 10) || 60,
+};
   // Tipos de juegos disponibles
   gameTypes: {
     TIC_TAC_TOE: 'tic-tac-toe',
     CONNECT_FOUR: 'connect-four',
     CHECKERS: 'checkers'
-  }
 };
 
 /**
@@ -190,9 +189,21 @@ const constants = {
     ROOM_REMOVED: 'room_removed',
     ROOM_CLOSED: 'room_closed',
     ROOMS_LIST: 'rooms_list',
+
+    // Economía - Fuegos
+    GET_FIRES: 'get_fires',
+    FIRES_BALANCE: 'fires_balance',
+    EARN_FIRE: 'earn_fire',
+    SPEND_FIRES: 'spend_fires',
+    TRANSFER_FIRES: 'transfer_fires',
+    FIRES_UPDATED: 'fires_updated',
     
     // Errores
     ERROR: 'error'
+  },
+
+  ADMIN: {
+    USERNAME: process.env.ADMIN_USERNAME || 'Wilcnct'
   },
   
   // Prefijos de Redis

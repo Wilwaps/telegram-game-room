@@ -87,6 +87,25 @@ const SocketClient = {
   },
 
   /**
+   * ECONOMÍA - Fuegos
+   */
+  getFires() {
+    this.socket.emit(CONFIG.EVENTS.GET_FIRES);
+  },
+
+  earnFire(amount = 1) {
+    this.socket.emit(CONFIG.EVENTS.EARN_FIRE, amount);
+  },
+
+  spendFires(amount, reason = 'entry') {
+    this.socket.emit(CONFIG.EVENTS.SPEND_FIRES, { amount, reason });
+  },
+
+  transferFires(targetUserId, amount) {
+    this.socket.emit(CONFIG.EVENTS.TRANSFER_FIRES, { targetUserId, amount });
+  },
+
+  /**
    * Configurar manejadores por defecto
    */
   setupDefaultHandlers() {
