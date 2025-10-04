@@ -198,6 +198,29 @@ const constants = {
     TRANSFER_FIRES: 'transfer_fires',
     FIRES_UPDATED: 'fires_updated',
     
+    // Bingo
+    CREATE_BINGO_ROOM: 'create_bingo_room',
+    BINGO_ROOM_CREATED: 'bingo_room_created',
+    JOIN_BINGO: 'join_bingo',
+    LEAVE_BINGO: 'leave_bingo',
+    START_BINGO: 'start_bingo',
+    BINGO_STARTED: 'bingo_started',
+    DRAW_NEXT: 'draw_next',
+    NUMBER_DRAWN: 'number_drawn',
+    CLAIM_BINGO: 'claim_bingo',
+    BINGO_VALID: 'bingo_valid',
+    BINGO_INVALID: 'bingo_invalid',
+    BINGO_WINNER: 'bingo_winner',
+    BINGO_FINISHED: 'bingo_finished',
+    PAUSE_BINGO: 'pause_bingo',
+    RESUME_BINGO: 'resume_bingo',
+    PLAYER_JOINED_BINGO: 'player_joined_bingo',
+    PLAYER_LEFT_BINGO: 'player_left_bingo',
+    HOST_LEFT_BINGO: 'host_left_bingo',
+    BINGO_PAUSED: 'bingo_paused',
+    BINGO_RESUMED: 'bingo_resumed',
+    ROOM_FULL: 'room_full',
+    
     // Errores
     ERROR: 'error'
   },
