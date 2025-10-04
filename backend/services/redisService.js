@@ -145,9 +145,14 @@ class RedisService {
       const data = await this.client.get(key);
       
       if (!data) {
+        logger.warn(`Sala no encontrada en Redis: ${roomCode} (key: ${key})`);
+        // Verificar si la key existe pero está vacía
+        const exists = await this.client.exists(key);
+        logger.debug(`Key exists: ${exists}`);
         return null;
       }
       
+      logger.debug(`Sala obtenida de Redis: ${roomCode}`);
       const roomData = JSON.parse(data);
       return Room.fromJSON(roomData);
     } catch (error) {

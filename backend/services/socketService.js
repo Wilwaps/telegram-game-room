@@ -292,9 +292,18 @@ class SocketService {
 
       const { roomCode, cellIndex } = data;
 
+      logger.info(`Movimiento solicitado - Usuario: ${socket.userId}, Sala: ${roomCode}, Celda: ${cellIndex}`);
+
       // Obtener sala
       const room = await redisService.getRoom(roomCode);
       if (!room) {
+        logger.error(`Sala no encontrada en Redis: ${roomCode}`);
+        // Intentar obtener desde socket.currentRoom como fallback
+        const fallbackRoom = socket.currentRoom ? await redisService.getRoom(socket.currentRoom) : null;
+        if (fallbackRoom) {
+          logger.info(`Sala encontrada via socket.currentRoom: ${socket.currentRoom}`);
+          return this.handleMakeMove(socket, { roomCode: socket.currentRoom, cellIndex });
+        }
         return this.emitError(socket, 'Sala no encontrada');
       }
 
