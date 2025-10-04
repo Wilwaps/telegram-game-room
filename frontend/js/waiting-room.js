@@ -89,9 +89,16 @@ const WaitingRoom = {
   show(room) {
     console.log('Mostrando sala de espera:', room);
     this.currentRoom = room;
+    
+    // Ocultar loading primero
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) {
+      loadingScreen.classList.remove('active');
+    }
+    
+    // Renderizar y mostrar
     this.render();
-    UI.hideLoading();
-    UI.showScreen('waiting-screen');
+    UI.showScreen('waiting-room-screen');
     TelegramApp.hapticFeedback('success');
   },
 

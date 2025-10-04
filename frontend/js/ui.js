@@ -46,17 +46,22 @@ const UI = {
    * Mostrar pantalla
    */
   showScreen(screenId) {
-    // Ocultar pantalla actual
-    const currentScreen = document.getElementById(this.currentScreen);
-    if (currentScreen) {
-      currentScreen.classList.remove('active');
-    }
+    console.log('🖥️ Cambiando a pantalla:', screenId);
+    
+    // Ocultar todas las pantallas
+    const allScreens = document.querySelectorAll('.screen');
+    allScreens.forEach(screen => {
+      screen.classList.remove('active');
+    });
 
     // Mostrar nueva pantalla
     const newScreen = document.getElementById(screenId);
     if (newScreen) {
       newScreen.classList.add('active');
       this.currentScreen = screenId;
+      console.log('✅ Pantalla activa:', screenId);
+    } else {
+      console.error('❌ Pantalla no encontrada:', screenId);
     }
   },
 
