@@ -10,7 +10,11 @@
   },
   "scripts": {
     "start": "node backend/server.js",
-    "dev": "nodemon backend/server.js --watch backend",
+    "dev": "node -r dotenv/config backend/server.js dotenv_config_path=.env.local",
+    "dev:watch": "nodemon -r dotenv/config backend/server.js dotenv_config_path=.env.local --watch backend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f redis",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "lint": "eslint backend/**/*.js",

@@ -1,20 +1,30 @@
 # 🎮 Sala de Juegos - Telegram MiniApp
 
-MiniApp de Telegram para juegos multijugador en tiempo real. Actualmente incluye **Tic Tac Toe** con arquitectura escalable para agregar más juegos.
+MiniApp de Telegram para juegos multijugador en tiempo real. Actualmente incluye **Tic Tac Toe** con sistema de economía "Fuegos" 🔥 y arquitectura escalable para agregar más juegos (Bingo en desarrollo).
+
+## 🚀 Acceso Rápido
+
+- **Bot de Producción:** [@xyz3w_bot](https://t.me/xyz3w_bot)
+- **Documentación de Desarrollo:** [DEV_SETUP.md](DEV_SETUP.md)
+- **Arquitectura Bingo:** [BINGO_ARCHITECTURE.md](BINGO_ARCHITECTURE.md)
 
 ## 📋 Características
 
 ### ✨ Funcionalidades Principales
 - 🎯 **Juego en Tiempo Real** - Partidas multijugador con Socket.io
+- 🔥 **Sistema de Economía "Fuegos"** - Moneda virtual para acceder a juegos
 - 🏠 **Sistema de Salas** - Crear salas públicas o privadas
 - 🔗 **Invitaciones** - Compartir código de sala o invitar por Telegram
-- 📊 **Estadísticas** - Seguimiento de victorias, derrotas y empates
+- 📊 **Estadísticas Unificadas** - Victorias, derrotas, empates y saldo de fuegos
 - 🎨 **UI Moderna** - Interfaz adaptada al tema de Telegram
 - 📱 **Responsive** - Funciona en todos los dispositivos
 - ⚡ **Tiempo Real** - Sincronización instantánea entre jugadores
+- 👑 **Transferencia de Host** - Continuidad de sala si el host se va
+- 🔄 **Sistema de Revancha** - Jugar múltiples partidas sin salir
 
 ### 🎮 Juegos Disponibles
-- **Tic Tac Toe** - Clásico 3 en raya multijugador
+- **Tic Tac Toe** ✅ - Clásico 3 en raya multijugador
+- **Bingo** 🚧 - En desarrollo (Fase 1 completada)
 
 ## 🛠️ Stack Tecnológico
 
