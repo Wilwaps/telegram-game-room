@@ -264,7 +264,6 @@ const Bingo = {
       }, 3000);
     });
   },
-
   // ======================
   // Flujos
   // ======================
@@ -272,7 +271,7 @@ const Bingo = {
     const mode = this.modeSelect?.value || 'line';
     const autoDraw = !!this.chkAutoDraw?.checked;
     const drawIntervalMs = 5000;
-    SocketClient.createBingoRoom({ isPublic: true, mode, autoDraw, drawIntervalMs });
+    SocketClient.createBingoRoom({ isPublic: false, mode, autoDraw, drawIntervalMs });
   },
 
   handleJoinConfirm() {

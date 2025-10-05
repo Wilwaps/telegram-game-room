@@ -138,6 +138,10 @@ class SocketService {
           await redisService.setBingoRoom(code, room);
           socket.emit(constants.SOCKET_EVENTS.BINGO_ROOM_UPDATED, { room: room.toJSON() });
           if (!wasPublic) {
+            // Notificar al lobby unificado
+            this.io.emit(constants.SOCKET_EVENTS.ROOM_ADDED, room.toJSON());
+          }
+          if (!wasPublic) {
             logger.info(`Bingo ${code} ahora es público`);
           }
         } catch (err) {
@@ -175,6 +179,9 @@ class SocketService {
           socket.join(code);
           socket.currentBingoRoom = code;
           socket.emit(constants.SOCKET_EVENTS.BINGO_ROOM_CREATED, { room: room.toJSON() });
+          if (isPublic) {
+            this.io.emit(constants.SOCKET_EVENTS.ROOM_ADDED, room.toJSON());
+          }
         } catch (err) {
           logger.error('Error CREATE_BINGO_ROOM:', err);
           this.emitError(socket, 'No se pudo crear la sala de Bingo');
@@ -266,8 +273,11 @@ class SocketService {
             const refunds = await this.processBingoRefunds(room);
             await redisService.deleteBingoRoom(code);
             this.io.to(code).emit(constants.SOCKET_EVENTS.HOST_LEFT_BINGO, { refunds });
+            // Remover del lobby unificado
+            this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, code);
           } else if (room.isEmpty()) {
             await redisService.deleteBingoRoom(code);
+            this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, code);
           }
         } catch (err) {
           logger.error('Error LEAVE_BINGO:', err);
@@ -475,9 +485,16 @@ class SocketService {
       // Enviar saldo de fuegos
       socket.emit(constants.SOCKET_EVENTS.FIRES_BALANCE, balance);
 
-      // Enviar lista de salas públicas
-      const rooms = await redisService.getPublicRooms();
-      socket.emit(constants.SOCKET_EVENTS.ROOMS_LIST, rooms.map(r => r.toJSON()));
+      // Enviar lista de salas públicas (Tic Tac Toe + Bingo)
+      const [tttRooms, bingoRooms] = await Promise.all([
+        redisService.getPublicRooms(),
+        redisService.getPublicBingoRooms?.() || []
+      ]);
+      const roomList = [
+        ...tttRooms.map(r => r.toJSON()),
+        ...(Array.isArray(bingoRooms) ? bingoRooms.map(r => r.toJSON()) : [])
+      ];
+      socket.emit(constants.SOCKET_EVENTS.ROOMS_LIST, roomList);
 
       logger.info(`Usuario autenticado: ${validData.userId} (${user.userName}) - Saldo: ${balance.fires} 🔥`);
 

@@ -134,6 +134,7 @@ class BingoRoom {
    */
   toJSON() {
     return {
+      gameType: 'bingo',
       code: this.code,
       hostId: this.hostId,
       hostName: this.hostName,

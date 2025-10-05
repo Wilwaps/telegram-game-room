@@ -25,6 +25,32 @@ class RedisService {
     this.isConnected = false;
   }
 
+  /**
+   * Obtener todas las salas públicas de Bingo
+   * @returns {Array<BingoRoom>}
+   */
+  async getPublicBingoRooms() {
+    try {
+      const roomCodes = await this.client.smembers('public_bingo_rooms');
+      const rooms = [];
+
+      for (const code of roomCodes) {
+        const room = await this.getBingoRoom(code);
+        if (room && room.status === 'waiting') {
+          rooms.push(room);
+        } else if (!room) {
+          // Limpiar código inválido
+          await this.client.srem('public_bingo_rooms', code);
+        }
+      }
+
+      return rooms;
+    } catch (error) {
+      logger.error('Error al obtener salas públicas de Bingo:', error);
+      return [];
+    }
+  }
+
   // ============================================
   // BINGO - OPERACIONES ESPECÍFICAS
   // ============================================
