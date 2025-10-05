@@ -50,6 +50,9 @@ const io = socketIo(httpServer, {
 // MIDDLEWARE
 // ============================================
 
+// Trust proxy (necesario para Railway y otros servicios con proxy)
+app.set('trust proxy', 1);
+
 // Seguridad
 app.use(helmet({
   contentSecurityPolicy: false // Deshabilitado para MiniApps

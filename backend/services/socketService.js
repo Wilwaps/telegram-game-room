@@ -397,8 +397,14 @@ class SocketService {
 
       // Dar fuegos iniciales a usuarios nuevos
       if (isNewUser) {
-        await this.economy.grantToUser(validData.userId, 100, { reason: 'welcome_bonus' });
-        logger.info(`🎁 Usuario nuevo ${validData.userId} recibió 100 🔥 de bienvenida`);
+        await this.economy.grantToUser(validData.userId, 1000, { reason: 'welcome_bonus' });
+        logger.info(`🎁 Usuario nuevo ${validData.userId} recibió 1000 🔥 de bienvenida`);
+      }
+      
+      // Bonus diario para usuarios existentes (temporal para pruebas)
+      if (!isNewUser) {
+        await this.economy.grantToUser(validData.userId, 100, { reason: 'daily_bonus' });
+        logger.info(`🎁 Usuario ${validData.userId} recibió 100 🔥 de bonus diario`);
       }
 
       // Guardar en mapa local
