@@ -58,6 +58,7 @@ class SocketService {
     this.io = io;
     this.setupSocketHandlers();
     this.startCleanupInterval();
+    this.startTurnTimeoutWatcher();
     logger.info('🔌 Socket.io inicializado');
   }
 
@@ -123,6 +124,16 @@ class SocketService {
         }
       });
 
+      socket.on(constants.SOCKET_EVENTS.GET_FIRES_HISTORY, async ({ limit = 50, offset = 0 } = {}) => {
+        try {
+          const history = await this.economy.getHistory(socket.userId, limit, offset);
+          socket.emit(constants.SOCKET_EVENTS.FIRES_HISTORY, { items: history, limit, offset });
+        } catch (err) {
+          logger.error('Error GET_FIRES_HISTORY:', err);
+          this.emitError(socket, 'No se pudo obtener el historial');
+        }
+      });
+
       // ==========================================
       // BINGO - SALAS Y JUEGO
       // ==========================================
@@ -156,7 +167,13 @@ class SocketService {
           if (room.isFull()) return socket.emit(constants.SOCKET_EVENTS.ROOM_FULL);
 
           const cost = room.ticketPrice * Math.max(1, parseInt(cardsCount, 10));
-          await this.economy.spend(socket.userId, cost, { reason: 'bingo_entry', roomCode });
+          const spendRes = await this.economy.spend(socket.userId, cost, { reason: 'bingo_entry', roomCode });
+          // Notificar saldo y transacción al jugador
+          const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+          allSockets.filter(s => s.userId === socket.userId).forEach(s => {
+            s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: spendRes.fires });
+            if (spendRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, spendRes.tx);
+          });
 
           // Generar cartones
           const cards = [];
@@ -293,8 +310,19 @@ class SocketService {
 
           // Distribución 50/30/20
           const dist = bingoService.calculateDistribution(room.pot);
-          await this.economy.grantToUser(socket.userId, dist.winner, { reason: 'bingo_winner', roomCode: code });
-          await this.economy.grantToUser(room.hostId, dist.host, { reason: 'bingo_host', roomCode: code });
+          const winRes = await this.economy.grantToUser(socket.userId, dist.winner, { reason: 'bingo_winner', roomCode: code });
+          const hostRes = await this.economy.grantToUser(room.hostId, dist.host, { reason: 'bingo_host', roomCode: code });
+          const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+          // Emitir a ganador
+          allSockets.filter(s => s.userId === socket.userId).forEach(s => {
+            s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: winRes.fires });
+            if (winRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, winRes.tx);
+          });
+          // Emitir a host
+          allSockets.filter(s => s.userId === room.hostId).forEach(s => {
+            s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: hostRes.fires });
+            if (hostRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, hostRes.tx);
+          });
           // Global pool
           await redisService.client.incrby('global:firePool', dist.global);
 
@@ -311,7 +339,10 @@ class SocketService {
       socket.on(constants.SOCKET_EVENTS.EARN_FIRE, async (amount = 1) => {
         try {
           const result = await this.economy.earn(socket.userId, amount, { reason: 'game_play' });
-          socket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, result);
+          socket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: result.fires });
+          if (result.tx) {
+            socket.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, result.tx);
+          }
         } catch (err) {
           logger.error('Error EARN_FIRE:', err);
           this.emitError(socket, 'No se pudo acreditar fuegos');
@@ -321,7 +352,10 @@ class SocketService {
       socket.on(constants.SOCKET_EVENTS.SPEND_FIRES, async ({ amount = 1, reason = 'entry' } = {}) => {
         try {
           const result = await this.economy.spend(socket.userId, amount, { reason });
-          socket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, result);
+          socket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: result.fires });
+          if (result.tx) {
+            socket.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, result.tx);
+          }
         } catch (err) {
           logger.error('Error SPEND_FIRES:', err);
           this.emitError(socket, err.message || 'No se pudieron descontar fuegos');
@@ -337,13 +371,15 @@ class SocketService {
           if (!targetUserId || !amount) {
             return this.emitError(socket, 'Parámetros inválidos');
           }
-          const result = await this.economy.grantToUser(targetUserId, amount, { by: socket.userId });
+          const result = await this.economy.grantToUser(targetUserId, amount, { by: socket.userId, reason: 'transfer_in' });
           // Notificar al destinatario si está conectado
-          const targetSocket = [...this.connectedUsers.values()].find(s => s.userId === targetUserId);
-          if (targetSocket) {
-            targetSocket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, result);
-          }
-          socket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, await this.economy.getFires(socket.userId));
+          const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+          allSockets.filter(s => s.userId === targetUserId).forEach(s => {
+            s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: result.fires });
+            if (result.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, result.tx);
+          });
+          const myBalance = await this.economy.getFires(socket.userId);
+          socket.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, myBalance);
         } catch (err) {
           logger.error('Error TRANSFER_FIRES:', err);
           this.emitError(socket, 'No se pudo transferir');
@@ -395,17 +431,7 @@ class SocketService {
       user.updateSession(socket.id);
       await redisService.setUser(validData.userId, user);
 
-      // Dar fuegos iniciales a usuarios nuevos
-      if (isNewUser) {
-        await this.economy.grantToUser(validData.userId, 1000, { reason: 'welcome_bonus' });
-        logger.info(`🎁 Usuario nuevo ${validData.userId} recibió 1000 🔥 de bienvenida`);
-      }
-      
-      // Bonus diario para usuarios existentes (temporal para pruebas)
-      if (!isNewUser) {
-        await this.economy.grantToUser(validData.userId, 100, { reason: 'daily_bonus' });
-        logger.info(`🎁 Usuario ${validData.userId} recibió 100 🔥 de bonus diario`);
-      }
+      // Bonos deshabilitados: ahora solo se gana por juego PvP o recompensas de Bingo
 
       // Guardar en mapa local
       socket.userId = validData.userId;
@@ -538,6 +564,12 @@ class SocketService {
 
       // Iniciar juego automáticamente
       room.startGame();
+      // Turno inicial aleatorio (50/50)
+      room.currentTurn = Math.random() < 0.5 
+        ? constants.PLAYER_SYMBOLS.X 
+        : constants.PLAYER_SYMBOLS.O;
+      room.turnStartTime = Date.now();
+      room.lastActivity = Date.now();
 
       // Guardar cambios
       await redisService.setRoom(roomCode, room);
@@ -642,8 +674,12 @@ class SocketService {
           const isTicTacToe = room.gameType === 'tic-tac-toe';
           if (isPvp && isTicTacToe) {
             try {
+              const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
               for (const p of room.players) {
-                await this.economy.earn(p.userId, 1, { reason: 'draw' });
+                const res = await this.economy.earn(p.userId, 1, { reason: 'draw', roomCode });
+                // Emitir transacción a todos los sockets del usuario
+                allSockets.filter(s => s.userId === p.userId)
+                  .forEach(s => res.tx && s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx));
               }
               await this.emitFiresToPlayers(room);
             } catch (e) {
@@ -666,8 +702,11 @@ class SocketService {
           const isTicTacToe = room.gameType === 'tic-tac-toe';
           if (isPvp && isTicTacToe) {
             try {
+              const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
               for (const p of room.players) {
-                await this.economy.earn(p.userId, 1, { reason: 'game_finish' });
+                const res = await this.economy.earn(p.userId, 1, { reason: 'game_finish', roomCode });
+                allSockets.filter(s => s.userId === p.userId)
+                  .forEach(s => res.tx && s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx));
               }
               await this.emitFiresToPlayers(room);
             } catch (e) {
@@ -929,8 +968,11 @@ class SocketService {
         try {
           const isPvp = Array.isArray(room.players) && room.players.length === 2;
           if (isPvp) {
+            const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
             for (const p of room.players) {
-              await this.economy.earn(p.userId, 1, { reason: 'opponent_left_finish' });
+              const res = await this.economy.earn(p.userId, 1, { reason: 'opponent_left_finish', roomCode });
+              allSockets.filter(s => s.userId === p.userId)
+                .forEach(s => res.tx && s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx));
             }
             await this.emitFiresToPlayers(room);
           }
@@ -1041,6 +1083,66 @@ class SocketService {
         logger.error('Error en limpieza automática:', error);
       }
     }, 300000); // 5 minutos
+  }
+
+  /**
+   * Vigilante de timeout de turnos (Tic Tac Toe)
+   * Si expira el turno actual, el oponente gana y se cierra la sala.
+   */
+  startTurnTimeoutWatcher() {
+    const TICK_MS = 1000;
+    setInterval(async () => {
+      try {
+        const rooms = await redisService.getAllRooms();
+        for (const room of rooms) {
+          if (room.status !== constants.ROOM_STATUS.PLAYING) continue;
+          if (room.gameType !== 'tic-tac-toe') continue;
+          if (!room.isTurnExpired()) continue;
+
+          // Determinar jugador actual y oponente
+          const currentSymbol = room.currentTurn;
+          const currentPlayer = room.getPlayerBySymbol(currentSymbol);
+          const opponent = room.players.find(p => p.userId !== currentPlayer?.userId);
+          if (!opponent) continue;
+
+          // Finalizar por timeout
+          room.endGame(opponent.userId, null);
+          await redisService.setRoom(room.code, room);
+          await this.updateGameStats(room);
+
+          // Recompensa PVP
+          const isPvp = Array.isArray(room.players) && room.players.length === 2;
+          if (isPvp) {
+            try {
+              const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+              for (const p of room.players) {
+                const res = await this.economy.earn(p.userId, 1, { reason: 'timeout', roomCode: room.code });
+                allSockets.filter(s => s.userId === p.userId)
+                  .forEach(s => res.tx && s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx));
+              }
+              await this.emitFiresToPlayers(room);
+            } catch (err) {
+              logger.error('Error otorgando fuegos por timeout:', err);
+            }
+          }
+
+          // Notificar resultado y eliminar sala
+          this.io.to(room.code).emit(constants.SOCKET_EVENTS.GAME_OVER, {
+            winner: opponent.userId,
+            winnerName: opponent.userName,
+            reason: 'timeout',
+            board: room.board
+          });
+
+          await redisService.deleteRoom(room.code);
+          if (room.isPublic) {
+            this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, room.code);
+          }
+        }
+      } catch (error) {
+        logger.error('Error en watcher de timeout:', error);
+      }
+    }, TICK_MS);
   }
 
   /**

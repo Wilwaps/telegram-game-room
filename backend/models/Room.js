@@ -249,7 +249,7 @@ class Room {
   resetGame() {
     this.board = this.initializeBoard();
     this.moves = [];
-    this.currentTurn = constants.PLAYER_SYMBOLS.X;
+    this.currentTurn = Math.random() < 0.5 ? constants.PLAYER_SYMBOLS.X : constants.PLAYER_SYMBOLS.O;
     this.winner = null;
     this.winningLine = null;
     this.rematchRequests = [];

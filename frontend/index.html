@@ -1,10 +1,9 @@
-<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="Sala de Juegos Multijugador - Tic Tac Toe en tiempo real">
-    <meta name="theme-color" content="#2481cc">
+    <meta name="theme-color" content="#4f46e5">
     <title>Sala de Juegos - Tic Tac Toe</title>
     
     <!-- Telegram WebApp SDK -->
@@ -551,18 +550,38 @@
                 </button>
             </div>
         </div>
-    </div>
+        </div>
 
     <!-- ========================================== -->
-    <!-- TOAST DE NOTIFICACIONES -->
+    <!-- TOAST / HISTORIAL DE FUEGOS -->
     <!-- ========================================== -->
     <div id="toast-container" class="toast-container"></div>
+
+    <div id="fires-modal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Historial de Fuegos</h3>
+                <button id="close-fires-modal" class="btn-close"><span>×</span></button>
+            </div>
+            <div class="modal-body">
+                <div id="fires-history-empty" class="empty-state">
+                    <div class="empty-icon">🔥</div>
+                    <p class="empty-title">Sin movimientos aún</p>
+                    <p class="empty-text">Juega Tic Tac Toe o Bingo para generar movimientos.</p>
+                </div>
+                <div id="fires-history-list" class="fires-history-list"></div>
+            </div>
+            <div class="modal-actions">
+                <button id="refresh-fires-history" class="btn btn-secondary">Actualizar</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ========================================== -->
     <!-- SCRIPTS -->
     <!-- ========================================== -->
     <script src="js/config.js"></script>
-    <script src="js/utils.js"></script>
     <script src="js/telegram.js"></script>
     <script src="js/socket-client.js"></script>
     <script src="js/ui.js"></script>

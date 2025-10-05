@@ -17,6 +17,33 @@
   border-bottom: 2px solid var(--tg-theme-secondary-bg-color);
 }
 
+/* Badge de fuegos */
+.fires-badge {
+  margin-top: var(--spacing-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--tg-theme-bg-color);
+  border: 2px solid var(--tg-theme-button-color);
+  border-radius: var(--border-radius-full);
+  box-shadow: var(--shadow-sm);
+  color: var(--tg-theme-text-color);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.fires-badge:hover { 
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.fires-icon { font-size: 18px; }
+.fires-count { 
+  font-weight: var(--font-weight-bold);
+  min-width: 28px;
+  text-align: right;
+}
+
 .header-left {
   flex: 1;
 }

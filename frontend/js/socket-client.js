@@ -105,6 +105,10 @@ const SocketClient = {
     this.socket.emit(CONFIG.EVENTS.TRANSFER_FIRES, { targetUserId, amount });
   },
 
+  getFiresHistory(limit = 50, offset = 0) {
+    this.socket.emit(CONFIG.EVENTS.GET_FIRES_HISTORY, { limit, offset });
+  },
+
   /**
    * ======================
    * BINGO - MÉTODOS
@@ -272,6 +276,14 @@ const SocketClient = {
 
     this.socket.on(CONFIG.EVENTS.FIRES_UPDATED, (data) => {
       this.emit(CONFIG.EVENTS.FIRES_UPDATED, data);
+    });
+
+    this.socket.on(CONFIG.EVENTS.FIRES_HISTORY, (data) => {
+      this.emit(CONFIG.EVENTS.FIRES_HISTORY, data);
+    });
+
+    this.socket.on(CONFIG.EVENTS.FIRES_TRANSACTION, (data) => {
+      this.emit(CONFIG.EVENTS.FIRES_TRANSACTION, data);
     });
 
     // Sala cerrada

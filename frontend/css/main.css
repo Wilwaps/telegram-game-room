@@ -343,6 +343,70 @@ body {
 }
 
 /* ========================================== */
+/* HISTORIAL DE FUEGOS */
+/* ========================================== */
+
+.fires-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.fires-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background: var(--tg-theme-bg-color);
+  border: 1px solid var(--tg-theme-secondary-bg-color);
+  border-radius: var(--border-radius-md);
+}
+
+.fires-item-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.fires-item-icon {
+  font-size: var(--font-size-xl);
+}
+
+.fires-item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.fires-item-reason {
+  font-weight: var(--font-weight-semibold);
+  color: var(--tg-theme-text-color);
+}
+
+.fires-item-meta {
+  font-size: var(--font-size-xs);
+  color: var(--tg-theme-hint-color);
+}
+
+.fires-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.fires-item-amount {
+  font-weight: var(--font-weight-bold);
+}
+
+.fires-item-balance {
+  font-size: var(--font-size-xs);
+  color: var(--tg-theme-hint-color);
+}
+
+.fires-item.tx-in .fires-item-amount { color: var(--color-success); }
+.fires-item.tx-out .fires-item-amount { color: var(--color-danger); }
+
+/* ========================================== */
 /* LOADING */
 /* ========================================== */
 

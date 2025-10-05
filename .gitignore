@@ -71,3 +71,13 @@ ecosystem.config.js
 # ============================================
 dump.rdb
 *.rdb
+
+# ============================================
+# TUNNELING / NGROK
+# ============================================
+# Ejecutables y artefactos de ngrok
+ngrok
+ngrok.exe
+ngrok_*/
+ngrok*.zip
+ngrok_output.txt

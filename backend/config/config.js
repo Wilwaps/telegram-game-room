@@ -197,6 +197,9 @@ const constants = {
     SPEND_FIRES: 'spend_fires',
     TRANSFER_FIRES: 'transfer_fires',
     FIRES_UPDATED: 'fires_updated',
+    GET_FIRES_HISTORY: 'get_fires_history',
+    FIRES_HISTORY: 'fires_history',
+    FIRES_TRANSACTION: 'fires_transaction',
     
     // Bingo
     CREATE_BINGO_ROOM: 'create_bingo_room',
