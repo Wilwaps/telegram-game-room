@@ -10,12 +10,17 @@
 }
 
 .bingo-screen {
-  display: flex;
+  /* No establecer display aquí para no sobreescribir .screen { display:none } */
   flex-direction: column;
   min-height: 100vh;
   background: linear-gradient(145deg, #f8fbff 0%, #eef4ff 100%);
   padding: var(--spacing-xl);
   gap: var(--spacing-lg);
+}
+
+/* Mostrar Bingo solo cuando la pantalla esté activa */
+.screen.active.bingo-screen {
+  display: flex;
 }
 
 .bingo-header {
