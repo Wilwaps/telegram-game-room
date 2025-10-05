@@ -185,18 +185,24 @@ const UI = {
       return;
     }
 
-    roomsList.innerHTML = rooms.map(room => `
-      <div class="room-card" data-room-code="${room.code}">
-        <div class="room-icon">🎮</div>
-        <div class="room-info">
-          <div class="room-code">${room.code}</div>
-          <div class="room-host">Host: ${room.players[0]?.userName || 'Desconocido'}</div>
+    roomsList.innerHTML = rooms.map(room => {
+      const type = room.gameType || 'tic-tac-toe';
+      const icon = type === 'bingo' ? '🎱' : '🎮';
+      const host = room.hostName || (room.players && room.players[0]?.userName) || 'Desconocido';
+      const statusText = room.status === 'waiting' ? 'Esperando' : (room.status === 'playing' ? 'En juego' : 'Finalizada');
+      return `
+        <div class="room-card" data-room-code="${room.code}" data-game-type="${type}">
+          <div class="room-icon">${icon}</div>
+          <div class="room-info">
+            <div class="room-code">${room.code}</div>
+            <div class="room-host">Host: ${host}</div>
+          </div>
+          <div class="room-status ${room.status}">
+            <span>${statusText}</span>
+          </div>
         </div>
-        <div class="room-status ${room.status}">
-          <span>${room.status === 'waiting' ? 'Esperando' : 'En juego'}</span>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     // Actualizar contadores
     const allCount = document.getElementById('all-count');

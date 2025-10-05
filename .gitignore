@@ -81,3 +81,9 @@ ngrok.exe
 ngrok_*/
 ngrok*.zip
 ngrok_output.txt
+
+# ============================================
+# LIMPIEZA LOCAL
+# ============================================
+posiblemente borrar/
+cleanup_move_log.txt

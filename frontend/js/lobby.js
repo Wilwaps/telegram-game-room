@@ -74,7 +74,12 @@ const Lobby = {
         const roomCard = e.target.closest('.room-card');
         if (roomCard) {
           const roomCode = roomCard.dataset.roomCode;
-          this.handleJoinRoomByCode(roomCode);
+          const gameType = roomCard.dataset.gameType || 'tic-tac-toe';
+          if (gameType === 'bingo') {
+            SocketClient.joinBingo(roomCode, 1);
+          } else {
+            this.handleJoinRoomByCode(roomCode);
+          }
         }
       });
     }

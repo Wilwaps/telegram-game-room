@@ -44,7 +44,9 @@ const Bingo = {
 
     // Waiting
     this.screenWaiting = 'bingo-waiting-screen';
+    this.screenGame = 'bingo-game-screen';
     this.lblShareCode = document.getElementById('bingo-share-code');
+    this.lblPot = document.getElementById('bingo-pot');
     this.listPlayers = document.getElementById('bingo-players-list');
     this.btnWaitingBack = document.getElementById('bingo-back-btn');
     this.btnWaitingInvite = document.getElementById('bingo-invite-btn');
@@ -58,6 +60,9 @@ const Bingo = {
     this.btnClaim = document.getElementById('bingo-claim-btn');
     this.btnGameExit = document.getElementById('bingo-leave-game-btn');
     this.btnGameBack = document.getElementById('bingo-exit-btn');
+    this.lblGamePot = document.getElementById('bingo-game-pot');
+    this.lblPlayersCount = document.getElementById('bingo-players-count');
+    this.lblMode = document.getElementById('bingo-mode-label');
   },
 
   bindUI() {
@@ -67,19 +72,7 @@ const Bingo = {
         UI.showModal(this.modalCreate);
       });
 
-    // Actualización de sala (p.ej. hacerse pública)
-    SocketClient.on(CONFIG.EVENTS.BINGO_ROOM_UPDATED, ({ room }) => {
-      if (room) {
-        this.room = room;
-        this.renderWaiting(room);
-        if (this.btnWaitingMakePublic) {
-          const isHost = room.hostId === (App.user && App.user.userId);
-          this.btnWaitingMakePublic.style.display = isHost ? 'inline-flex' : 'none';
-          this.btnWaitingMakePublic.disabled = !!room.isPublic;
-          this.btnWaitingMakePublic.textContent = room.isPublic ? 'Pública' : 'Hacer pública';
-        }
-      }
-    });
+    // (listener movido a bindSocket)
     }
     if (this.btnJoinBingo) {
       this.btnJoinBingo.addEventListener('click', () => {
