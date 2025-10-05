@@ -137,6 +137,11 @@ const SocketClient = {
     if (code) this.socket.emit(CONFIG.EVENTS.DRAW_NEXT, { roomCode: code });
   },
 
+  notifyBingoPotential(cardId, pattern = 'unknown', roomCode) {
+    const code = roomCode || this.currentBingoRoom;
+    if (code && cardId) this.socket.emit(CONFIG.EVENTS.BINGO_POTENTIAL, { roomCode: code, cardId, pattern });
+  },
+
   claimBingo(roomCode, cardId) {
     const code = roomCode || this.currentBingoRoom;
     if (code && cardId) this.socket.emit(CONFIG.EVENTS.CLAIM_BINGO, { roomCode: code, cardId });
@@ -211,6 +216,10 @@ const SocketClient = {
 
     this.socket.on(CONFIG.EVENTS.BINGO_ROOM_UPDATED, (payload) => {
       this.emit(CONFIG.EVENTS.BINGO_ROOM_UPDATED, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.BINGO_POTENTIAL, (payload) => {
+      this.emit(CONFIG.EVENTS.BINGO_POTENTIAL, payload);
     });
 
     this.socket.on(CONFIG.EVENTS.HOST_LEFT_BINGO, (payload) => {

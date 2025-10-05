@@ -91,6 +91,7 @@ const CONFIG = {
     BINGO_INVALID: 'bingo_invalid',
     BINGO_WINNER: 'bingo_winner',
     BINGO_FINISHED: 'bingo_finished',
+    BINGO_POTENTIAL: 'bingo_potential',
     HOST_LEFT_BINGO: 'host_left_bingo',
     BINGO_PAUSED: 'bingo_paused',
     BINGO_RESUMED: 'bingo_resumed',

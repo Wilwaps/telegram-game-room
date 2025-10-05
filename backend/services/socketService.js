@@ -204,12 +204,14 @@ class SocketService {
             if (spendRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, spendRes.tx);
           });
 
-          // Generar cartones
-          const cards = [];
+          // Generar cartones y ACUMULAR (no sobrescribir)
+          const prevCards = await redisService.getBingoCards(roomCode, socket.userId);
+          const newCards = [];
           for (let i = 0; i < cardsCount; i++) {
-            cards.push(bingoService.generateCard(socket.userId));
+            newCards.push(bingoService.generateCard(socket.userId));
           }
-          await redisService.setBingoCards(roomCode, socket.userId, cards);
+          const combined = [...(prevCards || []), ...newCards];
+          await redisService.setBingoCards(roomCode, socket.userId, combined);
 
           // Actualizar sala
           room.entries[socket.userId] = (room.entries[socket.userId] || 0) + cost;
@@ -225,7 +227,8 @@ class SocketService {
           // Unión al canal y notificaciones
           socket.join(roomCode);
           socket.currentBingoRoom = roomCode;
-          const cardsNormalized = cards.map(c => ({
+          // Devolver TODO el set actual de cartones del usuario
+          const cardsNormalized = combined.map(c => ({
             id: c.id,
             userId: c.userId,
             numbers: c.numbers,
@@ -322,6 +325,38 @@ class SocketService {
           this.io.to(code).emit(constants.SOCKET_EVENTS.NUMBER_DRAWN, { number, index, total: room.drawOrder.length });
         } catch (err) {
           logger.error('Error DRAW_NEXT:', err);
+        }
+      });
+
+      // Notificar al host cuando un jugador potencialmente tiene Bingo (solo aviso, ganador real se valida en CLAIM_BINGO)
+      socket.on(constants.SOCKET_EVENTS.BINGO_POTENTIAL, async ({ roomCode, cardId, pattern } = {}) => {
+        try {
+          const code = roomCode || socket.currentBingoRoom;
+          const room = await redisService.getBingoRoom(code);
+          if (!room || !room.started) return;
+          // Throttle por 30s para evitar spam
+          const cacheKey = `bingo:potential:${code}:${socket.userId}:${cardId}`;
+          const seen = await redisService.getCache(cacheKey);
+          if (seen) return;
+          // Validación rápida en servidor
+          const cards = await redisService.getBingoCards(code, socket.userId);
+          const card = (cards || []).find(c => c.id === cardId);
+          if (!card) return;
+          const result = bingoService.validateBingo(card, room.drawnSet, room.mode);
+          if (!result.valid) return;
+          await redisService.setCache(cacheKey, true, 30);
+          const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+          allSockets
+            .filter(s => s.userId === room.hostId)
+            .forEach(s => s.emit(constants.SOCKET_EVENTS.BINGO_POTENTIAL, {
+              roomCode: code,
+              userId: socket.userId,
+              userName: socket.userName,
+              cardId,
+              pattern: result.pattern || pattern || 'unknown'
+            }));
+        } catch (err) {
+          logger.error('Error BINGO_POTENTIAL:', err);
         }
       });
 

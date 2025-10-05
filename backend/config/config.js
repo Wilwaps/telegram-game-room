@@ -220,6 +220,7 @@ const constants = {
     BINGO_FINISHED: 'bingo_finished',
     PAUSE_BINGO: 'pause_bingo',
     RESUME_BINGO: 'resume_bingo',
+    BINGO_POTENTIAL: 'bingo_potential',
     PLAYER_JOINED_BINGO: 'player_joined_bingo',
     PLAYER_LEFT_BINGO: 'player_left_bingo',
     HOST_LEFT_BINGO: 'host_left_bingo',
