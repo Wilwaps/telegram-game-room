@@ -246,8 +246,7 @@ const constants = {
     BINGO_ROOM: 'bingo:room:',
     BINGO_CARDS: 'bingo:cards:'
   }
-}
-;
+};
 
 /**
  * Exportar configuración completa
