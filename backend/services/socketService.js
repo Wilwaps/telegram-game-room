@@ -637,13 +637,20 @@ class SocketService {
             board: room.board,
             message: '¡Empate!'
           });
-          // Recompensa de fuegos a ambos jugadores
-          try {
-            for (const p of room.players) {
-              await this.economy.earn(p.userId, 1, { reason: 'draw' });
+          // Recompensa de fuegos solo si es PvP (2 jugadores) y Tic Tac Toe
+          const isPvp = Array.isArray(room.players) && room.players.length === 2;
+          const isTicTacToe = room.gameType === 'tic-tac-toe';
+          if (isPvp && isTicTacToe) {
+            try {
+              for (const p of room.players) {
+                await this.economy.earn(p.userId, 1, { reason: 'draw' });
+              }
+              await this.emitFiresToPlayers(room);
+            } catch (e) {
+              logger.error('Error otorgando/emitiendo fuegos en empate:', e);
             }
-          } catch (e) {
-            logger.error('Error otorgando fuegos en empate:', e);
+          } else {
+            logger.debug('Empate no PvP: no se otorgan fuegos');
           }
         } else {
           // Victoria
@@ -654,13 +661,20 @@ class SocketService {
             board: room.board,
             message: `¡${player.userName} ha ganado!`
           });
-          // Recompensa de fuegos a ambos jugadores
-          try {
-            for (const p of room.players) {
-              await this.economy.earn(p.userId, 1, { reason: 'game_finish' });
+          // Recompensa de fuegos solo si es PvP (2 jugadores) y Tic Tac Toe
+          const isPvp = Array.isArray(room.players) && room.players.length === 2;
+          const isTicTacToe = room.gameType === 'tic-tac-toe';
+          if (isPvp && isTicTacToe) {
+            try {
+              for (const p of room.players) {
+                await this.economy.earn(p.userId, 1, { reason: 'game_finish' });
+              }
+              await this.emitFiresToPlayers(room);
+            } catch (e) {
+              logger.error('Error otorgando/emitiendo fuegos en victoria:', e);
             }
-          } catch (e) {
-            logger.error('Error otorgando fuegos en victoria:', e);
+          } else {
+            logger.debug('Victoria no PvP: no se otorgan fuegos');
           }
         }
 
@@ -911,6 +925,19 @@ class SocketService {
         room.endGame(remainingPlayer.userId, null);
         await this.updateGameStats(room, true);
 
+        // Recompensa PVP por partida finalizada por abandono
+        try {
+          const isPvp = Array.isArray(room.players) && room.players.length === 2;
+          if (isPvp) {
+            for (const p of room.players) {
+              await this.economy.earn(p.userId, 1, { reason: 'opponent_left_finish' });
+            }
+            await this.emitFiresToPlayers(room);
+          }
+        } catch (e) {
+          logger.error('Error otorgando/emitiendo fuegos por abandono:', e);
+        }
+
         this.io.to(roomCode).emit(constants.SOCKET_EVENTS.GAME_OVER, {
           winner: remainingPlayer.userId,
           winnerName: remainingPlayer.userName,
@@ -1021,6 +1048,34 @@ class SocketService {
    */
   async getServerStats() {
     return await redisService.getServerStats();
+  }
+
+  /**
+   * Emitir FIRES_UPDATED a los sockets de cada jugador de una sala
+   * para reflejar el saldo actualizado inmediatamente en el cliente.
+   */
+  async emitFiresToPlayers(room) {
+    try {
+      let socketsInRoom = [];
+      try {
+        if (this.io?.in && this.io.in(room.code)?.fetchSockets) {
+          socketsInRoom = await this.io.in(room.code).fetchSockets();
+        }
+      } catch (e) {
+        // Fallback a todos los sockets si fetchSockets no está disponible
+        socketsInRoom = Array.from(this.io.sockets.sockets?.values?.() || []);
+      }
+
+      for (const p of room.players) {
+        const balance = await this.economy.getFires(p.userId);
+        // Emitir solo a los sockets del usuario
+        socketsInRoom
+          .filter(s => s.userId === p.userId)
+          .forEach(s => s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, balance));
+      }
+    } catch (err) {
+      logger.error('Error emitiendo FIRES_UPDATED a jugadores:', err);
+    }
   }
 }
 
