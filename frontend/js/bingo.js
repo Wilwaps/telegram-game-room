@@ -569,7 +569,7 @@ const Bingo = {
           }
         }
       }
-
+     });
     this.updateClaimAvailability();
   },
 
