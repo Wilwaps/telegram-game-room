@@ -78,6 +78,8 @@ const CONFIG = {
     BINGO_ROOM_CREATED: 'bingo_room_created',
     JOIN_BINGO: 'join_bingo',
     BINGO_JOINED: 'bingo_joined',
+    BINGO_MAKE_PUBLIC: 'bingo_make_public',
+    BINGO_ROOM_UPDATED: 'bingo_room_updated',
     PLAYER_JOINED_BINGO: 'player_joined_bingo',
     PLAYER_LEFT_BINGO: 'player_left_bingo',
     START_BINGO: 'start_bingo',

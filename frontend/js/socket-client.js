@@ -142,6 +142,11 @@ const SocketClient = {
     if (code && cardId) this.socket.emit(CONFIG.EVENTS.CLAIM_BINGO, { roomCode: code, cardId });
   },
 
+  makePublicBingo(roomCode) {
+    const code = roomCode || this.currentBingoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.BINGO_MAKE_PUBLIC, { roomCode: code });
+  },
+
   /**
    * Configurar manejadores por defecto
    */
@@ -202,6 +207,10 @@ const SocketClient = {
 
     this.socket.on(CONFIG.EVENTS.BINGO_FINISHED, (payload) => {
       this.emit(CONFIG.EVENTS.BINGO_FINISHED, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.BINGO_ROOM_UPDATED, (payload) => {
+      this.emit(CONFIG.EVENTS.BINGO_ROOM_UPDATED, payload);
     });
 
     this.socket.on(CONFIG.EVENTS.HOST_LEFT_BINGO, (payload) => {

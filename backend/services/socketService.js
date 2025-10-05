@@ -124,6 +124,28 @@ class SocketService {
         }
       });
 
+      // Hacer pública (idempotente)
+      socket.on(constants.SOCKET_EVENTS.BINGO_MAKE_PUBLIC, async ({ roomCode } = {}) => {
+        try {
+          const code = roomCode || socket.currentBingoRoom;
+          if (!code) return this.emitError(socket, 'Sala no encontrada');
+          const room = await redisService.getBingoRoom(code);
+          if (!room) return this.emitError(socket, 'Sala no encontrada');
+          if (room.hostId !== socket.userId) return this.emitError(socket, 'Solo el anfitrión puede cambiar la visibilidad');
+
+          const wasPublic = !!room.isPublic;
+          room.isPublic = true;
+          await redisService.setBingoRoom(code, room);
+          socket.emit(constants.SOCKET_EVENTS.BINGO_ROOM_UPDATED, { room: room.toJSON() });
+          if (!wasPublic) {
+            logger.info(`Bingo ${code} ahora es público`);
+          }
+        } catch (err) {
+          logger.error('Error BINGO_MAKE_PUBLIC:', err);
+          this.emitError(socket, 'No se pudo actualizar la sala de Bingo');
+        }
+      });
+
       socket.on(constants.SOCKET_EVENTS.GET_FIRES_HISTORY, async ({ limit = 50, offset = 0 } = {}) => {
         try {
           const history = await this.economy.getHistory(socket.userId, limit, offset);

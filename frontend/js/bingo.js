@@ -45,18 +45,12 @@ const Bingo = {
     // Waiting
     this.screenWaiting = 'bingo-waiting-screen';
     this.lblShareCode = document.getElementById('bingo-share-code');
-    this.lblPot = document.getElementById('bingo-pot');
     this.listPlayers = document.getElementById('bingo-players-list');
     this.btnWaitingBack = document.getElementById('bingo-back-btn');
     this.btnWaitingInvite = document.getElementById('bingo-invite-btn');
     this.btnWaitingLeave = document.getElementById('bingo-leave-btn');
     this.btnWaitingStart = document.getElementById('bingo-start-btn');
 
-    // Game
-    this.screenGame = 'bingo-game-screen';
-    this.lblGamePot = document.getElementById('bingo-game-pot');
-    this.lblPlayersCount = document.getElementById('bingo-players-count');
-    this.lblMode = document.getElementById('bingo-mode-label');
     this.gridDraw = document.getElementById('bingo-draw-grid');
     this.listRecentDraws = document.getElementById('bingo-recent-draws');
     this.gridCards = document.getElementById('bingo-cards-grid');
@@ -72,6 +66,20 @@ const Bingo = {
       this.btnCreateBingo.addEventListener('click', () => {
         UI.showModal(this.modalCreate);
       });
+
+    // Actualización de sala (p.ej. hacerse pública)
+    SocketClient.on(CONFIG.EVENTS.BINGO_ROOM_UPDATED, ({ room }) => {
+      if (room) {
+        this.room = room;
+        this.renderWaiting(room);
+        if (this.btnWaitingMakePublic) {
+          const isHost = room.hostId === (App.user && App.user.userId);
+          this.btnWaitingMakePublic.style.display = isHost ? 'inline-flex' : 'none';
+          this.btnWaitingMakePublic.disabled = !!room.isPublic;
+          this.btnWaitingMakePublic.textContent = room.isPublic ? 'Pública' : 'Hacer pública';
+        }
+      }
+    });
     }
     if (this.btnJoinBingo) {
       this.btnJoinBingo.addEventListener('click', () => {
@@ -124,6 +132,27 @@ const Bingo = {
     if (this.btnWaitingLeave) this.btnWaitingLeave.addEventListener('click', () => this.leaveToLobby());
     if (this.btnWaitingInvite) this.btnWaitingInvite.addEventListener('click', () => this.handleInvite());
     if (this.btnWaitingStart) this.btnWaitingStart.addEventListener('click', () => this.handleStart());
+
+    // Crear botón "Hacer pública" dinámicamente si no existe en el HTML
+    const actions = document.querySelector('#bingo-waiting-screen .bingo-waiting-actions');
+    if (actions && !this.btnWaitingMakePublic) {
+      const btn = document.createElement('button');
+      btn.id = 'bingo-make-public-btn';
+      btn.className = 'btn btn-secondary';
+      btn.textContent = 'Hacer pública';
+      // Insertar junto al botón Invitar
+      actions.insertBefore(btn, this.btnWaitingLeave || actions.firstChild);
+      this.btnWaitingMakePublic = btn;
+    }
+    if (this.btnWaitingMakePublic) {
+      this.btnWaitingMakePublic.addEventListener('click', () => {
+        if (!this.room) return;
+        SocketClient.makePublicBingo(this.room.code);
+        UI.showToast('Sala ahora es pública', 'success');
+        TelegramApp.hapticFeedback('medium');
+        this.btnWaitingMakePublic.disabled = true;
+      });
+    }
 
     // Game actions
     if (this.btnDrawNext) this.btnDrawNext.addEventListener('click', () => this.handleDrawNext());
@@ -322,6 +351,12 @@ const Bingo = {
     // Botón iniciar solo para host
     const isHost = room.hostId === (App.user && App.user.userId);
     if (this.btnWaitingStart) this.btnWaitingStart.style.display = isHost ? 'inline-flex' : 'none';
+    // Botón "Hacer pública" solo host; deshabilitado si ya es pública
+    if (this.btnWaitingMakePublic) {
+      this.btnWaitingMakePublic.style.display = isHost ? 'inline-flex' : 'none';
+      this.btnWaitingMakePublic.disabled = !!room.isPublic;
+      this.btnWaitingMakePublic.textContent = room.isPublic ? 'Pública' : 'Hacer pública';
+    }
   },
 
   renderGame(room) {

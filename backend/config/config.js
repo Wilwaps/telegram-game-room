@@ -206,6 +206,8 @@ const constants = {
     BINGO_ROOM_CREATED: 'bingo_room_created',
     JOIN_BINGO: 'join_bingo',
     BINGO_JOINED: 'bingo_joined',
+    BINGO_MAKE_PUBLIC: 'bingo_make_public',
+    BINGO_ROOM_UPDATED: 'bingo_room_updated',
     LEAVE_BINGO: 'leave_bingo',
     START_BINGO: 'start_bingo',
     BINGO_STARTED: 'bingo_started',
