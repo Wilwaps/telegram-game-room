@@ -667,7 +667,9 @@ class SocketService {
           // Empate
           this.io.to(roomCode).emit(constants.SOCKET_EVENTS.GAME_DRAW, {
             board: room.board,
-            message: '¡Empate!'
+            message: '¡Empate!',
+            duration: room.getGameDuration(),
+            moves: room.moves?.length || 0
           });
           // Recompensa de fuegos solo si es PvP (2 jugadores) y Tic Tac Toe
           const isPvp = Array.isArray(room.players) && room.players.length === 2;
@@ -695,7 +697,9 @@ class SocketService {
             winnerName: player.userName,
             winningLine: gameStatus.winningLine,
             board: room.board,
-            message: `¡${player.userName} ha ganado!`
+            message: `¡${player.userName} ha ganado!`,
+            duration: room.getGameDuration(),
+            moves: room.moves?.length || 0
           });
           // Recompensa de fuegos solo si es PvP (2 jugadores) y Tic Tac Toe
           const isPvp = Array.isArray(room.players) && room.players.length === 2;
@@ -877,11 +881,15 @@ class SocketService {
         return this.emitError(socket, 'Solo el host puede cambiar la visibilidad');
       }
 
+      // Idempotencia: si ya es pública, solo notificar actualización al solicitante
+      const wasPublic = !!room.isPublic;
       room.isPublic = true;
       await redisService.setRoom(roomCode, room);
 
       socket.emit(constants.SOCKET_EVENTS.ROOM_UPDATED, room.toJSON());
-      this.io.emit(constants.SOCKET_EVENTS.ROOM_ADDED, room.toJSON());
+      if (!wasPublic) {
+        this.io.emit(constants.SOCKET_EVENTS.ROOM_ADDED, room.toJSON());
+      }
 
       logger.info(`Sala ${roomCode} ahora es pública`);
 
@@ -984,7 +992,10 @@ class SocketService {
           winner: remainingPlayer.userId,
           winnerName: remainingPlayer.userName,
           reason: 'opponent_left',
-          message: 'Tu oponente abandonó la partida'
+          message: 'Tu oponente abandonó la partida',
+          board: room.board,
+          duration: room.getGameDuration(),
+          moves: room.moves?.length || 0
         });
       }
     }
@@ -1131,7 +1142,9 @@ class SocketService {
             winner: opponent.userId,
             winnerName: opponent.userName,
             reason: 'timeout',
-            board: room.board
+            board: room.board,
+            duration: room.getGameDuration(),
+            moves: room.moves?.length || 0
           });
 
           await redisService.deleteRoom(room.code);

@@ -90,9 +90,14 @@ const Lobby = {
       this.renderRooms();
     });
 
-    // Nueva sala agregada
+    // Nueva sala agregada (idempotente)
     SocketClient.on('room_added', (room) => {
-      this.rooms.push(room);
+      const idx = this.rooms.findIndex(r => r.code === room.code);
+      if (idx === -1) {
+        this.rooms.push(room);
+      } else {
+        this.rooms[idx] = room;
+      }
       this.renderRooms();
     });
 

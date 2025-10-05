@@ -302,12 +302,14 @@ const Game = {
 
     // Mostrar resultado después de animación
     setTimeout(() => {
+      const fallbackDuration = Math.floor((Date.now() - (this.gameStartTime || Date.now())) / 1000);
+      const fallbackMoves = Array.isArray(this.board) ? this.board.filter(c => c !== null).length : 0;
       Result.show({
         type: iWon ? 'win' : 'loss',
         winner: data.winner,
         winnerName: data.winnerName,
-        duration: Math.floor((Date.now() - this.gameStartTime) / 1000),
-        moves: this.board.filter(c => c !== null).length,
+        duration: (typeof data.duration === 'number') ? data.duration : fallbackDuration,
+        moves: (typeof data.moves === 'number') ? data.moves : fallbackMoves,
         reason: data.reason
       });
     }, 1500);
@@ -322,10 +324,12 @@ const Game = {
     this.renderBoard();
 
     setTimeout(() => {
+      const fallbackDuration = Math.floor((Date.now() - (this.gameStartTime || Date.now())) / 1000);
+      const fallbackMoves = Array.isArray(this.board) ? this.board.filter(c => c !== null).length : 0;
       Result.show({
         type: 'draw',
-        duration: Math.floor((Date.now() - this.gameStartTime) / 1000),
-        moves: this.board.filter(c => c !== null).length
+        duration: (typeof data.duration === 'number') ? data.duration : fallbackDuration,
+        moves: (typeof data.moves === 'number') ? data.moves : fallbackMoves
       });
     }, 1000);
   },
