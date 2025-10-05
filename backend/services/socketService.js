@@ -378,8 +378,10 @@ class SocketService {
 
       // Crear o actualizar usuario
       let user = await redisService.getUser(validData.userId);
+      let isNewUser = false;
       
       if (!user) {
+        isNewUser = true;
         user = new User({
           userId: validData.userId,
           userName: validation.sanitizeUserName(validData.userName),
@@ -393,14 +395,21 @@ class SocketService {
       user.updateSession(socket.id);
       await redisService.setUser(validData.userId, user);
 
+      // Dar fuegos iniciales a usuarios nuevos
+      if (isNewUser) {
+        await this.economy.grantToUser(validData.userId, 100, { reason: 'welcome_bonus' });
+        logger.info(`🎁 Usuario nuevo ${validData.userId} recibió 100 🔥 de bienvenida`);
+      }
+
       // Guardar en mapa local
       socket.userId = validData.userId;
       socket.userName = user.userName;
       socket.userAvatar = user.userAvatar;
       this.connectedUsers.set(socket.id, validData.userId);
 
-      // Obtener estadísticas
+      // Obtener estadísticas y saldo de fuegos
       const stats = await redisService.getUserStats(validData.userId);
+      const balance = await this.economy.getFires(validData.userId);
 
       // Enviar confirmación
       socket.emit(constants.SOCKET_EVENTS.AUTHENTICATED, {
@@ -409,11 +418,14 @@ class SocketService {
         stats
       });
 
+      // Enviar saldo de fuegos
+      socket.emit(constants.SOCKET_EVENTS.FIRES_BALANCE, balance);
+
       // Enviar lista de salas públicas
       const rooms = await redisService.getPublicRooms();
       socket.emit(constants.SOCKET_EVENTS.ROOMS_LIST, rooms.map(r => r.toJSON()));
 
-      logger.info(`Usuario autenticado: ${validData.userId} (${user.userName})`);
+      logger.info(`Usuario autenticado: ${validData.userId} (${user.userName}) - Saldo: ${balance.fires} 🔥`);
 
     } catch (error) {
       logger.error('Error en autenticación:', error);
