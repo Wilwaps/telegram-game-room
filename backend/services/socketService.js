@@ -1056,20 +1056,12 @@ class SocketService {
    */
   async emitFiresToPlayers(room) {
     try {
-      let socketsInRoom = [];
-      try {
-        if (this.io?.in && this.io.in(room.code)?.fetchSockets) {
-          socketsInRoom = await this.io.in(room.code).fetchSockets();
-        }
-      } catch (e) {
-        // Fallback a todos los sockets si fetchSockets no está disponible
-        socketsInRoom = Array.from(this.io.sockets.sockets?.values?.() || []);
-      }
-
+      // Emitir a todos los sockets del servidor filtrando por userId,
+      // para cubrir casos donde un jugador ya salió de la sala.
+      const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
       for (const p of room.players) {
         const balance = await this.economy.getFires(p.userId);
-        // Emitir solo a los sockets del usuario
-        socketsInRoom
+        allSockets
           .filter(s => s.userId === p.userId)
           .forEach(s => s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, balance));
       }

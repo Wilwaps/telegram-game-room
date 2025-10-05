@@ -263,6 +263,17 @@ const SocketClient = {
       this.emit('game_restart', data);
     });
 
+    // ======================
+    // ECONOMÍA - FUEGOS
+    // ======================
+    this.socket.on(CONFIG.EVENTS.FIRES_BALANCE, (data) => {
+      this.emit(CONFIG.EVENTS.FIRES_BALANCE, data);
+    });
+
+    this.socket.on(CONFIG.EVENTS.FIRES_UPDATED, (data) => {
+      this.emit(CONFIG.EVENTS.FIRES_UPDATED, data);
+    });
+
     // Sala cerrada
     this.socket.on(CONFIG.EVENTS.ROOM_CLOSED, (data) => {
       this.currentRoom = null;
