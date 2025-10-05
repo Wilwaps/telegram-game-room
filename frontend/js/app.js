@@ -31,9 +31,16 @@ const App = {
       this.user = TelegramApp.getUser();
       console.log('Usuario:', this.user);
 
-      // Validar que estamos en Telegram
+      // Validar que estamos en Telegram (modo dev: crear usuario fake)
       if (!this.user || !this.user.userId) {
-        throw new Error('Esta aplicación solo funciona dentro de Telegram');
+        console.warn('⚠️ No se detectó Telegram WebApp, usando usuario de prueba');
+        this.user = {
+          userId: 'dev_' + Math.random().toString(36).substr(2, 9),
+          userName: 'Usuario Dev',
+          firstName: 'Dev',
+          lastName: 'User',
+          languageCode: 'es'
+        };
       }
 
       // Mostrar pantalla de autenticación
