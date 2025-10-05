@@ -20,7 +20,7 @@ const Bingo = {
   },
 
   cacheDom() {
-    // Lobby
+    // Lobby (pueden no existir al inicio)
     this.btnCreateBingo = document.getElementById('create-bingo-btn');
     this.btnJoinBingo = document.getElementById('join-bingo-btn');
 
@@ -81,6 +81,7 @@ const Bingo = {
 
     // Controles de contadores
     const updateHostCost = () => {
+      if (!this.hostCardsValue) return;
       const count = Math.max(1, parseInt(this.hostCardsValue.value || '1', 10));
       this.hostDesiredCards = count;
       if (this.hostCost) this.hostCost.textContent = `${count} 🔥`;
@@ -98,6 +99,7 @@ const Bingo = {
     updateHostCost();
 
     const updateJoinCost = () => {
+      if (!this.joinCardsValue) return;
       const count = Math.max(1, parseInt(this.joinCardsValue.value || '1', 10));
       if (this.joinCost) this.joinCost.textContent = `${count} 🔥`;
     };
