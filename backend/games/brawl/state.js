@@ -37,6 +37,8 @@ class Match extends EventEmitter {
       vy: 0,
       dir: 1,
       onGround: false,
+      jumpsLeft: 2,
+      jumpBuffered: false,
       lastDashAt: 0,
       lastDodgeAt: 0,
       iFramesUntil: 0,
@@ -91,6 +93,7 @@ class Match extends EventEmitter {
       const right = !!(inp & INPUT.RIGHT);
       const wantFastFall = !!(inp & INPUT.FAST_FALL);
       const wantJump = !!(inp & INPUT.JUMP);
+      const jumpPressed = wantJump && !p.jumpBuffered; // edge detection
 
       // Horizontal
       const targetVx = (left ? -baseSpeed : 0) + (right ? baseSpeed : 0);
@@ -110,15 +113,27 @@ class Match extends EventEmitter {
       if (p.vx > config.physics.maxSpeed) p.vx = config.physics.maxSpeed;
       if (p.vx < -config.physics.maxSpeed) p.vx = -config.physics.maxSpeed;
 
+      // Dirección
+      if (left && !right) p.dir = -1; else if (right && !left) p.dir = 1;
+
       // Gravedad y salto
       const gravity = wantFastFall ? g * config.physics.fastFallFactor : g;
       p.vy += gravity * dt;
       if (p.vy > maxVy) p.vy = maxVy;
-
-      if (wantJump && p.onGround) {
-        p.vy = -config.physics.jumpImpulse;
-        p.onGround = false;
+      
+      // Saltos: salto en suelo o doble salto en aire
+      if (jumpPressed) {
+        if (p.onGround && p.jumpsLeft > 0) {
+          p.vy = -config.physics.jumpImpulse;
+          p.jumpsLeft -= 1;
+          p.onGround = false;
+        } else if (!p.onGround && p.jumpsLeft > 0) {
+          p.vy = -config.physics.jumpImpulse * config.physics.doubleJumpFactor;
+          p.jumpsLeft -= 1;
+        }
+        p.jumpBuffered = true;
       }
+      if (!wantJump) p.jumpBuffered = false;
 
       // Integración
       let nextX = p.x + p.vx * dt;
@@ -153,11 +168,15 @@ class Match extends EventEmitter {
       p.x = nextX;
       p.y = nextY;
       p.onGround = grounded;
+      if (grounded) {
+        // Restaurar saltos cuando estamos en suelo
+        p.jumpsLeft = 2;
+      }
 
       // OOB -> respawn
       if (p.x < config.map.oob.left || p.x > config.map.oob.right || p.y > config.map.oob.bottom) {
         const spawn = config.map.spawns[Math.floor(Math.random() * config.map.spawns.length)] || { x: 960, y: 860 };
-        p.x = spawn.x; p.y = spawn.y; p.vx = 0; p.vy = 0; p.onGround = false; p.damage = 0; p.iFramesUntil = Date.now() + 1200;
+        p.x = spawn.x; p.y = spawn.y; p.vx = 0; p.vy = 0; p.onGround = false; p.jumpsLeft = 2; p.jumpBuffered = false; p.damage = 0; p.iFramesUntil = Date.now() + 1200;
       }
     }
 

@@ -90,6 +90,19 @@ app.use((req, res, next) => {
   next();
 });
 
+// Control de caché: no cachear HTML para evitar pantallas viejas en producción
+app.use((req, res, next) => {
+  try {
+    if (req.method === 'GET' && (req.path === '/' || req.path.endsWith('.html'))) {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      res.set('Surrogate-Control', 'no-store');
+    }
+  } catch (_) {}
+  next();
+});
+
 // Servir archivos estáticos (frontend)
 app.use(express.static(path.join(__dirname, '../frontend')));
 
@@ -108,6 +121,9 @@ app.get('/brawl', (req, res) => {
 });
 
 app.get('*', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 

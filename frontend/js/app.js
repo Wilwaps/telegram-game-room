@@ -122,6 +122,16 @@ const App = {
     Result.init();
 
     console.log('✅ Módulos inicializados');
+
+    // Fallback adicional: asegurar salida de pantallas de carga
+    setTimeout(() => {
+      try {
+        const splash = document.getElementById('splash-screen');
+        const loading = document.getElementById('loading-screen');
+        if (splash) { splash.classList.remove('active'); splash.style.display = 'none'; }
+        if (loading) { loading.classList.remove('active'); }
+      } catch(_){ }
+    }, 500);
   },
 
   /**
@@ -168,7 +178,15 @@ const App = {
    */
   async showSplash() {
     return new Promise((resolve) => {
+      const splash = document.getElementById('splash-screen');
+      // Fallback de seguridad por si quedara activo por cache
       setTimeout(() => {
+        try {
+          if (splash) {
+            splash.classList.remove('active');
+            splash.style.display = 'none';
+          }
+        } catch(_){ }
         resolve();
       }, 1500);
     });

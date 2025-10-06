@@ -10,6 +10,7 @@ const SocketClient = {
   currentRoom: null,
   userId: null,
   eventHandlers: new Map(),
+  lastRoomsList: null,
 
   /**
    * Conectar al servidor
@@ -239,6 +240,7 @@ const SocketClient = {
 
     // Lista de salas
     this.socket.on(CONFIG.EVENTS.ROOMS_LIST, (rooms) => {
+      this.lastRoomsList = rooms;
       this.emit('rooms_list', rooms);
     });
 
@@ -521,6 +523,10 @@ const SocketClient = {
       this.eventHandlers.set(event, []);
     }
     this.eventHandlers.get(event).push(handler);
+    // Entregar inmediatamente datos cacheados si aplica (evita perder ROOMS_LIST antes de registrar listeners)
+    if (event === 'rooms_list' && Array.isArray(this.lastRoomsList)) {
+      try { handler(this.lastRoomsList); } catch(_) {}
+    }
   },
 
   /**

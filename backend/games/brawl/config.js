@@ -10,7 +10,7 @@ module.exports = {
     accel: 2800, // px/s^2
     friction: 3200, // px/s^2
     jumpImpulse: 680, // px/s
-    doubleJumpFactor: 0.85,
+    doubleJumpFactor: 1.0,
     dashSpeed: 480, // px/s
     dashDuration: 0.15, // s
     dodgeIframes: 0.30, // s
