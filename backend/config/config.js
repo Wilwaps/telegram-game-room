@@ -78,7 +78,8 @@ const game = {
     TIC_TAC_TOE: 'tic-tac-toe',
     CHECKERS: 'checkers',
     CHESS: 'chess',
-    BINGO: 'bingo'
+    BINGO: 'bingo',
+    DOMINO: 'domino'
   }
 };
 
@@ -242,6 +243,27 @@ const constants = {
     BINGO_RESUMED: 'bingo_resumed',
     ROOM_FULL: 'room_full',
     
+    // Domino (4 jugadores)
+    CREATE_DOMINO_ROOM: 'create_domino_room',
+    DOMINO_ROOM_CREATED: 'domino_room_created',
+    JOIN_DOMINO: 'join_domino',
+    LEAVE_DOMINO: 'leave_domino',
+    DOMINO_ROOM_UPDATED: 'domino_room_updated',
+    DOMINO_MAKE_PUBLIC: 'domino_make_public',
+    START_DOMINO: 'start_domino',
+    DOMINO_START: 'domino_start',
+    DOMINO_PLAY: 'domino_play',
+    DOMINO_DRAW: 'domino_draw',
+    DOMINO_PASS: 'domino_pass',
+    DOMINO_STATE: 'domino_state',
+    DOMINO_ROUND_END: 'domino_round_end',
+    DOMINO_MATCH_END: 'domino_match_end',
+    DOMINO_REMATCH_READY: 'domino_rematch_ready',
+    DOMINO_MATCH_RESTART: 'domino_match_restart',
+    DOMINO_SET_MODE: 'domino_set_mode',
+    DOMINO_SET_STAKE: 'domino_set_stake',
+    DOMINO_READY: 'domino_ready',
+    
     // Errores
     ERROR: 'error'
   },
@@ -260,7 +282,8 @@ const constants = {
     BINGO_ROOM: 'bingo:room:',
     BINGO_CARDS: 'bingo:cards:',
     XP: 'xp:',
-    XP_CFG: 'xp:config:'
+    XP_CFG: 'xp:config:',
+    DOMINO_ROOM: 'domino:room:'
   }
 };
 

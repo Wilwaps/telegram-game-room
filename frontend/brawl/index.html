@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>Allatratib Brawl - Arena</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0f0f23;
+      color: #fff;
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+    }
+    canvas {
+      display: block;
+      border: 2px solid #4a90e2;
+      background: #1a1a2e;
+    }
+    .hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.8);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: monospace;
+    }
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn {
+      width: 60px;
+      height: 60px;
+      border: none;
+      border-radius: 50%;
+      background: #4a90e2;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { background: #357abd; transform: scale(0.95); }
+    .btn.left { background: #e74c3c; }
+    .btn.right { background: #e74c3c; }
+    .btn.jump { background: #27ae60; }
+    .btn.dash { background: #f39c12; }
+    .btn.dodge { background: #9b59b6; }
+    .status {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.8);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #4a90e2;
+    }
+    .loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #0f0f23;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 1000;
+    }
+    .loading.hide { display: none; }
+  </style>
+</head>
+<body>
+  <div id="loading" class="loading">
+    <h2>🚀 Conectando a la Arena...</h2>
+    <p>Preparando controles y física...</p>
+  </div>
+
+  <div class="hud">
+    <div>Jugadores: <span id="playerCount">0</span></div>
+    <div>Estado: <span id="connectionStatus">Conectando...</span></div>
+  </div>
+
+  <div class="status">
+    <div>Pos: <span id="pos">0,0</span></div>
+    <div>Vel: <span id="vel">0,0</span></div>
+    <div>Inputs: <span id="inputs">0</span></div>
+  </div>
+
+  <canvas id="gameCanvas" width="1920" height="1080"></canvas>
+
+  <div class="controls">
+    <button class="btn left" id="leftBtn">←</button>
+    <button class="btn jump" id="jumpBtn">↑</button>
+    <button class="btn right" id="rightBtn">→</button>
+    <button class="btn dash" id="dashBtn">DASH</button>
+    <button class="btn dodge" id="dodgeBtn">DODGE</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // Simulación de Telegram WebApp (para desarrollo)
+    window.Telegram = window.Telegram || {
+      WebApp: {
+        initDataUnsafe: {
+          user: {
+            id: 123456789,
+            first_name: 'Test',
+            last_name: 'User',
+            username: 'testuser'
+          }
+        },
+        ready: function() {},
+        expand: function() {}
+      }
+    };
+  </script>
+  <script src="/brawl/client.js"></script>
+</body>
+</html>

@@ -110,6 +110,17 @@ const SocketClient = {
   },
 
   /**
+   * XP - Experiencia
+   */
+  getXp() {
+    this.socket.emit(CONFIG.EVENTS.GET_XP);
+  },
+
+  getXpHistory(limit = 50, offset = 0) {
+    this.socket.emit(CONFIG.EVENTS.GET_XP_HISTORY, { limit, offset });
+  },
+
+  /**
    * Onboarding / Bienvenida
    */
   welcomeStatus() {
@@ -161,6 +172,59 @@ const SocketClient = {
   makePublicBingo(roomCode) {
     const code = roomCode || this.currentBingoRoom;
     if (code) this.socket.emit(CONFIG.EVENTS.BINGO_MAKE_PUBLIC, { roomCode: code });
+  },
+
+  /**
+   * ======================
+   * DOMINÓ - MÉTODOS
+   * ======================
+   */
+  createDominoRoom({ isPublic = true, mode = 'friendly', stake = 1 } = {}) {
+    this.socket.emit(CONFIG.EVENTS.CREATE_DOMINO_ROOM, { isPublic, mode, stake });
+  },
+
+  joinDomino(roomCode) {
+    if (roomCode) this.socket.emit(CONFIG.EVENTS.JOIN_DOMINO, { roomCode });
+  },
+
+  leaveDomino(roomCode) {
+    const code = roomCode || this.currentDominoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.LEAVE_DOMINO, { roomCode: code });
+  },
+
+  startDomino(roomCode) {
+    const code = roomCode || this.currentDominoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.START_DOMINO, { roomCode: code });
+  },
+
+  setDominoReady(ready = true, roomCode) {
+    const code = roomCode || this.currentDominoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.DOMINO_READY, { roomCode: code, ready });
+  },
+
+  setDominoMode(mode = 'friendly', roomCode) {
+    const code = roomCode || this.currentDominoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.DOMINO_SET_MODE, { roomCode: code, mode });
+  },
+
+  setDominoStake(stake = 1, roomCode) {
+    const code = roomCode || this.currentDominoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.DOMINO_SET_STAKE, { roomCode: code, stake });
+  },
+
+  playDomino(tileId, end = 'right', roomCode) {
+    const code = roomCode || this.currentDominoRoom;
+    if (code && tileId) this.socket.emit(CONFIG.EVENTS.DOMINO_PLAY, { roomCode: code, tileId, end });
+  },
+
+  drawDomino(roomCode) {
+    const code = roomCode || this.currentDominoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.DOMINO_DRAW, { roomCode: code });
+  },
+
+  passDomino(roomCode) {
+    const code = roomCode || this.currentDominoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.DOMINO_PASS, { roomCode: code });
   },
 
   /**
@@ -236,6 +300,35 @@ const SocketClient = {
     this.socket.on(CONFIG.EVENTS.HOST_LEFT_BINGO, (payload) => {
       this.currentBingoRoom = null;
       this.emit(CONFIG.EVENTS.HOST_LEFT_BINGO, payload);
+    });
+
+    // ======================
+    // DOMINÓ - EVENTOS
+    // ======================
+    this.socket.on(CONFIG.EVENTS.DOMINO_ROOM_CREATED, (payload) => {
+      this.currentDominoRoom = payload?.room?.code;
+      this.emit(CONFIG.EVENTS.DOMINO_ROOM_CREATED, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.DOMINO_ROOM_UPDATED, (payload) => {
+      this.emit(CONFIG.EVENTS.DOMINO_ROOM_UPDATED, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.DOMINO_START, (payload) => {
+      this.emit(CONFIG.EVENTS.DOMINO_START, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.DOMINO_STATE, (payload) => {
+      this.emit(CONFIG.EVENTS.DOMINO_STATE, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.DOMINO_ROUND_END, (payload) => {
+      this.emit(CONFIG.EVENTS.DOMINO_ROUND_END, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.DOMINO_MATCH_END, (payload) => {
+      this.currentDominoRoom = null;
+      this.emit(CONFIG.EVENTS.DOMINO_MATCH_END, payload);
     });
 
     // Sala agregada
@@ -318,6 +411,21 @@ const SocketClient = {
     // Onboarding / Bienvenida
     this.socket.on(CONFIG.EVENTS.WELCOME_INFO, (payload) => {
       this.emit(CONFIG.EVENTS.WELCOME_INFO, payload);
+    });
+
+    // ======================
+    // XP - EVENTOS
+    // ======================
+    this.socket.on(CONFIG.EVENTS.XP_BALANCE, (payload) => {
+      this.emit(CONFIG.EVENTS.XP_BALANCE, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.XP_UPDATED, (payload) => {
+      this.emit(CONFIG.EVENTS.XP_UPDATED, payload);
+    });
+
+    this.socket.on(CONFIG.EVENTS.XP_HISTORY, (payload) => {
+      this.emit(CONFIG.EVENTS.XP_HISTORY, payload);
     });
 
     // Sala cerrada

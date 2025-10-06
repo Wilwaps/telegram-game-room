@@ -77,6 +77,9 @@ const Lobby = {
           const gameType = roomCard.dataset.gameType || 'tic-tac-toe';
           if (gameType === 'bingo') {
             SocketClient.joinBingo(roomCode, 1);
+          } else if (gameType === 'domino') {
+            SocketClient.joinDomino(roomCode);
+            UI.showToast(`Uniéndose a Dominó ${roomCode}...`, 'info');
           } else {
             this.handleJoinRoomByCode(roomCode);
           }

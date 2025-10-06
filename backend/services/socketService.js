@@ -15,6 +15,7 @@ const redisService = require('./redisService');
 const economyService = require('./economyService');
 const xpService = require('./xpService');
 const bingoService = require('./bingoService');
+const dominoService = require('./dominoService');
 const gameLogic = require('../utils/gameLogic');
 const validation = require('../utils/validation');
 const Room = require('../models/Room');
@@ -161,6 +162,207 @@ class SocketService {
           socket.emit(constants.SOCKET_EVENTS.XP_HISTORY, { items, limit, offset });
         } catch (err) {
           logger.error('Error GET_XP_HISTORY:', err);
+        }
+      });
+
+      // ==========================================
+      // DOMINÓ - EVENTOS BÁSICOS
+      // ==========================================
+      socket.on(constants.SOCKET_EVENTS.CREATE_DOMINO_ROOM, async ({ isPublic = false, mode = 'friendly', stake = 1 } = {}) => {
+        try {
+          if (!socket.userId) return this.emitError(socket, 'Usuario no autenticado');
+          const room = await dominoService.createRoom({ userId: socket.userId, userName: socket.userName }, { isPublic, mode, stake });
+          socket.join(`domino:${room.code}`);
+          socket.currentDominoRoom = room.code;
+          socket.emit(constants.SOCKET_EVENTS.DOMINO_ROOM_CREATED, { room: room.toJSON() });
+          if (room.isPublic) this.io.emit(constants.SOCKET_EVENTS.ROOM_ADDED, room.toJSON());
+        } catch (err) {
+          logger.error('Error CREATE_DOMINO_ROOM:', err);
+          this.emitError(socket, err.message || 'No se pudo crear sala de Dominó');
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.JOIN_DOMINO, async ({ roomCode } = {}) => {
+        try {
+          const code = roomCode;
+          if (!code) return this.emitError(socket, 'Código inválido');
+          const room = await dominoService.joinRoom(code, { userId: socket.userId, userName: socket.userName });
+          socket.join(`domino:${code}`);
+          socket.currentDominoRoom = code;
+          this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+        } catch (err) {
+          logger.error('Error JOIN_DOMINO:', err);
+          this.emitError(socket, err.message || 'No se pudo unir a la sala');
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.LEAVE_DOMINO, async ({ roomCode } = {}) => {
+        try {
+          const code = roomCode || socket.currentDominoRoom;
+          if (!code) return;
+          const room = await dominoService.leaveRoom(code, socket.userId);
+          socket.leave(`domino:${code}`);
+          socket.currentDominoRoom = null;
+          if (!room) {
+            this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, code);
+          } else {
+            this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+          }
+        } catch (err) {
+          logger.error('Error LEAVE_DOMINO:', err);
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.DOMINO_SET_MODE, async ({ roomCode, mode } = {}) => {
+        try {
+          const code = roomCode || socket.currentDominoRoom;
+          const room = await dominoService.setMode(code, socket.userId, mode);
+          this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+        } catch (err) {
+          this.emitError(socket, err.message || 'No autorizado');
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.DOMINO_SET_STAKE, async ({ roomCode, stake } = {}) => {
+        try {
+          const code = roomCode || socket.currentDominoRoom;
+          const room = await dominoService.setStake(code, socket.userId, stake);
+          this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+        } catch (err) {
+          this.emitError(socket, err.message || 'No autorizado');
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.DOMINO_READY, async ({ roomCode, ready = true } = {}) => {
+        try {
+          const code = roomCode || socket.currentDominoRoom;
+          const room = await dominoService.setReady(code, socket.userId, !!ready);
+          this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+        } catch (err) {
+          logger.error('Error DOMINO_READY:', err);
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.START_DOMINO, async ({ roomCode } = {}) => {
+        try {
+          const code = roomCode || socket.currentDominoRoom;
+          const can = await dominoService.canStart(code);
+          if (!can) return this.emitError(socket, 'Se requieren 4 jugadores listos');
+          const room = await dominoService.startMatch(code);
+          this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_START, {
+            room: {
+              code: room.code,
+              host: room.host,
+              isPublic: room.isPublic,
+              mode: room.mode,
+              stake: room.stake,
+              status: room.status,
+              players: room.players,
+              scores: room.scores,
+              roundId: room.roundId,
+              board: room.board,
+              turnUserId: room.turnUserId
+            }
+          });
+          // Manos privadas a cada jugador
+          const socketsInRoom = this.io.sockets.adapter.rooms.get(`domino:${code}`) || new Set();
+          for (const socketId of socketsInRoom) {
+            const s = this.io.sockets.sockets.get(socketId);
+            if (s && s.userId && room.hands[s.userId]) {
+              s.emit(constants.SOCKET_EVENTS.DOMINO_STATE, {
+                hand: room.hands[s.userId],
+                handCount: room.hands[s.userId].length,
+                board: room.board,
+                turnUserId: room.turnUserId
+              });
+            }
+          }
+        } catch (err) {
+          logger.error('Error START_DOMINO:', err);
+          this.emitError(socket, err.message || 'No se pudo iniciar');
+        }
+      });
+
+      // Jugar ficha
+      socket.on(constants.SOCKET_EVENTS.DOMINO_PLAY, async ({ roomCode, tileId, end } = {}) => {
+        try {
+          const code = roomCode || socket.currentDominoRoom;
+          const { room, roundEnded, roundWinner } = await dominoService.play(code, socket.userId, tileId, end);
+          this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+          // Re-emitir manos privadas
+          const socketsInRoom = this.io.sockets.adapter.rooms.get(`domino:${code}`) || new Set();
+          for (const socketId of socketsInRoom) {
+            const s = this.io.sockets.sockets.get(socketId);
+            if (s && s.userId && room.hands[s.userId]) {
+              s.emit(constants.SOCKET_EVENTS.DOMINO_STATE, {
+                hand: room.hands[s.userId],
+                handCount: room.hands[s.userId].length,
+                board: room.board,
+                turnUserId: room.turnUserId
+              });
+            }
+          }
+          if (roundEnded) {
+            this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROUND_END, {
+              roundId: room.roundId,
+              winnerUserId: roundWinner || null,
+              board: room.board
+            });
+          }
+        } catch (err) {
+          logger.error('Error DOMINO_PLAY:', err);
+          this.emitError(socket, err.message || 'Movimiento inválido');
+        }
+      });
+
+      // Robar
+      socket.on(constants.SOCKET_EVENTS.DOMINO_DRAW, async ({ roomCode } = {}) => {
+        try {
+          const code = roomCode || socket.currentDominoRoom;
+          const { room, tile } = await dominoService.draw(code, socket.userId);
+          // Solo enviar la ficha robada al jugador que roba
+          socket.emit(constants.SOCKET_EVENTS.DOMINO_STATE, {
+            hand: room.hands[socket.userId],
+            handCount: room.hands[socket.userId].length,
+            drew: tile,
+            board: room.board,
+            turnUserId: room.turnUserId
+          });
+        } catch (err) {
+          logger.error('Error DOMINO_DRAW:', err);
+          this.emitError(socket, err.message || 'No se pudo robar');
+        }
+      });
+
+      // Pasar
+      socket.on(constants.SOCKET_EVENTS.DOMINO_PASS, async ({ roomCode } = {}) => {
+        try {
+          const code = roomCode || socket.currentDominoRoom;
+          const { room, roundEnded } = await dominoService.pass(code, socket.userId);
+          this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+          // Re-emitir manos privadas (solo tamaños)
+          const socketsInRoom = this.io.sockets.adapter.rooms.get(`domino:${code}`) || new Set();
+          for (const socketId of socketsInRoom) {
+            const s = this.io.sockets.sockets.get(socketId);
+            if (s && s.userId && room.hands[s.userId]) {
+              s.emit(constants.SOCKET_EVENTS.DOMINO_STATE, {
+                handCount: room.hands[s.userId].length,
+                board: room.board,
+                turnUserId: room.turnUserId
+              });
+            }
+          }
+          if (roundEnded) {
+            this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROUND_END, {
+              roundId: room.roundId,
+              winnerUserId: null,
+              board: room.board,
+              reason: 'blocked'
+            });
+          }
+        } catch (err) {
+          logger.error('Error DOMINO_PASS:', err);
+          this.emitError(socket, err.message || 'No se pudo pasar');
         }
       });
 
@@ -602,14 +804,16 @@ class SocketService {
       // Enviar saldo de fuegos
       socket.emit(constants.SOCKET_EVENTS.FIRES_BALANCE, balance);
 
-      // Enviar lista de salas públicas (Tic Tac Toe + Bingo)
-      const [tttRooms, bingoRooms] = await Promise.all([
+      // Enviar lista de salas públicas (Tic Tac Toe + Bingo + Dominó)
+      const [tttRooms, bingoRooms, dominoRooms] = await Promise.all([
         redisService.getPublicRooms(),
-        redisService.getPublicBingoRooms?.() || []
+        redisService.getPublicBingoRooms?.() || [],
+        redisService.getPublicDominoRooms?.() || []
       ]);
       const roomList = [
         ...tttRooms.map(r => r.toJSON()),
-        ...(Array.isArray(bingoRooms) ? bingoRooms.map(r => r.toJSON()) : [])
+        ...(Array.isArray(bingoRooms) ? bingoRooms.map(r => r.toJSON()) : []),
+        ...(Array.isArray(dominoRooms) ? dominoRooms.map(r => r.toJSON()) : [])
       ];
       socket.emit(constants.SOCKET_EVENTS.ROOMS_LIST, roomList);
 
@@ -1115,6 +1319,22 @@ class SocketService {
             room.removePlayer(socket.userId);
             await redisService.setBingoRoom(code, room);
           }
+        }
+      }
+
+      // Dominó: abandonar sala si estaba dentro
+      if (socket.currentDominoRoom) {
+        try {
+          const code = socket.currentDominoRoom;
+          const room = await dominoService.leaveRoom(code, socket.userId);
+          if (!room) {
+            this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, code);
+            await redisService.client.srem('public_domino_rooms', code);
+          } else {
+            this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+          }
+        } catch (e) {
+          logger.error('Error en desconexión Dominó:', e);
         }
       }
 

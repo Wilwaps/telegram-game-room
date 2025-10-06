@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "proyecto": "telegram-game-room",
+    "fecha": "2025-10-06T01:25:10-04:00",
+    "entorno": "Node.js + Redis + Socket.io",
+    "nota": "Registro local de errores/incidencias del proyecto (práctica requerida)."
+  },
+  "errores": [
+    {
+      "id": "PRJ-001",
+      "cat": "sintaxis",
+      "desc": "Bloque AUTHENTICATED sin cierre de objeto en socketService.handleAuthenticate() causaba decenas de errores de parseo",
+      "causa": "Parche intermedio sin '})'",
+      "solucion": "Cerrar objeto y continuar flujo con FIRES_BALANCE + ROOMS_LIST",
+      "archivo": "backend/services/socketService.js"
+    },
+    {
+      "id": "PRJ-002",
+      "cat": "comentarios",
+      "desc": "Comentario 404 mal formado en backend/server.js",
+      "causa": "Comillas/asteriscos inválidos",
+      "solucion": "Reemplazado por bloque /** ... */",
+      "archivo": "backend/server.js"
+    }
+  ],
+  "pendientes": [
+    {
+      "id": "PEN-001",
+      "desc": "Dominó: implementar jugadas (DOMINO_PLAY/DRAW/PASS), scoring por ronda y fin de match con payout 70/20/10 e idempotencia",
+      "archivos": [
+        "backend/services/dominoService.js",
+        "backend/services/socketService.js"
+      ]
+    },
+    {
+      "id": "PEN-002",
+      "desc": "Frontend UI Dominó: sala de espera 4J y tablero",
+      "archivos": [
+        "frontend/index.html",
+        "frontend/js/domino.js",
+        "frontend/css/domino.css"
+      ]
+    }
+  ]
+}

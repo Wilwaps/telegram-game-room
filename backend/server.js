@@ -28,6 +28,7 @@ const socketService = require('./services/socketService');
 const telegramService = require('./services/telegramService');
 const xpService = require('./services/xpService');
 const tokenService = require('./services/tokenService');
+const brawlEvents = require('./games/brawl/events');
 
 // ============================================
 // INICIALIZACIÓN
@@ -48,8 +49,6 @@ const io = socketIo(httpServer, {
   transports: ['websocket', 'polling']
 });
 
- 
-
 // ============================================
 // MIDDLEWARE
 // ============================================
@@ -58,9 +57,7 @@ const io = socketIo(httpServer, {
 app.set('trust proxy', 1);
 
 // Seguridad
-app.use(helmet({
-  contentSecurityPolicy: false // Deshabilitado para MiniApps
-}));
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // CORS
 app.use(cors(security.cors));
@@ -75,7 +72,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Rate limiting
 const limiter = rateLimit({
   windowMs: security.rateLimit.windowMs,
-  max: security.rateLimit.maxRequests,
+  maxRequests: security.rateLimit.maxRequests,
   message: { error: 'Demasiadas solicitudes, intenta más tarde' },
   standardHeaders: true,
   legacyHeaders: false
@@ -86,186 +83,15 @@ app.use('/api/', limiter);
 // Logging de requests
 app.use((req, res, next) => {
   const start = Date.now();
-  
   res.on('finish', () => {
     const duration = Date.now() - start;
     logger.logRequest(req, res, duration);
   });
-  
   next();
 });
 
 // Servir archivos estáticos (frontend)
 app.use(express.static(path.join(__dirname, '../frontend')));
-
-// ============================================
-// RUTAS API
-// ============================================
-
-/**
- * Health check
- */
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: Date.now(),
-    uptime: process.uptime(),
-    environment: server.env,
-    services: {
-      redis: redisService.isReady(),
-      telegram: telegramService.isReady()
-    }
-  });
-});
-
-/**
- * Obtener estadísticas del servidor
- */
-app.get('/api/stats', async (req, res) => {
-  try {
-    const stats = await socketService.getServerStats();
-    res.json({
-      success: true,
-      stats
-    });
-  } catch (error) {
-    logger.error('Error al obtener estadísticas:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error al obtener estadísticas'
-    });
-  }
-});
-
-/**
- * Obtener salas públicas
- */
-app.get('/api/rooms', async (req, res) => {
-  try {
-    const rooms = await redisService.getPublicRooms();
-    res.json({
-      success: true,
-      rooms: rooms.map(r => r.toJSON())
-    });
-  } catch (error) {
-    logger.error('Error al obtener salas:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error al obtener salas'
-    });
-  }
-});
-
-/**
- * Obtener información de sala específica
- */
-app.get('/api/rooms/:code', async (req, res) => {
-  try {
-    const { code } = req.params;
-    const room = await redisService.getRoom(code);
-    
-    if (!room) {
-      return res.status(404).json({
-        success: false,
-        error: 'Sala no encontrada'
-      });
-    }
-    
-    res.json({
-      success: true,
-      room: room.toJSON()
-    });
-  } catch (error) {
-    logger.error('Error al obtener sala:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error al obtener sala'
-    });
-  }
-});
-
-/**
- * Obtener estadísticas de usuario
- */
-app.get('/api/users/:userId/stats', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const stats = await redisService.getUserStats(userId);
-    
-    res.json({
-      success: true,
-      stats
-    });
-  } catch (error) {
-    logger.error('Error al obtener estadísticas de usuario:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error al obtener estadísticas'
-    });
-  }
-});
-
-/**
- * Tokenomics 🔥 - métricas y configuración
- */
-app.get('/api/token/metrics', async (req, res) => {
-  try {
-    const metrics = await tokenService.getMetrics();
-    res.json({ success: true, metrics });
-  } catch (error) {
-    logger.error('Error /api/token/metrics:', error);
-    res.status(500).json({ success: false, error: 'Error al obtener métricas' });
-  }
-});
-
-app.post('/api/token/config', async (req, res) => {
-  try {
-    const { supplyCap } = req.body || {};
-    const cap = await tokenService.setSupplyCap(supplyCap);
-    res.json({ success: true, supplyCap: cap });
-  } catch (error) {
-    logger.error('Error /api/token/config:', error);
-    res.status(500).json({ success: false, error: 'Error al actualizar configuración' });
-  }
-});
-
-/**
- * Configuración de XP (umbrales)
- */
-app.get('/api/xp/config', async (req, res) => {
-  try {
-    const thresholds = await xpService.getThresholds();
-    res.json({ success: true, thresholds });
-  } catch (error) {
-    logger.error('Error /api/xp/config [GET]:', error);
-    res.status(500).json({ success: false, error: 'Error al obtener configuración XP' });
-  }
-});
-
-app.post('/api/xp/config', async (req, res) => {
-  try {
-    const { thresholds } = req.body || {};
-    const updated = await xpService.setThresholds(thresholds || {});
-    res.json({ success: true, thresholds: updated });
-  } catch (error) {
-    logger.error('Error /api/xp/config [POST]:', error);
-    res.status(500).json({ success: false, error: 'Error al actualizar configuración XP' });
-  }
-});
-
-/**
- * Webhook de Telegram (opcional)
- */
-app.post('/api/telegram/webhook', async (req, res) => {
-  try {
-    // Procesar actualización de Telegram
-    logger.info('Webhook de Telegram recibido');
-    res.sendStatus(200);
-  } catch (error) {
-    logger.error('Error en webhook de Telegram:', error);
-    res.sendStatus(500);
-  }
-});
 
 // ============================================
 // RUTA PRINCIPAL (SPA)
@@ -274,6 +100,11 @@ app.post('/api/telegram/webhook', async (req, res) => {
 // Dashboard de administración
 app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dashboard/index.html'));
+});
+
+// Vista de Brawl (arena)
+app.get('/brawl', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/brawl/index.html'));
 });
 
 app.get('*', (req, res) => {
@@ -322,6 +153,10 @@ async function initializeServices() {
     // Inicializar Socket.io
     socketService.initialize(io);
     logger.info('✅ Socket.io inicializado');
+ 
+    // Inicializar namespace de Brawl
+    brawlEvents.initialize(io);
+    logger.info('✅ Brawl namespace inicializado');
 
     // Inicializar Telegram Bot
     telegramService.initialize();
