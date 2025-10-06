@@ -205,6 +205,16 @@ const constants = {
     WELCOME_INFO: 'welcome_info',
     WELCOME_CLAIM: 'welcome_claim',
     
+    // XP / Niveles
+    GET_XP: 'get_xp',
+    XP_BALANCE: 'xp_balance',
+    EARN_XP: 'earn_xp',
+    LOSE_XP: 'lose_xp',
+    XP_UPDATED: 'xp_updated',
+    GET_XP_HISTORY: 'get_xp_history',
+    XP_HISTORY: 'xp_history',
+    XP_TRANSACTION: 'xp_transaction',
+    
     // Bingo
     CREATE_BINGO_ROOM: 'create_bingo_room',
     BINGO_ROOM_CREATED: 'bingo_room_created',
@@ -248,7 +258,9 @@ const constants = {
     STATS: 'stats:',
     CACHE: 'cache:',
     BINGO_ROOM: 'bingo:room:',
-    BINGO_CARDS: 'bingo:cards:'
+    BINGO_CARDS: 'bingo:cards:',
+    XP: 'xp:',
+    XP_CFG: 'xp:config:'
   }
 };
 

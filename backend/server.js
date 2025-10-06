@@ -26,6 +26,8 @@ const logger = require('./config/logger');
 const redisService = require('./services/redisService');
 const socketService = require('./services/socketService');
 const telegramService = require('./services/telegramService');
+const xpService = require('./services/xpService');
+const tokenService = require('./services/tokenService');
 
 // ============================================
 // INICIALIZACIÓN
@@ -45,6 +47,8 @@ const io = socketIo(httpServer, {
   pingInterval: 25000,
   transports: ['websocket', 'polling']
 });
+
+ 
 
 // ============================================
 // MIDDLEWARE
@@ -202,6 +206,54 @@ app.get('/api/users/:userId/stats', async (req, res) => {
 });
 
 /**
+ * Tokenomics 🔥 - métricas y configuración
+ */
+app.get('/api/token/metrics', async (req, res) => {
+  try {
+    const metrics = await tokenService.getMetrics();
+    res.json({ success: true, metrics });
+  } catch (error) {
+    logger.error('Error /api/token/metrics:', error);
+    res.status(500).json({ success: false, error: 'Error al obtener métricas' });
+  }
+});
+
+app.post('/api/token/config', async (req, res) => {
+  try {
+    const { supplyCap } = req.body || {};
+    const cap = await tokenService.setSupplyCap(supplyCap);
+    res.json({ success: true, supplyCap: cap });
+  } catch (error) {
+    logger.error('Error /api/token/config:', error);
+    res.status(500).json({ success: false, error: 'Error al actualizar configuración' });
+  }
+});
+
+/**
+ * Configuración de XP (umbrales)
+ */
+app.get('/api/xp/config', async (req, res) => {
+  try {
+    const thresholds = await xpService.getThresholds();
+    res.json({ success: true, thresholds });
+  } catch (error) {
+    logger.error('Error /api/xp/config [GET]:', error);
+    res.status(500).json({ success: false, error: 'Error al obtener configuración XP' });
+  }
+});
+
+app.post('/api/xp/config', async (req, res) => {
+  try {
+    const { thresholds } = req.body || {};
+    const updated = await xpService.setThresholds(thresholds || {});
+    res.json({ success: true, thresholds: updated });
+  } catch (error) {
+    logger.error('Error /api/xp/config [POST]:', error);
+    res.status(500).json({ success: false, error: 'Error al actualizar configuración XP' });
+  }
+});
+
+/**
  * Webhook de Telegram (opcional)
  */
 app.post('/api/telegram/webhook', async (req, res) => {
@@ -218,6 +270,11 @@ app.post('/api/telegram/webhook', async (req, res) => {
 // ============================================
 // RUTA PRINCIPAL (SPA)
 // ============================================
+
+// Dashboard de administración
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dashboard/index.html'));
+});
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));

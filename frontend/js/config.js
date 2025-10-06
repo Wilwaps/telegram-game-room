@@ -110,6 +110,14 @@ const CONFIG = {
     WELCOME_STATUS: 'welcome_status',
     WELCOME_INFO: 'welcome_info',
     WELCOME_CLAIM: 'welcome_claim',
+    // XP / Niveles
+    GET_XP: 'get_xp',
+    XP_BALANCE: 'xp_balance',
+    EARN_XP: 'earn_xp',
+    LOSE_XP: 'lose_xp',
+    XP_UPDATED: 'xp_updated',
+    GET_XP_HISTORY: 'get_xp_history',
+    XP_HISTORY: 'xp_history',
     
     // Errores
     ERROR: 'error'

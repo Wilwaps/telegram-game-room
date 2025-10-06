@@ -1,0 +1,28 @@
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0b1220;color:#e5e7eb}
+.container{max-width:1000px;margin:0 auto;padding:24px}
+.header{background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);color:#fff;padding:24px 0;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.subtitle{opacity:.9;margin-top:6px}
+.card{background:#111827;border:1px solid #1f2937;border-radius:12px;margin:24px 0;padding:16px 16px 20px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.stat{background:#0f172a;border:1px solid #1f2937;border-radius:10px;padding:12px}
+.stat-label{font-size:12px;color:#94a3b8}
+.stat-value{font-size:20px;font-weight:700;color:#f8fafc;margin-top:6px}
+.form-row{display:flex;gap:10px;align-items:center}
+.form-row input{flex:1;background:#0b1220;border:1px solid #1f2937;border-radius:8px;padding:10px;color:#e5e7eb}
+.btn{background:#1f2937;border:1px solid #334155;color:#e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;transition:.2s}
+.btn:hover{transform:translateY(-1px);background:#2a3648}
+.btn-primary{background:#2563eb;border-color:#3b82f6}
+.btn-primary:hover{background:#1d4ed8}
+.mt{margin-top:14px}
+.row-gap{display:flex;gap:10px}
+.muted{color:#94a3b8}
+.xp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.xp-item{background:#0f172a;border:1px solid #1f2937;border-radius:8px;padding:10px}
+.xp-item label{font-size:12px;color:#94a3b8;display:block;margin-bottom:6px}
+.xp-item input{width:100%;background:#0b1220;border:1px solid #1f2937;border-radius:6px;padding:8px;color:#e5e7eb}
+.guides{color:#cbd5e1}
+.guides li{margin:6px 0}
+.toast{position:fixed;right:16px;top:16px;background:#111827;border:1px solid #334155;color:#e5e7eb;padding:10px 14px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.hidden{display:none}
+@media (max-width:780px){.grid,.xp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard | Game Room</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <h1>Dashboard de Administración</h1>
+      <p class="subtitle">Monitorea y ajusta la economía (🔥) y la experiencia (XP)</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div class="card-header">
+        <h2>Tokenomics 🔥</h2>
+        <button id="refresh-token" class="btn">Actualizar</button>
+      </div>
+      <div class="grid">
+        <div class="stat">
+          <div class="stat-label">Supply Cap</div>
+          <div id="supply-cap" class="stat-value">-</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Minted</div>
+          <div id="minted" class="stat-value">-</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Burned</div>
+          <div id="burned" class="stat-value">-</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Circulation</div>
+          <div id="circulation" class="stat-value">-</div>
+        </div>
+      </div>
+      <div class="form-row mt">
+        <label for="input-supply">Nuevo Supply Cap</label>
+        <input id="input-supply" type="number" min="0" placeholder="ej. 1000000000" />
+        <button id="save-supply" class="btn btn-primary">Guardar</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Configuración de XP (Niveles)</h2>
+        <div class="row-gap">
+          <button id="refresh-xp" class="btn">Actualizar</button>
+          <button id="save-xp" class="btn btn-primary">Guardar Cambios</button>
+        </div>
+      </div>
+      <p class="muted">Define XP total requerida para alcanzar cada nivel (nivel 1 = 0 XP).</p>
+      <div id="xp-grid" class="xp-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Guías</h2>
+      </div>
+      <ul class="guides">
+        <li>Penalización por abandono: 20s de cooldown. Aplicado automáticamente en PvP.</li>
+        <li>TTT PvP: Win +10 XP, Loss +3 XP, Draw +6 XP.</li>
+        <li>Timeout: penaliza al que deja expirar turno (-10 XP), +10 XP al oponente.</li>
+      </ul>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

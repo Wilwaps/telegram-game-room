@@ -13,6 +13,7 @@ const { constants } = require('../config/config');
 const logger = require('../config/logger');
 const redisService = require('./redisService');
 const economyService = require('./economyService');
+const xpService = require('./xpService');
 const bingoService = require('./bingoService');
 const gameLogic = require('../utils/gameLogic');
 const validation = require('../utils/validation');
@@ -121,6 +122,45 @@ class SocketService {
         } catch (err) {
           logger.error('Error GET_FIRES:', err);
           this.emitError(socket, 'No se pudo obtener el saldo');
+        }
+      });
+
+      // ==========================================
+      // XP / NIVELES
+      // ==========================================
+      socket.on(constants.SOCKET_EVENTS.GET_XP, async () => {
+        try {
+          const info = await xpService.getXp(socket.userId);
+          socket.emit(constants.SOCKET_EVENTS.XP_BALANCE, info);
+        } catch (err) {
+          logger.error('Error GET_XP:', err);
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.EARN_XP, async (amount = 1) => {
+        try {
+          const info = await xpService.incrXp(socket.userId, Math.abs(parseInt(amount,10)||1), { reason: 'manual_earn' });
+          socket.emit(constants.SOCKET_EVENTS.XP_UPDATED, info);
+        } catch (err) {
+          logger.error('Error EARN_XP:', err);
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.LOSE_XP, async (amount = 1) => {
+        try {
+          const info = await xpService.incrXp(socket.userId, -Math.abs(parseInt(amount,10)||1), { reason: 'manual_lose' });
+          socket.emit(constants.SOCKET_EVENTS.XP_UPDATED, info);
+        } catch (err) {
+          logger.error('Error LOSE_XP:', err);
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.GET_XP_HISTORY, async ({ limit = 50, offset = 0 } = {}) => {
+        try {
+          const items = await xpService.getHistory(socket.userId, limit, offset);
+          socket.emit(constants.SOCKET_EVENTS.XP_HISTORY, { items, limit, offset });
+        } catch (err) {
+          logger.error('Error GET_XP_HISTORY:', err);
         }
       });
 
@@ -573,6 +613,14 @@ class SocketService {
       ];
       socket.emit(constants.SOCKET_EVENTS.ROOMS_LIST, roomList);
 
+      // Enviar XP actual
+      try {
+        const xpInfo = await xpService.getXp(validData.userId);
+        socket.emit(constants.SOCKET_EVENTS.XP_BALANCE, xpInfo);
+      } catch (e) {
+        logger.warn('No se pudo enviar XP_BALANCE:', e?.message);
+      }
+
       // Informar estado de bienvenida
       try {
         const key = `${constants.REDIS_PREFIXES.USER}${validData.userId}:welcome_claimed`;
@@ -813,6 +861,11 @@ class SocketService {
                   .forEach(s => res.tx && s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx));
               }
               await this.emitFiresToPlayers(room);
+              // XP por empate: +6 a cada jugador
+              for (const p of room.players) {
+                const xpInfo = await xpService.incrXp(p.userId, 6, { reason: 'draw', roomCode });
+                allSockets.filter(s => s.userId === p.userId).forEach(s => s.emit(constants.SOCKET_EVENTS.XP_UPDATED, xpInfo));
+              }
             } catch (e) {
               logger.error('Error otorgando/emitiendo fuegos en empate:', e);
             }
@@ -842,6 +895,15 @@ class SocketService {
                   .forEach(s => res.tx && s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx));
               }
               await this.emitFiresToPlayers(room);
+              // XP por victoria/derrota: ganador +10, perdedor +3
+              const winnerId = player.userId;
+              const loser = room.players.find(p => p.userId !== winnerId);
+              const winInfo = await xpService.incrXp(winnerId, 10, { reason: 'win', roomCode });
+              allSockets.filter(s => s.userId === winnerId).forEach(s => s.emit(constants.SOCKET_EVENTS.XP_UPDATED, winInfo));
+              if (loser) {
+                const loseInfo = await xpService.incrXp(loser.userId, 3, { reason: 'loss', roomCode });
+                allSockets.filter(s => s.userId === loser.userId).forEach(s => s.emit(constants.SOCKET_EVENTS.XP_UPDATED, loseInfo));
+              }
             } catch (e) {
               logger.error('Error otorgando/emitiendo fuegos en victoria:', e);
             }
@@ -1112,6 +1174,10 @@ class SocketService {
                 .forEach(s => res.tx && s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx));
             }
             await this.emitFiresToPlayers(room);
+            // Penalización XP al que abandona (-10 con cooldown 20s) y +10 para el que queda
+            await xpService.tryApplyAbandonPenalty(socket.userId, roomCode);
+            const winXp = await xpService.incrXp(remainingPlayer.userId, 10, { reason: 'opponent_left', roomCode });
+            allSockets.filter(s => s.userId === remainingPlayer.userId).forEach(s => s.emit(constants.SOCKET_EVENTS.XP_UPDATED, winXp));
           }
         } catch (e) {
           logger.error('Error otorgando/emitiendo fuegos por abandono:', e);
@@ -1239,7 +1305,7 @@ class SocketService {
           if (room.gameType !== 'tic-tac-toe') continue;
           if (!room.isTurnExpired()) continue;
 
-          // Determinar jugador actual y oponente
+          // Determinar usuario actual y oponente
           const currentSymbol = room.currentTurn;
           const currentPlayer = room.getPlayerBySymbol(currentSymbol);
           const opponent = room.players.find(p => p.userId !== currentPlayer?.userId);
@@ -1261,6 +1327,10 @@ class SocketService {
                   .forEach(s => res.tx && s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx));
               }
               await this.emitFiresToPlayers(room);
+              // XP: penalizar al que dejó expirar turno (-10 con cooldown) y +10 al oponente
+              await xpService.tryApplyAbandonPenalty(currentPlayer.userId, room.code);
+              const winXp2 = await xpService.incrXp(opponent.userId, 10, { reason: 'timeout_win', roomCode: room.code });
+              allSockets.filter(s => s.userId === opponent.userId).forEach(s => s.emit(constants.SOCKET_EVENTS.XP_UPDATED, winXp2));
             } catch (err) {
               logger.error('Error otorgando fuegos por timeout:', err);
             }
