@@ -122,9 +122,14 @@ const WaitingRoom = {
 
     // Construir 4 slots
     const players = Array.isArray(this.currentRoom.players) ? this.currentRoom.players.slice(0, 4) : [];
-    const hostIdRaw = (typeof this.currentRoom.host === 'string')
-      ? this.currentRoom.host
-      : (this.currentRoom.host && this.currentRoom.host.userId) ? this.currentRoom.host.userId : (players[0]?.userId || null);
+    let hostIdRaw;
+    if (typeof this.currentRoom.host === 'string' || typeof this.currentRoom.host === 'number') {
+      hostIdRaw = this.currentRoom.host;
+    } else if (this.currentRoom.host && this.currentRoom.host.userId != null) {
+      hostIdRaw = this.currentRoom.host.userId;
+    } else {
+      hostIdRaw = players[0]?.userId || null;
+    }
     const hostId = hostIdRaw != null ? String(hostIdRaw) : null;
 
     const slotHtml = (index) => {
@@ -276,7 +281,12 @@ const WaitingRoom = {
 
   isDominoHost() {
     if (!this.currentRoom) return false;
-    const hostId = typeof this.currentRoom.host === 'string' ? this.currentRoom.host : this.currentRoom.host?.userId;
+    let hostId;
+    if (typeof this.currentRoom.host === 'string' || typeof this.currentRoom.host === 'number') {
+      hostId = this.currentRoom.host;
+    } else {
+      hostId = this.currentRoom.host?.userId;
+    }
     if (hostId == null || SocketClient.userId == null) return false;
     return String(hostId) === String(SocketClient.userId);
   },
@@ -285,14 +295,26 @@ const WaitingRoom = {
     if (!this.currentRoom) return false;
     const players = this.currentRoom.players || [];
     const n = players.length;
-    return (n === 2 || n === 4) && players.every(p => !!p.isReady);
+    if (!(n === 2 || n === 4)) return false;
+    let hostId;
+    if (typeof this.currentRoom.host === 'string' || typeof this.currentRoom.host === 'number') {
+      hostId = String(this.currentRoom.host);
+    } else {
+      hostId = String(this.currentRoom.host?.userId);
+    }
+    const others = players.filter(p => String(p.userId) !== hostId);
+    if (others.length === 0) return false;
+    return others.every(p => !!p.isReady);
   },
 
   toggleDominoReady() {
     if (!this.currentRoom) return;
-    const myId = SocketClient.userId;
-    const me = (this.currentRoom.players || []).find(p => p.userId === myId);
+    const myId = String(SocketClient.userId);
+    const me = (this.currentRoom.players || []).find(p => String(p.userId) === myId);
     const newReady = !(!!me?.isReady);
+    // Optimista: actualizar estado local para feedback inmediato
+    try { if (me) me.isReady = newReady; } catch(_) {}
+    this.updateDominoControls();
     SocketClient.setDominoReady(newReady, this.currentRoom.code);
   },
 
@@ -313,6 +335,9 @@ const WaitingRoom = {
       return UI.showToast('Solo el anfitrión puede cambiar el modo', 'warning');
     }
     const next = this.currentRoom.mode === 'friendly' ? 'normal' : 'friendly';
+    // Optimista
+    this.currentRoom.mode = next;
+    this.updateDominoControls();
     SocketClient.setDominoMode(next, this.currentRoom.code);
   },
 
@@ -475,6 +500,8 @@ const WaitingRoom = {
 
     TelegramApp.hapticFeedback('medium');
     if (this.currentRoom.gameType === 'domino') {
+      // Optimista: deshabilitar botón específico
+      try { const btn = document.getElementById('domino-make-public-btn'); if (btn) { btn.disabled = true; btn.classList.add('disabled'); } } catch(_){ }
       SocketClient.makeDominoPublic(this.currentRoom.code);
     } else {
       SocketClient.makePublic(this.currentRoom.code);

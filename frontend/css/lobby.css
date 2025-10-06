@@ -521,13 +521,16 @@
    Reduce al ~30% el tamaño
    ========================== */
 .waiting-container.compact .players-waiting {
-  gap: calc(var(--spacing-lg) * 0.3);
-  margin-bottom: calc(var(--spacing-xl) * 0.3);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: calc(var(--spacing-md) * 0.5);
+  margin-bottom: calc(var(--spacing-lg) * 0.5);
 }
 
 .waiting-container.compact .player-slot {
-  padding: calc(var(--spacing-lg) * 0.3);
-  gap: calc(var(--spacing-md) * 0.3);
+  padding: calc(var(--spacing-md) * 0.4);
+  gap: calc(var(--spacing-sm) * 0.6);
 }
 
 .waiting-container.compact .player-avatar,
@@ -547,14 +550,25 @@
 }
 
 .waiting-container.compact .vs-divider {
-  width: 16px;
-  height: 16px;
-  font-size: 10px;
+  display: none;
 }
 
 .waiting-container.compact .waiting-actions {
   gap: calc(var(--spacing-sm) * 0.5);
   margin-bottom: calc(var(--spacing-lg) * 0.5);
+}
+
+/* Controles de Dominó compactos en grid */
+.waiting-container .domino-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+#domino-controls .btn {
+  min-height: var(--size-button-md);
+  padding: 8px 10px;
 }
 
 .info-message {

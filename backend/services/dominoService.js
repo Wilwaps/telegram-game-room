@@ -111,7 +111,10 @@ module.exports = {
     if (!room) return false;
     const n = room.players.length;
     if (!(n === 2 || n === 4)) return false;
-    if (!room.players.every(p => p.isReady)) return false;
+    const hostId = String(room.host);
+    const others = room.players.filter(p => String(p.userId) !== hostId);
+    if (others.length === 0) return false;
+    if (!others.every(p => !!p.isReady)) return false;
     return true;
   },
 
