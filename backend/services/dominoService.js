@@ -10,9 +10,10 @@ const economyService = require('./economyService');
 const DominoRoom = require('../models/DominoRoom');
 
 function generateCode(length = 6) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  // Solo dígitos (0-9)
+  const digits = '0123456789';
   let out = '';
-  for (let i = 0; i < length; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < length; i++) out += digits[Math.floor(Math.random() * digits.length)];
   return out;
 }
 
@@ -108,7 +109,8 @@ module.exports = {
   async canStart(code) {
     const room = await redisService.getDominoRoom(code);
     if (!room) return false;
-    if (room.players.length !== 4) return false;
+    const n = room.players.length;
+    if (!(n === 2 || n === 4)) return false;
     if (!room.players.every(p => p.isReady)) return false;
     return true;
   },
@@ -134,20 +136,22 @@ module.exports = {
     const room = await redisService.getDominoRoom(code);
     if (!room) throw new Error('Sala no encontrada');
     if (room.status !== 'waiting') throw new Error('Estado inválido');
-    if (room.players.length !== 4) throw new Error('Se requieren 4 jugadores');
+    const playerCount = room.players.length;
+    if (!(playerCount === 2 || playerCount === 4)) throw new Error('Se requieren 2 o 4 jugadores');
 
     // Cobro entradas si aplica
     await this.collectEntriesIfNeeded(room);
 
     const tiles = shuffle(generateTiles());
-    // Reparto 7
+    // Reparto 7 por jugador
     const hands = {};
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < playerCount; i++) {
       const p = room.players[i];
-      hands[p.userId] = tiles.slice(i*7, i*7+7);
+      hands[p.userId] = tiles.slice(i * 7, i * 7 + 7);
     }
     room.hands = hands;
-    room.boneyard = tiles.slice(28); // vacío en 4J
+    // En 2 jugadores queda cementerio; en 4 puede quedar vacío
+    room.boneyard = tiles.slice(playerCount * 7);
 
     // Encontrar apertura: mayor doble; si ninguno, mayor suma
     let openerId = null; let openerTile = null;

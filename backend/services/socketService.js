@@ -291,7 +291,7 @@ class SocketService {
         try {
           const code = roomCode || socket.currentDominoRoom;
           const can = await dominoService.canStart(code);
-          if (!can) return this.emitError(socket, 'Se requieren 4 jugadores listos');
+          if (!can) return this.emitError(socket, 'Se requieren 2 o 4 jugadores listos');
           const room = await dominoService.startMatch(code);
           this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_START, {
             room: {

@@ -188,6 +188,13 @@ const Utils = {
   },
 
   /**
+   * Validar código de sala numérico (Domino)
+   */
+  isValidNumericRoomCode(code) {
+    return /^\d{6}$/.test(code);
+  },
+
+  /**
    * Formatear código de sala
    */
   formatRoomCode(code) {

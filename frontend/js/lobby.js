@@ -59,9 +59,9 @@ const Lobby = {
         }
       });
 
-      // Formatear código mientras se escribe
+      // Formatear código mientras se escribe, dependiendo del juego seleccionado
       roomCodeInput.addEventListener('input', (e) => {
-        e.target.value = Utils.formatRoomCode(e.target.value);
+        e.target.value = this.formatRoomCodeForCurrentGame(e.target.value);
       });
     }
 
@@ -197,6 +197,25 @@ const Lobby = {
       const modal = document.getElementById('code-modal');
       const titleEl = modal ? modal.querySelector('.modal-title') : null;
       if (titleEl) titleEl.textContent = title;
+      // Ajustar placeholder y hint según juego
+      const input = modal ? modal.querySelector('#room-code-input') : null;
+      const hint = modal ? modal.querySelector('.input-hint') : null;
+      if (input) {
+        if (this.joinGameType === 'domino') {
+          input.placeholder = 'Ingresa el código (6 dígitos)';
+          input.setAttribute('inputmode', 'numeric');
+          input.setAttribute('pattern', '\\d{6}');
+        } else {
+          input.placeholder = 'Ingresa el código (6 caracteres)';
+          input.setAttribute('inputmode', 'text');
+          input.setAttribute('pattern', '[A-Za-z0-9]{6}');
+        }
+      }
+      if (hint) {
+        hint.textContent = this.joinGameType === 'domino'
+          ? 'El código debe tener 6 dígitos'
+          : 'El código debe tener 6 caracteres alfanuméricos';
+      }
     } catch(_) {}
     UI.showModal('code-modal');
     
@@ -217,10 +236,13 @@ const Lobby = {
     const input = document.getElementById('room-code-input');
     if (!input) return;
 
-    const roomCode = input.value.trim().toUpperCase();
+    const roomCodeRaw = input.value.trim();
+    const isDomino = this.joinGameType === 'domino';
+    const roomCode = isDomino ? roomCodeRaw.replace(/\D/g, '').substring(0, 6) : roomCodeRaw.toUpperCase();
 
-    if (!Utils.isValidRoomCode(roomCode)) {
-      UI.showToast('Código inválido (6 caracteres)', 'error');
+    const valid = isDomino ? /^\d{6}$/.test(roomCode) : Utils.isValidRoomCode(roomCode);
+    if (!valid) {
+      UI.showToast(isDomino ? 'Código inválido (6 dígitos)' : 'Código inválido (6 caracteres)', 'error');
       TelegramApp.hapticFeedback('error');
       return;
     }
@@ -302,7 +324,7 @@ const Lobby = {
         <div class="game-icon">🁣</div>
         <div class="game-info">
           <h3>Dominó</h3>
-          <p>4 jugadores con stake opcional</p>
+          <p>2 o 4 jugadores (stake opcional)</p>
         </div>
         <div class="game-actions">
           <button id="create-domino-btn" class="btn btn-primary btn-small">Crear</button>
@@ -313,6 +335,16 @@ const Lobby = {
     } catch (e) {
       console.error('ensureDominoCard error:', e);
     }
+  },
+
+  /**
+   * Formatear código de sala según juego seleccionado
+   */
+  formatRoomCodeForCurrentGame(value) {
+    if (this.joinGameType === 'domino') {
+      return value.replace(/\D/g, '').substring(0, 6);
+    }
+    return Utils.formatRoomCode(value);
   },
 
   /**

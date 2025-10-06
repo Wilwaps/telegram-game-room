@@ -91,6 +91,12 @@ const WaitingRoom = {
   render() {
     if (!this.currentRoom) return;
 
+    // Activar modo compacto para Dominó
+    const waitingContainer = document.querySelector('#waiting-room-screen .waiting-container');
+    if (waitingContainer) {
+      waitingContainer.classList.toggle('compact', this.currentRoom.gameType === 'domino');
+    }
+
     // Código de sala
     const roomCodeEl = document.getElementById('room-code-display');
     if (roomCodeEl) roomCodeEl.textContent = this.currentRoom.code;
@@ -239,7 +245,7 @@ const WaitingRoom = {
         startBtn.title = '';
       } else {
         startBtn.classList.add('disabled');
-        startBtn.title = isHost ? 'Se requieren 4 jugadores listos' : 'Solo el anfitrión puede iniciar';
+        startBtn.title = isHost ? 'Se requieren 2 o 4 jugadores listos' : 'Solo el anfitrión puede iniciar';
       }
     }
     if (modeBtn) {
@@ -278,7 +284,8 @@ const WaitingRoom = {
   canStartDomino() {
     if (!this.currentRoom) return false;
     const players = this.currentRoom.players || [];
-    return players.length === 4 && players.every(p => !!p.isReady);
+    const n = players.length;
+    return (n === 2 || n === 4) && players.every(p => !!p.isReady);
   },
 
   toggleDominoReady() {
@@ -295,7 +302,7 @@ const WaitingRoom = {
       return UI.showToast('Solo el anfitrión puede iniciar', 'warning');
     }
     if (!this.canStartDomino()) {
-      return UI.showToast('Se requieren 4 jugadores listos', 'warning');
+      return UI.showToast('Se requieren 2 o 4 jugadores listos', 'warning');
     }
     SocketClient.startDomino(this.currentRoom.code);
   },

@@ -516,6 +516,47 @@
   margin-bottom: var(--spacing-lg);
 }
 
+/* ==========================
+   Modo compacto (Dominó)
+   Reduce al ~30% el tamaño
+   ========================== */
+.waiting-container.compact .players-waiting {
+  gap: calc(var(--spacing-lg) * 0.3);
+  margin-bottom: calc(var(--spacing-xl) * 0.3);
+}
+
+.waiting-container.compact .player-slot {
+  padding: calc(var(--spacing-lg) * 0.3);
+  gap: calc(var(--spacing-md) * 0.3);
+}
+
+.waiting-container.compact .player-avatar,
+.waiting-container.compact .player-avatar-placeholder {
+  width: calc(var(--size-avatar-xl) * 0.3);
+  height: calc(var(--size-avatar-xl) * 0.3);
+  border-width: 2px;
+}
+
+.waiting-container.compact .player-name {
+  font-size: calc(var(--font-size-base) * 0.6);
+}
+
+.waiting-container.compact .player-badge {
+  transform: scale(0.6);
+  transform-origin: top left;
+}
+
+.waiting-container.compact .vs-divider {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.waiting-container.compact .waiting-actions {
+  gap: calc(var(--spacing-sm) * 0.5);
+  margin-bottom: calc(var(--spacing-lg) * 0.5);
+}
+
 .info-message {
   display: flex;
   align-items: center;
