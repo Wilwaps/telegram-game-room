@@ -309,6 +309,13 @@ const WaitingRoom = {
   show(room) {
     this.currentRoom = room;
     UI.showScreen('waiting-room-screen');
+    // Asegurar badge de fuegos en header de sala de espera y refrescar valor actual
+    try {
+      UI.ensureFiresBadge('#waiting-room-screen .waiting-header', 'fires-count-waiting');
+      if (typeof Economy !== 'undefined') {
+        UI.updateFiresBalance(Economy.fires);
+      }
+    } catch(_){}
 
     // Actualizar información
     this.updateRoomInfo(room);

@@ -24,6 +24,11 @@ const UI = {
     const inline = document.getElementById('fires-inline');
     if (badge) badge.textContent = String(fires ?? 0);
     if (inline) inline.textContent = String(fires ?? 0);
+    // Salas de espera (TicTacToe / Bingo)
+    const waiting = document.getElementById('fires-count-waiting');
+    if (waiting) waiting.textContent = String(fires ?? 0);
+    const bingo = document.getElementById('fires-count-bingo');
+    if (bingo) bingo.textContent = String(fires ?? 0);
   },
 
   /**
@@ -310,6 +315,37 @@ const UI = {
         button.textContent = text;
       }
     }
+  }
+};
+
+// Utilidad: insertar dinámicamente un badge de fuegos en headers de salas de espera
+// containerSelector: CSS selector del contenedor (ej: '#waiting-room-screen .waiting-header')
+// countId: id a asignar al span contador (ej: 'fires-count-waiting')
+UI.ensureFiresBadge = function(containerSelector, countId) {
+  try {
+    const container = document.querySelector(containerSelector);
+    if (!container) return;
+    if (document.getElementById(countId)) return; // ya existe
+    const badge = document.createElement('div');
+    badge.className = 'fires-badge';
+    badge.title = 'Fuegos disponibles';
+    const icon = document.createElement('span');
+    icon.className = 'fires-icon';
+    icon.textContent = '🔥';
+    const count = document.createElement('span');
+    count.className = 'fires-count';
+    count.id = countId;
+    count.textContent = String((window.Economy && Economy.fires) || 0);
+    badge.appendChild(icon);
+    badge.appendChild(count);
+    // Insertar al final del header
+    container.appendChild(badge);
+    // Click abre historial
+    badge.addEventListener('click', () => {
+      try { window.Economy && Economy.openHistory(); } catch(_) {}
+    });
+  } catch (e) {
+    console.error('ensureFiresBadge error:', e);
   }
 };
 

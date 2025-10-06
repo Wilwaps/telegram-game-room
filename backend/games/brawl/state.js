@@ -39,6 +39,8 @@ class Match extends EventEmitter {
       onGround: false,
       jumpsLeft: 2,
       jumpBuffered: false,
+      lastGroundedAt: Date.now(),
+      bufferedJumpUntil: 0,
       lastDashAt: 0,
       lastDodgeAt: 0,
       iFramesUntil: 0,
@@ -88,6 +90,8 @@ class Match extends EventEmitter {
     const plats = config.map.platforms;
 
     for (const p of this.players.values()) {
+      const now = Date.now();
+      const wasGrounded = p.onGround;
       const inp = p.inputs;
       const left = !!(inp & INPUT.LEFT);
       const right = !!(inp & INPUT.RIGHT);
@@ -121,15 +125,22 @@ class Match extends EventEmitter {
       p.vy += gravity * dt;
       if (p.vy > maxVy) p.vy = maxVy;
       
-      // Saltos: salto en suelo o doble salto en aire
+      // Saltos: permitir coyote time en salto de suelo, doble salto en aire
       if (jumpPressed) {
-        if (p.onGround && p.jumpsLeft > 0) {
+        const withinCoyote = wasGrounded || (now - (p.lastGroundedAt || 0) <= (config.physics.coyoteTimeMs || 0));
+        if ((p.onGround || withinCoyote) && p.jumpsLeft > 0) {
+          // Salto desde suelo (o coyote)
           p.vy = -config.physics.jumpImpulse;
-          p.jumpsLeft -= 1;
+          p.jumpsLeft = Math.max(0, p.jumpsLeft - 1);
           p.onGround = false;
         } else if (!p.onGround && p.jumpsLeft > 0) {
+          // Doble salto
           p.vy = -config.physics.jumpImpulse * config.physics.doubleJumpFactor;
-          p.jumpsLeft -= 1;
+          p.jumpsLeft = Math.max(0, p.jumpsLeft - 1);
+        } else {
+          // Guardar intento para jump buffer
+          const until = now + (config.physics.jumpBufferMs || 0);
+          p.bufferedJumpUntil = Math.max(p.bufferedJumpUntil || 0, until);
         }
         p.jumpBuffered = true;
       }
@@ -167,8 +178,25 @@ class Match extends EventEmitter {
 
       p.x = nextX;
       p.y = nextY;
+
+      // Auto-jump si había buffer y acabamos de aterrizar
+      const landing = grounded && !wasGrounded;
+      let autoJumped = false;
+      if (landing && (p.bufferedJumpUntil || 0) >= now) {
+        p.vy = -config.physics.jumpImpulse;
+        p.bufferedJumpUntil = 0;
+        // Consumir salto de suelo
+        p.jumpsLeft = Math.max(0, (p.jumpsLeft || 0) - 1);
+        grounded = false;
+        autoJumped = true;
+      }
+
+      // Actualizar estados de suelo y ventanas de coyote
+      if (wasGrounded && !grounded) {
+        p.lastGroundedAt = now;
+      }
       p.onGround = grounded;
-      if (grounded) {
+      if (grounded && !autoJumped) {
         // Restaurar saltos cuando estamos en suelo
         p.jumpsLeft = 2;
       }
@@ -176,7 +204,7 @@ class Match extends EventEmitter {
       // OOB -> respawn
       if (p.x < config.map.oob.left || p.x > config.map.oob.right || p.y > config.map.oob.bottom) {
         const spawn = config.map.spawns[Math.floor(Math.random() * config.map.spawns.length)] || { x: 960, y: 860 };
-        p.x = spawn.x; p.y = spawn.y; p.vx = 0; p.vy = 0; p.onGround = false; p.jumpsLeft = 2; p.jumpBuffered = false; p.damage = 0; p.iFramesUntil = Date.now() + 1200;
+        p.x = spawn.x; p.y = spawn.y; p.vx = 0; p.vy = 0; p.onGround = false; p.jumpsLeft = 2; p.jumpBuffered = false; p.bufferedJumpUntil = 0; p.lastGroundedAt = now; p.damage = 0; p.iFramesUntil = Date.now() + 1200;
       }
     }
 

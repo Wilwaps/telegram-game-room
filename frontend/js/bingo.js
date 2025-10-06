@@ -173,6 +173,11 @@ const Bingo = {
       UI.showToast('Sala de Bingo creada', 'success');
       UI.showScreen(this.screenWaiting);
       this.renderWaiting(room);
+      // Mostrar saldo de fuegos en header de espera
+      try {
+        UI.ensureFiresBadge('#bingo-waiting-screen .bingo-waiting-header', 'fires-count-bingo');
+        if (typeof Economy !== 'undefined') UI.updateFiresBalance(Economy.fires);
+      } catch(_){}
 
       // Auto-unirse con cartones seleccionados
       const cards = Math.max(1, parseInt(this.hostDesiredCards || 1, 10));
@@ -194,6 +199,11 @@ const Bingo = {
       UI.showToast('Te uniste a la sala de Bingo', 'success');
       UI.showScreen(this.screenWaiting);
       this.renderWaiting(room);
+      // Mostrar saldo de fuegos en header de espera
+      try {
+        UI.ensureFiresBadge('#bingo-waiting-screen .bingo-waiting-header', 'fires-count-bingo');
+        if (typeof Economy !== 'undefined') UI.updateFiresBalance(Economy.fires);
+      } catch(_){}
     });
 
     // Jugador se une (actualiza sala y pot)
@@ -201,6 +211,10 @@ const Bingo = {
       if (room) {
         this.room = room;
         this.renderWaiting(room);
+        try {
+          UI.ensureFiresBadge('#bingo-waiting-screen .bingo-waiting-header', 'fires-count-bingo');
+          if (typeof Economy !== 'undefined') UI.updateFiresBalance(Economy.fires);
+        } catch(_){}
       }
     });
 
@@ -209,6 +223,10 @@ const Bingo = {
       if (room) {
         this.room = room;
         this.renderWaiting(room);
+        try {
+          UI.ensureFiresBadge('#bingo-waiting-screen .bingo-waiting-header', 'fires-count-bingo');
+          if (typeof Economy !== 'undefined') UI.updateFiresBalance(Economy.fires);
+        } catch(_){}
       }
     });
     SocketClient.on(CONFIG.EVENTS.HOST_LEFT_BINGO, () => {
@@ -366,6 +384,11 @@ const Bingo = {
     this.room = room;
     if (this.lblShareCode) this.lblShareCode.textContent = `Código: ${room.code}`;
     if (this.lblPot) this.lblPot.textContent = String(room.pot || 0);
+    // Asegurar badge de fuegos renderizado
+    try {
+      UI.ensureFiresBadge('#bingo-waiting-screen .bingo-waiting-header', 'fires-count-bingo');
+      if (typeof Economy !== 'undefined') UI.updateFiresBalance(Economy.fires);
+    } catch(_){}
 
     // Render jugadores y cartones
     if (this.listPlayers) {

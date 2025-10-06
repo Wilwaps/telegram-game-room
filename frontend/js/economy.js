@@ -72,12 +72,14 @@ const Economy = {
     this.setupWelcomeUI();
     SocketClient.welcomeStatus();
 
-    // Click en badge de fuegos abre modal
-    const firesBadge = document.querySelector('.fires-badge');
-    if (firesBadge) {
-      firesBadge.addEventListener('click', () => this.openHistory());
-      firesBadge.style.cursor = 'pointer';
-      firesBadge.setAttribute('title', 'Ver historial de fuegos');
+    // Click en todos los badges de fuegos abre modal
+    const firesBadges = document.querySelectorAll('.fires-badge');
+    if (firesBadges && firesBadges.length) {
+      firesBadges.forEach((badge) => {
+        badge.addEventListener('click', () => this.openHistory());
+        badge.style.cursor = 'pointer';
+        badge.setAttribute('title', 'Ver historial de fuegos');
+      });
     }
 
     // Cerrar modal historial

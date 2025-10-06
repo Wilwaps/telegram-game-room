@@ -15,7 +15,10 @@ module.exports = {
     dashDuration: 0.15, // s
     dodgeIframes: 0.30, // s
     dodgeCooldown: 2.0, // s
-    fastFallFactor: 1.3
+    fastFallFactor: 1.3,
+    // Calidad de vida del salto
+    coyoteTimeMs: 80,     // ventana tras dejar plataforma donde aún puedes saltar
+    jumpBufferMs: 120     // ventana antes de tocar suelo que guarda el salto
   },
   map: {
     name: 'arena_mvp',
