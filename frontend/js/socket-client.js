@@ -336,16 +336,34 @@ const SocketClient = {
 
     // Sala agregada
     this.socket.on(CONFIG.EVENTS.ROOM_ADDED, (room) => {
+      // Actualizar cache local de rooms
+      try {
+        if (!Array.isArray(this.lastRoomsList)) this.lastRoomsList = [];
+        const idx = this.lastRoomsList.findIndex(r => r.code === room.code);
+        if (idx === -1) this.lastRoomsList.push(room); else this.lastRoomsList[idx] = room;
+      } catch(_) {}
       this.emit('room_added', room);
     });
 
     // Sala actualizada
     this.socket.on(CONFIG.EVENTS.ROOM_UPDATED, (room) => {
+      // Sincronizar cache local
+      try {
+        if (!Array.isArray(this.lastRoomsList)) this.lastRoomsList = [];
+        const idx = this.lastRoomsList.findIndex(r => r.code === room.code);
+        if (idx === -1) this.lastRoomsList.push(room); else this.lastRoomsList[idx] = room;
+      } catch(_) {}
       this.emit('room_updated', room);
     });
 
     // Sala eliminada
     this.socket.on(CONFIG.EVENTS.ROOM_REMOVED, (roomCode) => {
+      // Remover de cache local
+      try {
+        if (Array.isArray(this.lastRoomsList)) {
+          this.lastRoomsList = this.lastRoomsList.filter(r => r.code !== roomCode);
+        }
+      } catch(_) {}
       this.emit('room_removed', roomCode);
     });
 

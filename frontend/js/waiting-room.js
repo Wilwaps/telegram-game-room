@@ -55,6 +55,17 @@ const WaitingRoom = {
         this.updateRoom(room);
       }
     });
+
+    // Dominó: inicio de partida
+    SocketClient.on('domino_start', ({ room }) => {
+      try {
+        if (!room || !this.currentRoom || room.code !== this.currentRoom.code) return;
+        this.currentRoom = room;
+        UI.showToast('Dominó: ¡Partida iniciada!', 'success');
+        TelegramApp.hapticFeedback('success');
+        // Aquí se podría navegar a una pantalla de juego de Dominó cuando exista
+      } catch (e) { console.error('domino_start handler error:', e); }
+    });
   },
 
   /**
@@ -86,7 +97,9 @@ const WaitingRoom = {
 
     // Actualizar jugadores según tipo de juego
     if (this.currentRoom.gameType === 'domino') {
+      this.ensureDominoControls();
       this.renderDominoPlayers();
+      this.updateDominoControls();
     } else {
       this.updateHostInfo();
       this.updatePlayerSlots();
@@ -113,6 +126,7 @@ const WaitingRoom = {
         const name = Utils.escapeHtml(p.userName || p.firstName || `Jugador ${index+1}`);
         const avatar = p.userAvatar || p.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2481cc&color=fff`;
         const isHost = p.userId === hostId;
+        const ready = !!p.isReady;
         return `
           <div class="player-slot filled" id="domino-slot-${index}">
             <div class="player-avatar-wrapper">
@@ -121,6 +135,7 @@ const WaitingRoom = {
             <div class="player-info">
               <span class="player-name">${name}</span>
               ${isHost ? '<span class="player-badge host-badge">Host</span>' : ''}
+              ${ready ? '<span class="player-badge">Listo</span>' : ''}
             </div>
           </div>
         `;
@@ -144,6 +159,111 @@ const WaitingRoom = {
       ${slotHtml(2)}
       <div class="vs-divider"><span class="vs-text">VS</span></div>
       ${slotHtml(3)}`;
+  },
+
+  /**
+   * Insertar controles para Dominó si no existen
+   */
+  ensureDominoControls() {
+    const actions = document.querySelector('#waiting-room-screen .waiting-actions');
+    if (!actions) return;
+
+    if (!document.getElementById('domino-controls')) {
+      const wrap = document.createElement('div');
+      wrap.id = 'domino-controls';
+      wrap.innerHTML = `
+        <div class="domino-controls">
+          <button id="domino-ready-btn" class="btn btn-secondary">
+            <span class="btn-icon">✅</span>
+            <span class="btn-text">Estoy listo</span>
+          </button>
+          <button id="domino-start-btn" class="btn btn-success" disabled>
+            <span class="btn-icon">▶️</span>
+            <span class="btn-text">Iniciar partida</span>
+          </button>
+          <button id="domino-mode-toggle" class="btn btn-secondary">
+            <span class="btn-icon">🎮</span>
+            <span class="btn-text">Modo: Amistoso</span>
+          </button>
+        </div>
+      `;
+      actions.prepend(wrap);
+
+      // Bind events una sola vez
+      const readyBtn = wrap.querySelector('#domino-ready-btn');
+      const startBtn = wrap.querySelector('#domino-start-btn');
+      const modeBtn = wrap.querySelector('#domino-mode-toggle');
+
+      if (readyBtn) readyBtn.addEventListener('click', () => this.toggleDominoReady());
+      if (startBtn) startBtn.addEventListener('click', () => this.handleDominoStart());
+      if (modeBtn) modeBtn.addEventListener('click', () => this.toggleDominoMode());
+    }
+  },
+
+  /** Actualizar estado de controles Dominó */
+  updateDominoControls() {
+    const readyBtn = document.getElementById('domino-ready-btn');
+    const startBtn = document.getElementById('domino-start-btn');
+    const modeBtn = document.getElementById('domino-mode-toggle');
+    if (!this.currentRoom) return;
+
+    const myId = SocketClient.userId;
+    const me = (this.currentRoom.players || []).find(p => p.userId === myId);
+    const myReady = !!me?.isReady;
+    const isHost = this.isDominoHost();
+    const allReady = this.canStartDomino();
+
+    if (readyBtn) {
+      UI.updateButtonText('domino-ready-btn', myReady ? 'Cancelar listo' : 'Estoy listo');
+    }
+    if (startBtn) {
+      startBtn.disabled = !(isHost && allReady);
+    }
+    if (modeBtn) {
+      const isFriendly = this.currentRoom.mode === 'friendly';
+      UI.updateButtonText('domino-mode-toggle', `Modo: ${isFriendly ? 'Amistoso' : 'Normal'}`);
+      modeBtn.disabled = !isHost;
+    }
+  },
+
+  isDominoHost() {
+    if (!this.currentRoom) return false;
+    const hostId = typeof this.currentRoom.host === 'string' ? this.currentRoom.host : this.currentRoom.host?.userId;
+    return hostId && SocketClient.userId && hostId === SocketClient.userId;
+  },
+
+  canStartDomino() {
+    if (!this.currentRoom) return false;
+    const players = this.currentRoom.players || [];
+    return players.length === 4 && players.every(p => !!p.isReady);
+  },
+
+  toggleDominoReady() {
+    if (!this.currentRoom) return;
+    const myId = SocketClient.userId;
+    const me = (this.currentRoom.players || []).find(p => p.userId === myId);
+    const newReady = !(!!me?.isReady);
+    SocketClient.setDominoReady(newReady, this.currentRoom.code);
+  },
+
+  handleDominoStart() {
+    if (!this.currentRoom) return;
+    if (!this.isDominoHost()) {
+      return UI.showToast('Solo el anfitrión puede iniciar', 'warning');
+    }
+    if (!this.canStartDomino()) {
+      return UI.showToast('Se requieren 4 jugadores listos', 'warning');
+    }
+    SocketClient.startDomino(this.currentRoom.code);
+  },
+
+  toggleDominoMode() {
+    if (!this.currentRoom) return;
+    if (!this.isDominoHost()) {
+      return UI.showToast('Solo el anfitrión puede cambiar el modo', 'warning');
+    }
+    const next = this.currentRoom.mode === 'friendly' ? 'normal' : 'friendly';
+    SocketClient.setDominoMode(next, this.currentRoom.code);
   },
 
   /**
