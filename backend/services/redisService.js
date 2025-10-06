@@ -57,6 +57,8 @@ class RedisService {
     await this.client.setex(key, ttl, data);
     if (room.isPublic) {
       await this.client.sadd('public_domino_rooms', roomCode);
+    } else {
+      await this.client.srem('public_domino_rooms', roomCode);
     }
   }
 

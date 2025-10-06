@@ -99,7 +99,7 @@ const Lobby = {
       createDominoBtn.addEventListener('click', () => {
         this.joinGameType = 'domino';
         UI.showToast('Creando sala de Dominó...', 'info');
-        SocketClient.createDominoRoom({ isPublic: true, mode: 'friendly', stake: 1 });
+        SocketClient.createDominoRoom({ isPublic: false, mode: 'friendly', stake: 1 });
       });
     }
     const joinDominoBtn = document.getElementById('join-domino-btn');

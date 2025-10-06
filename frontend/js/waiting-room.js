@@ -217,12 +217,21 @@ const WaitingRoom = {
       UI.updateButtonText('domino-ready-btn', myReady ? 'Cancelar listo' : 'Estoy listo');
     }
     if (startBtn) {
-      startBtn.disabled = !(isHost && allReady);
+      const canStart = isHost && allReady;
+      startBtn.disabled = !canStart;
+      if (canStart) {
+        startBtn.classList.remove('disabled');
+        startBtn.title = '';
+      } else {
+        startBtn.classList.add('disabled');
+        startBtn.title = isHost ? 'Se requieren 4 jugadores listos' : 'Solo el anfitrión puede iniciar';
+      }
     }
     if (modeBtn) {
       const isFriendly = this.currentRoom.mode === 'friendly';
       UI.updateButtonText('domino-mode-toggle', `Modo: ${isFriendly ? 'Amistoso' : 'Normal'}`);
       modeBtn.disabled = !isHost;
+      if (modeBtn.disabled) modeBtn.classList.add('disabled'); else modeBtn.classList.remove('disabled');
     }
   },
 
@@ -349,11 +358,19 @@ const WaitingRoom = {
     const makePublicBtn = document.getElementById('make-public-btn');
     if (!makePublicBtn) return;
 
-    // En Dominó aún no soportamos "hacer pública"
+    // Dominó: ahora soportado vía DOMINO_MAKE_PUBLIC
     if (this.currentRoom.gameType === 'domino') {
-      makePublicBtn.textContent = 'No disponible en Dominó';
-      makePublicBtn.disabled = true;
-      makePublicBtn.classList.add('disabled');
+      const isHost = this.isDominoHost();
+      if (this.currentRoom.isPublic) {
+        makePublicBtn.textContent = '🔓 Sala Pública';
+        makePublicBtn.disabled = true;
+        makePublicBtn.classList.add('disabled');
+      } else {
+        makePublicBtn.textContent = '🔒 Hacer Pública';
+        makePublicBtn.disabled = !isHost;
+        if (isHost) makePublicBtn.classList.remove('disabled'); else makePublicBtn.classList.add('disabled');
+        makePublicBtn.title = isHost ? '' : 'Solo el anfitrión puede hacer pública la sala';
+      }
       return;
     }
 
@@ -416,7 +433,11 @@ const WaitingRoom = {
     if (!this.currentRoom || this.currentRoom.isPublic) return;
 
     TelegramApp.hapticFeedback('medium');
-    SocketClient.makePublic(this.currentRoom.code);
+    if (this.currentRoom.gameType === 'domino') {
+      SocketClient.makeDominoPublic(this.currentRoom.code);
+    } else {
+      SocketClient.makePublic(this.currentRoom.code);
+    }
     UI.showToast('Sala ahora es pública', 'success');
   },
 

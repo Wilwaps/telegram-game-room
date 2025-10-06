@@ -200,16 +200,60 @@ class SocketService {
         try {
           const code = roomCode || socket.currentDominoRoom;
           if (!code) return;
+
+          // Obtener estado previo para saber si era pública y si el que sale es host
+          const before = await dominoService.getRoom(code);
+          const wasPublic = !!before?.isPublic;
+          const wasHost = before?.host === socket.userId;
+
           const room = await dominoService.leaveRoom(code, socket.userId);
           socket.leave(`domino:${code}`);
           socket.currentDominoRoom = null;
+
           if (!room) {
+            // Sala eliminada → remover del lobby si estaba pública
             this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, code);
+            await redisService.client.srem('public_domino_rooms', code);
           } else {
+            // Si el host salió, por seguridad dejarla privada
+            if (wasHost && room.isPublic) {
+              room.isPublic = false;
+              await redisService.setDominoRoom(code, room);
+              if (wasPublic) {
+                this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, code);
+              }
+            } else {
+              // Persistir cambios de jugadores/TTL
+              await redisService.setDominoRoom(code, room);
+            }
             this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
           }
         } catch (err) {
           logger.error('Error LEAVE_DOMINO:', err);
+        }
+      });
+
+      // Hacer pública una sala de Dominó (solo host, idempotente)
+      socket.on(constants.SOCKET_EVENTS.DOMINO_MAKE_PUBLIC, async ({ roomCode } = {}) => {
+        try {
+          const code = roomCode || socket.currentDominoRoom;
+          if (!code) return this.emitError(socket, 'Sala no encontrada');
+          const room = await dominoService.getRoom(code);
+          if (!room) return this.emitError(socket, 'Sala no encontrada');
+          if (room.host !== socket.userId) return this.emitError(socket, 'Solo el anfitrión puede cambiar la visibilidad');
+
+          const wasPublic = !!room.isPublic;
+          room.isPublic = true;
+          await redisService.setDominoRoom(code, room);
+
+          // Notificar actualización al solicitante/sala
+          socket.emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+          this.io.to(`domino:${code}`).emit(constants.SOCKET_EVENTS.DOMINO_ROOM_UPDATED, { room: room.toJSON() });
+          if (!wasPublic) this.io.emit(constants.SOCKET_EVENTS.ROOM_ADDED, room.toJSON());
+          logger.info(`Dominó ${code} ahora es público`);
+        } catch (err) {
+          logger.error('Error DOMINO_MAKE_PUBLIC:', err);
+          this.emitError(socket, 'No se pudo actualizar la sala de Dominó');
         }
       });
 

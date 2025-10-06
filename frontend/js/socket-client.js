@@ -228,6 +228,11 @@ const SocketClient = {
     if (code) this.socket.emit(CONFIG.EVENTS.DOMINO_PASS, { roomCode: code });
   },
 
+  makeDominoPublic(roomCode) {
+    const code = roomCode || this.currentDominoRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.DOMINO_MAKE_PUBLIC, { roomCode: code });
+  },
+
   /**
    * Configurar manejadores por defecto
    */
