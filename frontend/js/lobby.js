@@ -147,14 +147,34 @@ const Lobby = {
       this.renderRooms();
     });
 
-    // Sala creada (navegar a sala de espera)
+    // Sala creada (TicTacToe) → navegar a sala de espera
     SocketClient.on('room_created', (room) => {
       WaitingRoom.show(room);
     });
 
-    // Aviso al crear Dominó (no hay pantalla dedicada aún)
+    // Dominó: al crear sala, navegar a sala de espera
     SocketClient.on('domino_room_created', ({ room }) => {
       UI.showToast('Sala de Dominó creada', 'success');
+      try { WaitingRoom.show(room); } catch(e) { console.error('WaitingRoom.show error:', e); }
+    });
+
+    // Dominó: al recibir actualización, si corresponde a la sala actual, mantener visible sala de espera
+    SocketClient.on('domino_room_updated', ({ room }) => {
+      try {
+        if (!room || !room.code) return;
+        // Si es nuestra sala de dominó actual, mantener UI en sala de espera
+        if (SocketClient.currentDominoRoom === room.code) {
+          // Si estamos en otra pantalla, navegar
+          if (UI.currentScreen !== 'waiting-room-screen') {
+            WaitingRoom.show(room);
+          } else {
+            // Si ya estamos, refrescar datos
+            WaitingRoom.updateRoom(room);
+          }
+        }
+      } catch (e) {
+        console.error('domino_room_updated handler error:', e);
+      }
     });
   },
 

@@ -1,9 +1,3 @@
-/**
- * ============================================
- * GESTIÓN DE SALA DE ESPERA
- * ============================================
- */
-
 const WaitingRoom = {
   currentRoom: null,
 
@@ -19,61 +13,34 @@ const WaitingRoom = {
    * Configurar event listeners
    */
   setupEventListeners() {
+    // Botón atrás
+    const backBtn = document.getElementById('back-to-lobby-btn');
+    if (backBtn) backBtn.addEventListener('click', () => this.handleBack());
+
     // Botón copiar código
     const copyCodeBtn = document.getElementById('copy-code-btn');
-    if (copyCodeBtn) {
-      copyCodeBtn.addEventListener('click', () => this.handleCopyCode());
-    }
+    if (copyCodeBtn) copyCodeBtn.addEventListener('click', () => this.handleCopyCode());
 
     // Botón invitar amigos
     const inviteBtn = document.getElementById('invite-friends-btn');
-    if (inviteBtn) {
-      inviteBtn.addEventListener('click', () => this.handleInviteFriends());
-    }
+    if (inviteBtn) inviteBtn.addEventListener('click', () => this.handleInviteFriends());
 
     // Botón hacer pública
     const makePublicBtn = document.getElementById('make-public-btn');
-    if (makePublicBtn) {
-      makePublicBtn.addEventListener('click', () => this.handleMakePublic());
-    }
+    if (makePublicBtn) makePublicBtn.addEventListener('click', () => this.handleMakePublic());
 
     // Botón salir de sala
-    const leaveRoomBtn = document.getElementById('leave-room-btn');
-    if (leaveRoomBtn) {
-      leaveRoomBtn.addEventListener('click', () => this.handleLeaveRoom());
-    }
+    const leaveRoomBtn = document.getElementById('leave-waiting-btn');
+    if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', () => this.handleLeaveRoom());
   },
 
   /**
    * Configurar listeners de Socket.io
    */
   setupSocketListeners() {
-    // Jugador se unió
-    SocketClient.on('player_joined', (data) => {
-      console.log('Jugador se unió:', data);
-      this.updateRoom(data.room);
-      UI.showToast(`${data.userName} se unió a la sala`, 'success');
-      TelegramApp.hapticFeedback('success');
-    });
-
-    // Sala actualizada
-    SocketClient.on('room_updated', (room) => {
-      if (this.currentRoom && room.code === this.currentRoom.code) {
-        this.updateRoom(room);
-      }
-    });
-
-    // Inicio de juego
+    // Inicio de juego (TTT)
     SocketClient.on('game_start', (data) => {
-      console.log('Juego iniciado:', data);
       Game.start(data);
-    });
-
-    // Jugador abandonó
-    SocketClient.on('player_left', (data) => {
-      if (this.currentRoom && data.roomCode === this.currentRoom.code) {
-        this.updateRoom(data.room);
-      }
     });
 
     // Sala cerrada
@@ -82,13 +49,10 @@ const WaitingRoom = {
       UI.showScreen('lobby-screen');
     });
 
-    // Host transferido
-    SocketClient.on('host_transferred', (data) => {
-      console.log('Host transferido:', data);
-      UI.showToast(data.message, 'info');
-      if (this.currentRoom) {
-        this.currentRoom.host = data.newHostId;
-        this.render();
+    // Dominó: actualizar sala
+    SocketClient.on('domino_room_updated', ({ room }) => {
+      if (this.currentRoom && room && room.code === this.currentRoom.code) {
+        this.updateRoom(room);
       }
     });
   },
@@ -97,19 +61,17 @@ const WaitingRoom = {
    * Mostrar sala de espera
    */
   show(room) {
-    console.log('Mostrando sala de espera:', room);
     this.currentRoom = room;
-    
+
     // Ocultar loading primero
     const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) {
-      loadingScreen.classList.remove('active');
-    }
-    
+    if (loadingScreen) loadingScreen.classList.remove('active');
+
     // Renderizar y mostrar
     this.render();
     UI.showScreen('waiting-room-screen');
     TelegramApp.hapticFeedback('success');
+    try { TelegramApp.showBackButton(() => this.handleBack()); } catch(_) {}
   },
 
   /**
@@ -118,35 +80,38 @@ const WaitingRoom = {
   render() {
     if (!this.currentRoom) return;
 
-    // Actualizar código de sala
-    const roomCodeEl = document.getElementById('room-code');
-    if (roomCodeEl) {
-      roomCodeEl.textContent = this.currentRoom.code;
-    }
+    // Código de sala
+    const roomCodeEl = document.getElementById('room-code-display');
+    if (roomCodeEl) roomCodeEl.textContent = this.currentRoom.code;
 
-    // Actualizar información del host
+    // Actualizar info de host y jugadores
     this.updateHostInfo();
-
-    // Actualizar slots de jugadores
     this.updatePlayerSlots();
-
-    // Actualizar botón de hacer pública
     this.updatePublicButton();
   },
 
   /**
-   * Actualizar información del host
+   * Actualizar información del host (TTT/Domino)
    */
   updateHostInfo() {
     const hostNameEl = document.getElementById('host-name');
     const hostAvatarEl = document.getElementById('host-avatar');
 
-    if (hostNameEl && this.currentRoom.host) {
-      hostNameEl.textContent = this.currentRoom.host.firstName;
+    let hostDisplayName = '';
+    let hostAvatar = '';
+
+    if (this.currentRoom?.host && typeof this.currentRoom.host === 'object') {
+      hostDisplayName = this.currentRoom.host.firstName || this.currentRoom.host.userName || 'Host';
+      hostAvatar = this.currentRoom.host.photoUrl || this.currentRoom.host.userAvatar || '';
+    } else if (Array.isArray(this.currentRoom?.players) && this.currentRoom.players.length) {
+      const host = this.currentRoom.players[0];
+      hostDisplayName = host.userName || host.firstName || 'Host';
+      hostAvatar = host.userAvatar || host.photoUrl || '';
     }
 
-    if (hostAvatarEl && this.currentRoom.host && this.currentRoom.host.photoUrl) {
-      hostAvatarEl.src = this.currentRoom.host.photoUrl;
+    if (hostNameEl) hostNameEl.textContent = hostDisplayName || 'Host';
+    if (hostAvatarEl) {
+      hostAvatarEl.src = hostAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(hostDisplayName || 'Host')}&background=2481cc&color=fff`;
     }
   },
 
@@ -154,49 +119,43 @@ const WaitingRoom = {
    * Actualizar slots de jugadores
    */
   updatePlayerSlots() {
-    const player1Slot = document.getElementById('player-1-slot');
-    const player2Slot = document.getElementById('player-2-slot');
+    const hostSlot = document.getElementById('host-slot');
+    const guestSlot = document.getElementById('guest-slot');
+    if (!hostSlot || !guestSlot) return;
 
-    if (!player1Slot || !player2Slot) return;
-
-    // Slot 1 (Host)
-    if (this.currentRoom.host) {
-      player1Slot.innerHTML = `
-        <div class="player-info">
-          <img src="${this.currentRoom.host.photoUrl || ''}" alt="Host" class="player-avatar">
-          <div class="player-details">
-            <div class="player-name">${Utils.escapeHtml(this.currentRoom.host.firstName)}</div>
-            <div class="player-status">Anfitrión</div>
-          </div>
-        </div>
-      `;
-      player1Slot.classList.add('occupied');
-    }
-
-    // Slot 2 (Invitado)
+    // Host ya se renderiza con host-name/host-avatar; mantener placeholder de invitado
     if (this.currentRoom.players && this.currentRoom.players.length > 1) {
-      const guest = this.currentRoom.players.find(p => p.userId !== this.currentRoom.host.userId);
+      const guest = this.currentRoom.players.find(p => p.userId !== this.currentRoom.host?.userId);
       if (guest) {
-        player2Slot.innerHTML = `
-          <div class="player-info">
-            <img src="${guest.photoUrl || ''}" alt="Guest" class="player-avatar">
-            <div class="player-details">
-              <div class="player-name">${Utils.escapeHtml(guest.firstName)}</div>
-              <div class="player-status">Invitado</div>
-            </div>
-          </div>
-        `;
-        player2Slot.classList.add('occupied');
+        const guestName = Utils.escapeHtml(guest.userName || guest.firstName || 'Invitado');
+        const guestAvatar = guest.userAvatar || guest.photoUrl || '';
+        guestSlot.classList.remove('empty');
+        guestSlot.classList.add('filled');
+        guestSlot.querySelector('.player-avatar-placeholder')?.remove();
+        const wrapper = guestSlot.querySelector('.player-avatar-wrapper');
+        if (wrapper) {
+          wrapper.classList.remove('waiting-pulse');
+          const img = document.createElement('img');
+          img.className = 'player-avatar';
+          img.alt = 'Guest';
+          img.src = guestAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(guestName)}&background=2481cc&color=fff`;
+          wrapper.querySelector('img')?.remove();
+          wrapper.prepend(img);
+        }
+        const info = guestSlot.querySelector('.player-info .player-name');
+        if (info) info.textContent = guestName;
       }
     } else {
-      player2Slot.innerHTML = `
-        <div class="player-placeholder">
-          <div class="placeholder-icon">👤</div>
-          <div class="placeholder-text">Esperando jugador...</div>
-        </div>
-      `;
-      player2Slot.classList.remove('occupied');
+      guestSlot.classList.add('empty');
+      guestSlot.classList.remove('filled');
     }
+  },
+
+  // Botón atrás → confirmación y salida
+  handleBack() {
+    TelegramApp.showConfirm('¿Salir de la sala?', (confirmed) => {
+      if (confirmed) this.handleLeaveRoom();
+    });
   },
 
   /**
@@ -283,3 +242,6 @@ const WaitingRoom = {
     });
   }
 };
+
+// Hacer global
+window.WaitingRoom = WaitingRoom;

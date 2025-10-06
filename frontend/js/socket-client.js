@@ -313,6 +313,7 @@ const SocketClient = {
     });
 
     this.socket.on(CONFIG.EVENTS.DOMINO_ROOM_UPDATED, (payload) => {
+      try { this.currentDominoRoom = payload?.room?.code || this.currentDominoRoom; } catch(_) {}
       this.emit(CONFIG.EVENTS.DOMINO_ROOM_UPDATED, payload);
     });
 
