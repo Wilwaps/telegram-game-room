@@ -116,16 +116,17 @@ const WaitingRoom = {
 
     // Construir 4 slots
     const players = Array.isArray(this.currentRoom.players) ? this.currentRoom.players.slice(0, 4) : [];
-    const hostId = (typeof this.currentRoom.host === 'string')
+    const hostIdRaw = (typeof this.currentRoom.host === 'string')
       ? this.currentRoom.host
       : (this.currentRoom.host && this.currentRoom.host.userId) ? this.currentRoom.host.userId : (players[0]?.userId || null);
+    const hostId = hostIdRaw != null ? String(hostIdRaw) : null;
 
     const slotHtml = (index) => {
       const p = players[index];
       if (p) {
         const name = Utils.escapeHtml(p.userName || p.firstName || `Jugador ${index+1}`);
         const avatar = p.userAvatar || p.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2481cc&color=fff`;
-        const isHost = p.userId === hostId;
+        const isHost = String(p.userId) === hostId;
         const ready = !!p.isReady;
         return `
           <div class="player-slot filled" id="domino-slot-${index}">
@@ -185,6 +186,10 @@ const WaitingRoom = {
             <span class="btn-icon">🎮</span>
             <span class="btn-text">Modo: Amistoso</span>
           </button>
+          <button id="domino-make-public-btn" class="btn btn-secondary">
+            <span class="btn-icon">🌐</span>
+            <span class="btn-text">Hacer Pública</span>
+          </button>
         </div>
       `;
       actions.prepend(wrap);
@@ -193,10 +198,19 @@ const WaitingRoom = {
       const readyBtn = wrap.querySelector('#domino-ready-btn');
       const startBtn = wrap.querySelector('#domino-start-btn');
       const modeBtn = wrap.querySelector('#domino-mode-toggle');
+      const makePublicDominoBtn = wrap.querySelector('#domino-make-public-btn');
 
       if (readyBtn) readyBtn.addEventListener('click', () => this.toggleDominoReady());
       if (startBtn) startBtn.addEventListener('click', () => this.handleDominoStart());
       if (modeBtn) modeBtn.addEventListener('click', () => this.toggleDominoMode());
+      if (makePublicDominoBtn) makePublicDominoBtn.addEventListener('click', () => {
+        if (!this.currentRoom?.isPublic && this.isDominoHost()) {
+          SocketClient.makeDominoPublic(this.currentRoom.code);
+        }
+      });
+
+      // Ocultar botón genérico para evitar duplicado visual en Dominó
+      try { const generic = document.getElementById('make-public-btn'); if (generic) generic.style.display = 'none'; } catch(_) {}
     }
   },
 
@@ -205,10 +219,11 @@ const WaitingRoom = {
     const readyBtn = document.getElementById('domino-ready-btn');
     const startBtn = document.getElementById('domino-start-btn');
     const modeBtn = document.getElementById('domino-mode-toggle');
+    const makePublicDominoBtn = document.getElementById('domino-make-public-btn');
     if (!this.currentRoom) return;
 
-    const myId = SocketClient.userId;
-    const me = (this.currentRoom.players || []).find(p => p.userId === myId);
+    const myId = String(SocketClient.userId);
+    const me = (this.currentRoom.players || []).find(p => String(p.userId) === myId);
     const myReady = !!me?.isReady;
     const isHost = this.isDominoHost();
     const allReady = this.canStartDomino();
@@ -233,12 +248,31 @@ const WaitingRoom = {
       modeBtn.disabled = !isHost;
       if (modeBtn.disabled) modeBtn.classList.add('disabled'); else modeBtn.classList.remove('disabled');
     }
+
+    if (makePublicDominoBtn) {
+      if (this.currentRoom.isPublic) {
+        UI.updateButtonText('domino-make-public-btn', 'Sala Pública');
+        makePublicDominoBtn.disabled = true;
+        makePublicDominoBtn.classList.add('disabled');
+      } else {
+        UI.updateButtonText('domino-make-public-btn', 'Hacer Pública');
+        makePublicDominoBtn.disabled = !isHost;
+        if (makePublicDominoBtn.disabled) {
+          makePublicDominoBtn.classList.add('disabled');
+          makePublicDominoBtn.title = 'Solo el anfitrión puede hacer pública la sala';
+        } else {
+          makePublicDominoBtn.classList.remove('disabled');
+          makePublicDominoBtn.title = '';
+        }
+      }
+    }
   },
 
   isDominoHost() {
     if (!this.currentRoom) return false;
     const hostId = typeof this.currentRoom.host === 'string' ? this.currentRoom.host : this.currentRoom.host?.userId;
-    return hostId && SocketClient.userId && hostId === SocketClient.userId;
+    if (hostId == null || SocketClient.userId == null) return false;
+    return String(hostId) === String(SocketClient.userId);
   },
 
   canStartDomino() {
