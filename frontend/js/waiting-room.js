@@ -84,10 +84,66 @@ const WaitingRoom = {
     const roomCodeEl = document.getElementById('room-code-display');
     if (roomCodeEl) roomCodeEl.textContent = this.currentRoom.code;
 
-    // Actualizar info de host y jugadores
-    this.updateHostInfo();
-    this.updatePlayerSlots();
+    // Actualizar jugadores según tipo de juego
+    if (this.currentRoom.gameType === 'domino') {
+      this.renderDominoPlayers();
+    } else {
+      this.updateHostInfo();
+      this.updatePlayerSlots();
+    }
     this.updatePublicButton();
+  },
+
+  /**
+   * Renderizar jugadores para Dominó (4 jugadores)
+   */
+  renderDominoPlayers() {
+    const container = document.querySelector('#waiting-room-screen .players-waiting');
+    if (!container) return;
+
+    // Construir 4 slots
+    const players = Array.isArray(this.currentRoom.players) ? this.currentRoom.players.slice(0, 4) : [];
+    const hostId = (typeof this.currentRoom.host === 'string')
+      ? this.currentRoom.host
+      : (this.currentRoom.host && this.currentRoom.host.userId) ? this.currentRoom.host.userId : (players[0]?.userId || null);
+
+    const slotHtml = (index) => {
+      const p = players[index];
+      if (p) {
+        const name = Utils.escapeHtml(p.userName || p.firstName || `Jugador ${index+1}`);
+        const avatar = p.userAvatar || p.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2481cc&color=fff`;
+        const isHost = p.userId === hostId;
+        return `
+          <div class="player-slot filled" id="domino-slot-${index}">
+            <div class="player-avatar-wrapper">
+              <img class="player-avatar" alt="P${index+1}" src="${avatar}">
+            </div>
+            <div class="player-info">
+              <span class="player-name">${name}</span>
+              ${isHost ? '<span class="player-badge host-badge">Host</span>' : ''}
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div class="player-slot empty" id="domino-slot-${index}">
+          <div class="player-avatar-wrapper waiting-pulse">
+            <div class="player-avatar-placeholder"><span>?</span></div>
+          </div>
+          <div class="player-info">
+            <span class="player-name">Esperando jugador...</span>
+          </div>
+        </div>
+      `;
+    };
+
+    container.innerHTML = `${slotHtml(0)}
+      <div class="vs-divider"><span class="vs-text">VS</span></div>
+      ${slotHtml(1)}
+      <div class="vs-divider"><span class="vs-text">VS</span></div>
+      ${slotHtml(2)}
+      <div class="vs-divider"><span class="vs-text">VS</span></div>
+      ${slotHtml(3)}`;
   },
 
   /**
@@ -125,7 +181,15 @@ const WaitingRoom = {
 
     // Host ya se renderiza con host-name/host-avatar; mantener placeholder de invitado
     if (this.currentRoom.players && this.currentRoom.players.length > 1) {
-      const guest = this.currentRoom.players.find(p => p.userId !== this.currentRoom.host?.userId);
+      let hostId = null;
+      if (this.currentRoom.host && typeof this.currentRoom.host === 'object') {
+        hostId = this.currentRoom.host.userId;
+      } else if (typeof this.currentRoom.host === 'string') {
+        hostId = this.currentRoom.host;
+      } else if (Array.isArray(this.currentRoom.players) && this.currentRoom.players.length) {
+        hostId = this.currentRoom.players[0].userId;
+      }
+      const guest = this.currentRoom.players.find(p => p.userId !== hostId);
       if (guest) {
         const guestName = Utils.escapeHtml(guest.userName || guest.firstName || 'Invitado');
         const guestAvatar = guest.userAvatar || guest.photoUrl || '';
@@ -164,6 +228,14 @@ const WaitingRoom = {
   updatePublicButton() {
     const makePublicBtn = document.getElementById('make-public-btn');
     if (!makePublicBtn) return;
+
+    // En Dominó aún no soportamos "hacer pública"
+    if (this.currentRoom.gameType === 'domino') {
+      makePublicBtn.textContent = 'No disponible en Dominó';
+      makePublicBtn.disabled = true;
+      makePublicBtn.classList.add('disabled');
+      return;
+    }
 
     if (this.currentRoom.isPublic) {
       makePublicBtn.textContent = '🔓 Sala Pública';
@@ -206,7 +278,10 @@ const WaitingRoom = {
   handleInviteFriends() {
     if (!this.currentRoom) return;
 
-    const shareUrl = `${window.location.origin}?room=${this.currentRoom.code}`;
+    const isDomino = this.currentRoom.gameType === 'domino';
+    const shareUrl = isDomino
+      ? `${window.location.origin}?room=${this.currentRoom.code}&game=domino`
+      : `${window.location.origin}?room=${this.currentRoom.code}`;
     const shareText = `¡Únete a mi sala de juegos! Código: ${this.currentRoom.code}`;
 
     // Usar API correcta de TelegramApp
@@ -234,7 +309,11 @@ const WaitingRoom = {
     // Confirmación usando API unificada
     TelegramApp.showConfirm('¿Salir de la sala?', (confirmed) => {
       if (confirmed) {
-        SocketClient.leaveRoom(this.currentRoom.code);
+        if (this.currentRoom.gameType === 'domino') {
+          SocketClient.leaveDomino(this.currentRoom.code);
+        } else {
+          SocketClient.leaveRoom(this.currentRoom.code);
+        }
         this.currentRoom = null;
         UI.showScreen('lobby-screen');
         TelegramApp.hapticFeedback('medium');
