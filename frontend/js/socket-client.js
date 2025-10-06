@@ -350,6 +350,8 @@ const SocketClient = {
 
     // Inicio de juego
     this.socket.on(CONFIG.EVENTS.GAME_START, (data) => {
+      // Asegurar referencia de sala para revanchas consecutivas
+      try { this.currentRoom = data?.room?.code || this.currentRoom; } catch(_) {}
       TelegramApp.hapticFeedback('success');
       this.emit('game_start', data);
     });
@@ -386,6 +388,8 @@ const SocketClient = {
 
     // Reinicio de juego
     this.socket.on(CONFIG.EVENTS.GAME_RESTART, (data) => {
+      // Mantener la sala actual para siguientes revanchas
+      try { this.currentRoom = data?.room?.code || this.currentRoom; } catch(_) {}
       TelegramApp.hapticFeedback('success');
       UI.showToast(data.message, 'success');
       this.emit('game_restart', data);
