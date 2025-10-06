@@ -250,7 +250,8 @@ const WaitingRoom = {
     const shareUrl = `${window.location.origin}?room=${this.currentRoom.code}`;
     const shareText = `¡Únete a mi sala de juegos! Código: ${this.currentRoom.code}`;
 
-    TelegramApp.shareUrl(shareUrl, shareText);
+    // Usar API correcta de TelegramApp
+    TelegramApp.shareLink(shareUrl, shareText);
     TelegramApp.hapticFeedback('medium');
   },
 
@@ -271,17 +272,14 @@ const WaitingRoom = {
   handleLeaveRoom() {
     if (!this.currentRoom) return;
 
-    TelegramApp.confirm(
-      '¿Salir de la sala?',
-      '¿Estás seguro de que quieres salir de esta sala?',
-      (confirmed) => {
-        if (confirmed) {
-          SocketClient.leaveRoom(this.currentRoom.code);
-          this.currentRoom = null;
-          UI.showScreen('lobby-screen');
-          TelegramApp.hapticFeedback('medium');
-        }
+    // Confirmación usando API unificada
+    TelegramApp.showConfirm('¿Salir de la sala?', (confirmed) => {
+      if (confirmed) {
+        SocketClient.leaveRoom(this.currentRoom.code);
+        this.currentRoom = null;
+        UI.showScreen('lobby-screen');
+        TelegramApp.hapticFeedback('medium');
       }
-    );
+    });
   }
 };

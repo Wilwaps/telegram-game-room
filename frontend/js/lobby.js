@@ -7,11 +7,14 @@
 const Lobby = {
   rooms: [],
   currentFilter: 'all',
+  joinGameType: 'tic-tac-toe', // 'tic-tac-toe' | 'domino'
 
   /**
    * Inicializar lobby
    */
   init() {
+    // Asegurar tarjeta Dominó antes de enlazar eventos
+    this.ensureDominoCard();
     this.setupEventListeners();
     this.setupSocketListeners();
   },
@@ -20,6 +23,9 @@ const Lobby = {
    * Configurar event listeners
    */
   setupEventListeners() {
+    // Asegurar tarjeta Dominó (por si el DOM se montó tarde)
+    this.ensureDominoCard();
+
     // Botón crear sala
     const createRoomBtn = document.getElementById('create-room-btn');
     if (createRoomBtn) {
@@ -29,7 +35,7 @@ const Lobby = {
     // Botón unirse con código
     const joinCodeBtn = document.getElementById('join-code-btn');
     if (joinCodeBtn) {
-      joinCodeBtn.addEventListener('click', () => this.handleJoinWithCode());
+      joinCodeBtn.addEventListener('click', () => { this.joinGameType = 'tic-tac-toe'; this.handleJoinWithCode('Unirse a Tic Tac Toe'); });
     }
 
     // Botón refrescar salas
@@ -86,6 +92,23 @@ const Lobby = {
         }
       });
     }
+
+    // Botones Dominó (si existen)
+    const createDominoBtn = document.getElementById('create-domino-btn');
+    if (createDominoBtn) {
+      createDominoBtn.addEventListener('click', () => {
+        this.joinGameType = 'domino';
+        UI.showToast('Creando sala de Dominó...', 'info');
+        SocketClient.createDominoRoom({ isPublic: true, mode: 'friendly', stake: 1 });
+      });
+    }
+    const joinDominoBtn = document.getElementById('join-domino-btn');
+    if (joinDominoBtn) {
+      joinDominoBtn.addEventListener('click', () => {
+        this.joinGameType = 'domino';
+        this.handleJoinWithCode('Unirse a Dominó');
+      });
+    }
   },
 
   /**
@@ -128,6 +151,11 @@ const Lobby = {
     SocketClient.on('room_created', (room) => {
       WaitingRoom.show(room);
     });
+
+    // Aviso al crear Dominó (no hay pantalla dedicada aún)
+    SocketClient.on('domino_room_created', ({ room }) => {
+      UI.showToast('Sala de Dominó creada', 'success');
+    });
   },
 
   /**
@@ -142,8 +170,14 @@ const Lobby = {
   /**
    * Manejar unirse con código
    */
-  handleJoinWithCode() {
+  handleJoinWithCode(title = 'Unirse a Sala') {
     TelegramApp.hapticFeedback('light');
+    // Actualizar título del modal
+    try {
+      const modal = document.getElementById('code-modal');
+      const titleEl = modal ? modal.querySelector('.modal-title') : null;
+      if (titleEl) titleEl.textContent = title;
+    } catch(_) {}
     UI.showModal('code-modal');
     
     // Enfocar input
@@ -172,7 +206,14 @@ const Lobby = {
     }
 
     UI.hideModal('code-modal');
-    this.handleJoinRoomByCode(roomCode);
+    if (this.joinGameType === 'domino') {
+      // Unirse a Dominó
+      SocketClient.joinDomino(roomCode);
+      UI.showToast(`Uniéndose a Dominó ${roomCode}...`, 'info');
+    } else {
+      // Unirse a Tic Tac Toe
+      this.handleJoinRoomByCode(roomCode);
+    }
   },
 
   /**
@@ -227,6 +268,34 @@ const Lobby = {
   },
 
   /**
+   * Insertar tarjeta de Dominó si no existe
+   */
+  ensureDominoCard() {
+    try {
+      const selector = document.querySelector('.game-selector');
+      if (!selector) return;
+      if (document.getElementById('select-domino')) return;
+      const card = document.createElement('div');
+      card.className = 'game-card';
+      card.id = 'select-domino';
+      card.innerHTML = `
+        <div class="game-icon">🁣</div>
+        <div class="game-info">
+          <h3>Dominó</h3>
+          <p>4 jugadores con stake opcional</p>
+        </div>
+        <div class="game-actions">
+          <button id="create-domino-btn" class="btn btn-primary btn-small">Crear</button>
+          <button id="join-domino-btn" class="btn btn-secondary btn-small">Unirse</button>
+        </div>
+      `;
+      selector.appendChild(card);
+    } catch (e) {
+      console.error('ensureDominoCard error:', e);
+    }
+  },
+
+  /**
    * Mostrar lobby
    */
   show() {
@@ -236,180 +305,5 @@ const Lobby = {
   }
 };
 
-/**
- * ============================================
- * SALA DE ESPERA
- * ============================================
- */
-
-const WaitingRoom = {
-  currentRoom: null,
-
-  /**
-   * Inicializar sala de espera
-   */
-  init() {
-    this.setupEventListeners();
-    this.setupSocketListeners();
-  },
-
-  /**
-   * Configurar event listeners
-   */
-  setupEventListeners() {
-    // Botón volver al lobby
-    const backBtn = document.getElementById('back-to-lobby-btn');
-    if (backBtn) {
-      backBtn.addEventListener('click', () => this.handleBack());
-    }
-
-    // Botón copiar código
-    const copyBtn = document.getElementById('copy-code-btn');
-    if (copyBtn) {
-      copyBtn.addEventListener('click', () => this.handleCopyCode());
-    }
-
-    // Botón invitar amigos
-    const inviteBtn = document.getElementById('invite-friends-btn');
-    if (inviteBtn) {
-      inviteBtn.addEventListener('click', () => this.handleInvite());
-    }
-
-    // Botón hacer pública
-    const publicBtn = document.getElementById('make-public-btn');
-    if (publicBtn) {
-      publicBtn.addEventListener('click', () => this.handleMakePublic());
-    }
-
-    // Botón salir
-    const leaveBtn = document.getElementById('leave-waiting-btn');
-    if (leaveBtn) {
-      leaveBtn.addEventListener('click', () => this.handleLeave());
-    }
-  },
-
-  /**
-   * Configurar listeners de Socket.io
-   */
-  setupSocketListeners() {
-    // Inicio de juego
-    SocketClient.on('game_start', (data) => {
-      Game.start(data);
-    });
-
-    // Sala cerrada
-    SocketClient.on('room_closed', () => {
-      Lobby.show();
-    });
-  },
-
-  /**
-   * Mostrar sala de espera
-   */
-  show(room) {
-    this.currentRoom = room;
-    UI.showScreen('waiting-room-screen');
-    // Asegurar badge de fuegos en header de sala de espera y refrescar valor actual
-    try {
-      UI.ensureFiresBadge('#waiting-room-screen .waiting-header', 'fires-count-waiting');
-      if (typeof Economy !== 'undefined') {
-        UI.updateFiresBalance(Economy.fires);
-      }
-    } catch(_){}
-
-    // Actualizar información
-    this.updateRoomInfo(room);
-
-    // Configurar botón de atrás
-    TelegramApp.showBackButton(() => this.handleBack());
-  },
-
-  /**
-   * Actualizar información de la sala
-   */
-  updateRoomInfo(room) {
-    // Código de sala
-    const codeDisplay = document.getElementById('room-code-display');
-    if (codeDisplay) {
-      codeDisplay.textContent = room.code;
-    }
-
-    // Host
-    const host = room.players[0];
-    if (host) {
-      const hostName = document.getElementById('host-name');
-      const hostAvatar = document.getElementById('host-avatar');
-
-      if (hostName) hostName.textContent = host.userName;
-      if (hostAvatar) {
-        hostAvatar.src = host.userAvatar || 
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(host.userName)}&background=2481cc&color=fff`;
-      }
-    }
-  },
-
-  /**
-   * Manejar volver
-   */
-  handleBack() {
-    TelegramApp.showConfirm('¿Salir de la sala?', (confirmed) => {
-      if (confirmed) {
-        this.handleLeave();
-      }
-    });
-  },
-
-  /**
-   * Manejar copiar código
-   */
-  async handleCopyCode() {
-    if (!this.currentRoom) return;
-
-    const success = await Utils.copyToClipboard(this.currentRoom.code);
-    if (success) {
-      UI.showToast('Código copiado', 'success');
-      TelegramApp.hapticFeedback('success');
-    } else {
-      UI.showToast('Error al copiar', 'error');
-      TelegramApp.hapticFeedback('error');
-    }
-  },
-
-  /**
-   * Manejar invitar amigos
-   */
-  handleInvite() {
-    if (!this.currentRoom) return;
-
-    const url = `${window.location.origin}?room=${this.currentRoom.code}`;
-    const text = `¡Únete a mi partida de Tic Tac Toe!\nCódigo: ${this.currentRoom.code}`;
-
-    TelegramApp.shareLink(url, text);
-    TelegramApp.hapticFeedback('medium');
-  },
-
-  /**
-   * Manejar hacer pública
-   */
-  handleMakePublic() {
-    TelegramApp.hapticFeedback('medium');
-    SocketClient.makePublic();
-    UI.showToast('Sala ahora es pública', 'success');
-    
-    // Deshabilitar botón
-    UI.disableButton('make-public-btn');
-  },
-
-  /**
-   * Manejar salir
-   */
-  handleLeave() {
-    TelegramApp.hapticFeedback('medium');
-    SocketClient.leaveRoom();
-    Lobby.show();
-  }
-};
-
 // Hacer módulos globales
 window.Lobby = Lobby;
-window.WaitingRoom = WaitingRoom;
