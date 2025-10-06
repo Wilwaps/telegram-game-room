@@ -200,6 +200,10 @@ const constants = {
     GET_FIRES_HISTORY: 'get_fires_history',
     FIRES_HISTORY: 'fires_history',
     FIRES_TRANSACTION: 'fires_transaction',
+    // Onboarding / Bienvenida
+    WELCOME_STATUS: 'welcome_status',
+    WELCOME_INFO: 'welcome_info',
+    WELCOME_CLAIM: 'welcome_claim',
     
     // Bingo
     CREATE_BINGO_ROOM: 'create_bingo_room',

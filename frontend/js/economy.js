@@ -9,6 +9,7 @@ const Economy = {
   history: [],
   historyLimit: 100,
   debug: true,
+  welcomeClaimed: true,
 
   init() {
     if (this.debug) console.log('[Economy] init()');
@@ -41,10 +42,35 @@ const Economy = {
         this.history.pop();
       }
       this.renderHistory();
+      // Si fue el bono de bienvenida, cerrar modal, ocultar FAB y mostrar mensaje
+      if (tx.reason === 'welcome_bonus') {
+        UI.hideModal('welcome-modal');
+        this.hideWelcomeFab();
+        UI.showToast('Has recibido 10 🔥 de bienvenida', 'success');
+      }
+    });
+
+    // Bienvenida
+    SocketClient.on(CONFIG.EVENTS.WELCOME_INFO, (payload) => {
+      const { claimed, amount, message } = payload || {};
+      if (this.debug) console.log('[Economy] WELCOME_INFO <-', payload);
+      this.welcomeClaimed = !!claimed;
+      if (!this.welcomeClaimed) {
+        this.showWelcomeFab();
+        // Pre-render de modal con mensaje
+        const msg = document.getElementById('welcome-message');
+        if (msg && message) msg.textContent = message;
+      } else {
+        this.hideWelcomeFab();
+      }
     });
 
     // Solicitar saldo inicial
     this.refresh();
+
+    // Inicializar UI de bienvenida y consultar estado
+    this.setupWelcomeUI();
+    SocketClient.welcomeStatus();
 
     // Click en badge de fuegos abre modal
     const firesBadge = document.querySelector('.fires-badge');
@@ -125,5 +151,49 @@ const Economy = {
 
   async ensure(amount) {
     return (this.fires >= amount);
+  },
+
+  // ======================
+  // Bienvenida - UI
+  // ======================
+  setupWelcomeUI() {
+    const fab = document.getElementById('welcome-fab');
+    if (fab && !fab.__bound) {
+      fab.addEventListener('click', () => {
+        const msg = document.getElementById('welcome-message');
+        if (msg && !msg.textContent) {
+          msg.textContent = 'Necesitas los fuegos para participar en las actividades. No te preocupes qué también hay formas de ganarlos!! Disfruta tu tiempo en este espacio 🎵';
+        }
+        UI.showModal('welcome-modal');
+      });
+      fab.__bound = true;
+    }
+
+    const claimBtn = document.getElementById('welcome-claim-btn');
+    if (claimBtn && !claimBtn.__bound) {
+      claimBtn.addEventListener('click', () => {
+        claimBtn.disabled = true;
+        TelegramApp.hapticFeedback('medium');
+        SocketClient.welcomeClaim();
+        setTimeout(() => { claimBtn.disabled = false; }, 2000);
+      });
+      claimBtn.__bound = true;
+    }
+
+    const closeBtn = document.getElementById('welcome-close-btn');
+    if (closeBtn && !closeBtn.__bound) {
+      closeBtn.addEventListener('click', () => UI.hideModal('welcome-modal'));
+      closeBtn.__bound = true;
+    }
+  },
+
+  showWelcomeFab() {
+    const fab = document.getElementById('welcome-fab');
+    if (fab) fab.classList.remove('hidden');
+  },
+
+  hideWelcomeFab() {
+    const fab = document.getElementById('welcome-fab');
+    if (fab) fab.classList.add('hidden');
   }
 };

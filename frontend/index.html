@@ -557,6 +557,29 @@
     <!-- ========================================== -->
     <div id="toast-container" class="toast-container"></div>
 
+    <!-- FAB de Bienvenida (solo primera vez) -->
+    <div id="welcome-fab" class="welcome-fab hidden" title="Bienvenida">🎁</div>
+
+    <!-- Modal de Bienvenida -->
+    <div id="welcome-modal" class="modal">
+        <div class="modal-overlay" data-close="welcome-modal"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">¡Bienvenido!</h3>
+                <button id="welcome-close-btn" class="btn-close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="welcome-message">Necesitas los fuegos para participar en las actividades. No te preocupes qué también hay formas de ganarlos!! Disfruta tu tiempo en este espacio 🎵</p>
+                <div class="mt-md" style="display:flex;align-items:center;gap:8px;">
+                    <div class="fires-bonus-visual">🔥 x10</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="welcome-claim-btn" class="btn btn-primary">Reclamar 10 🔥</button>
+            </div>
+        </div>
+    </div>
+
     <div id="fires-modal" class="modal">
         <div class="modal-overlay"></div>
         <div class="modal-content">
@@ -593,5 +616,5 @@
     <script src="js/bingo.js"></script>
     <script src="js/result.js"></script>
     <script src="js/app.js"></script>
-</body>
+  </body>
 </html>

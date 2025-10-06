@@ -124,6 +124,48 @@ class SocketService {
         }
       });
 
+      // Onboarding / Bienvenida - consultar estado
+      socket.on(constants.SOCKET_EVENTS.WELCOME_STATUS, async () => {
+        try {
+          const key = `${constants.REDIS_PREFIXES.USER}${socket.userId}:welcome_claimed`;
+          const claimed = !!(await redisService.client.get(key));
+          socket.emit(constants.SOCKET_EVENTS.WELCOME_INFO, {
+            claimed,
+            amount: 10,
+            message: 'Necesitas los fuegos para participar en las actividades. No te preocupes qué también hay formas de ganarlos!! Disfruta tu tiempo en este espacio 🎵'
+          });
+        } catch (err) {
+          logger.error('Error WELCOME_STATUS:', err);
+        }
+      });
+
+      // Onboarding / Bienvenida - reclamar bono (idempotente)
+      socket.on(constants.SOCKET_EVENTS.WELCOME_CLAIM, async () => {
+        try {
+          const key = `${constants.REDIS_PREFIXES.USER}${socket.userId}:welcome_claimed`;
+          const already = await redisService.client.get(key);
+          if (already) {
+            // Reenviar estado y balance actual
+            const balance = await this.economy.getFires(socket.userId);
+            socket.emit(constants.SOCKET_EVENTS.FIRES_BALANCE, balance);
+            socket.emit(constants.SOCKET_EVENTS.WELCOME_INFO, { claimed: true, amount: 10 });
+            return;
+          }
+          await redisService.client.set(key, '1');
+          const earn = await this.economy.earn(socket.userId, 10, { reason: 'welcome_bonus' });
+          // Notificar a todos los sockets del usuario
+          const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+          allSockets.filter(s => s.userId === socket.userId).forEach(s => {
+            s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: earn.fires });
+            if (earn.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, earn.tx);
+            s.emit(constants.SOCKET_EVENTS.WELCOME_INFO, { claimed: true, amount: 10 });
+          });
+        } catch (err) {
+          logger.error('Error WELCOME_CLAIM:', err);
+          this.emitError(socket, 'No se pudo reclamar el bono de bienvenida');
+        }
+      });
+
       // Hacer pública (idempotente)
       socket.on(constants.SOCKET_EVENTS.BINGO_MAKE_PUBLIC, async ({ roomCode } = {}) => {
         try {
@@ -530,6 +572,19 @@ class SocketService {
         ...(Array.isArray(bingoRooms) ? bingoRooms.map(r => r.toJSON()) : [])
       ];
       socket.emit(constants.SOCKET_EVENTS.ROOMS_LIST, roomList);
+
+      // Informar estado de bienvenida
+      try {
+        const key = `${constants.REDIS_PREFIXES.USER}${validData.userId}:welcome_claimed`;
+        const claimed = !!(await redisService.client.get(key));
+        socket.emit(constants.SOCKET_EVENTS.WELCOME_INFO, {
+          claimed,
+          amount: 10,
+          message: 'Necesitas los fuegos para participar en las actividades. No te preocupes qué también hay formas de ganarlos!! Disfruta tu tiempo en este espacio 🎵'
+        });
+      } catch (e) {
+        logger.warn('No se pudo enviar WELCOME_INFO:', e?.message);
+      }
 
       logger.info(`Usuario autenticado: ${validData.userId} (${user.userName}) - Saldo: ${balance.fires} 🔥`);
 

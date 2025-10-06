@@ -110,6 +110,17 @@ const SocketClient = {
   },
 
   /**
+   * Onboarding / Bienvenida
+   */
+  welcomeStatus() {
+    this.socket.emit(CONFIG.EVENTS.WELCOME_STATUS);
+  },
+
+  welcomeClaim() {
+    this.socket.emit(CONFIG.EVENTS.WELCOME_CLAIM);
+  },
+
+  /**
    * ======================
    * BINGO - MÉTODOS
    * ======================
@@ -302,6 +313,11 @@ const SocketClient = {
 
     this.socket.on(CONFIG.EVENTS.FIRES_TRANSACTION, (data) => {
       this.emit(CONFIG.EVENTS.FIRES_TRANSACTION, data);
+    });
+
+    // Onboarding / Bienvenida
+    this.socket.on(CONFIG.EVENTS.WELCOME_INFO, (payload) => {
+      this.emit(CONFIG.EVENTS.WELCOME_INFO, payload);
     });
 
     // Sala cerrada

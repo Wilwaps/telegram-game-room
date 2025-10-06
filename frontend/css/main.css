@@ -505,6 +505,46 @@ body {
 }
 
 /* ========================================== */
+/* BIENVENIDA - FAB Y VISUAL                  */
+/* ========================================== */
+
+.welcome-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  cursor: pointer;
+  font-size: 24px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.welcome-fab:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: var(--shadow-2xl);
+}
+
+.fires-bonus-visual {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 165, 0, 0.15);
+  color: #ff7a00;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
+}
+
+/* ========================================== */
 /* UTILIDADES */
 /* ========================================== */
 
