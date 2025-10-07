@@ -7,12 +7,15 @@
 const UI = {
   currentScreen: 'loading-screen',
   toastContainer: null,
+  logContainer: null,
 
   /**
    * Inicializar UI
    */
   init() {
     this.toastContainer = document.getElementById('toast-container');
+    if (!this.toastContainer) this.createToastContainer();
+    this.ensureLogOverlay();
     this.setupEventListeners();
   },
 
@@ -29,6 +32,7 @@ const UI = {
     if (waiting) waiting.textContent = String(fires ?? 0);
     const bingo = document.getElementById('fires-count-bingo');
     if (bingo) bingo.textContent = String(fires ?? 0);
+    try { this.log(`fires balance: ${fires}`, 'debug', 'economy'); } catch(_) {}
   },
 
   /**
@@ -62,6 +66,7 @@ const UI = {
    */
   showScreen(screenId) {
     console.log('🖥️ Cambiando a pantalla:', screenId);
+    try { this.log(`showScreen -> ${screenId}`, 'info', 'ui'); } catch(_) {}
     
     // Ocultar todas las pantallas
     const allScreens = document.querySelectorAll('.screen');
@@ -75,6 +80,13 @@ const UI = {
       newScreen.classList.add('active');
       this.currentScreen = screenId;
       console.log('✅ Pantalla activa:', screenId);
+      // Seguridad: retirar splash/loading por si quedaron activos
+      try {
+        const splash = document.getElementById('splash-screen');
+        const loading = document.getElementById('loading-screen');
+        if (splash) { splash.classList.remove('active'); splash.style.display = 'none'; }
+        if (loading) { loading.classList.remove('active'); }
+      } catch(_){ }
     } else {
       console.error('❌ Pantalla no encontrada:', screenId);
     }
@@ -100,40 +112,34 @@ const UI = {
       modal.classList.remove('active');
     }
   },
-
   /**
    * Mostrar toast notification
    */
   showToast(message, type = 'info', duration = CONFIG.UI.TOAST_DURATION) {
+    if (!this.toastContainer) this.createToastContainer();
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    
-    const icons = {
-      success: '✅',
-      error: '❌',
-      warning: '⚠️',
-      info: 'ℹ️'
-    };
-
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
     toast.innerHTML = `
       <span class="toast-icon">${icons[type] || icons.info}</span>
       <div class="toast-content">
         <div class="toast-message">${Utils.escapeHtml(message)}</div>
       </div>
     `;
-
     this.toastContainer.appendChild(toast);
-
+    try { this.log(`toast: ${message} [${type}]`, 'info', 'ui'); } catch(_) {}
     // Animar entrada
     setTimeout(() => toast.style.opacity = '1', 10);
-
+    // Cerrar al hacer clic
+    toast.addEventListener('click', () => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 250);
+    });
     // Remover después del tiempo especificado
     setTimeout(() => {
       toast.style.opacity = '0';
       setTimeout(() => {
-        if (toast.parentNode) {
-          toast.parentNode.removeChild(toast);
-        }
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
       }, 300);
     }, duration);
   },
@@ -316,6 +322,84 @@ const UI = {
       }
     }
   }
+};
+
+// Crear contenedor de toasts si falta
+UI.createToastContainer = function() {
+  try {
+    const c = document.createElement('div');
+    c.id = 'toast-container';
+    c.className = 'toast-container';
+    document.body.appendChild(c);
+    this.toastContainer = c;
+  } catch (e) {
+    console.error('createToastContainer error:', e);
+  }
+};
+
+// Overlay de log en tiempo real (ligero)
+UI.ensureLogOverlay = function() {
+  try {
+    let el = document.getElementById('realtime-log');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'realtime-log';
+      el.style.position = 'fixed';
+      el.style.right = '8px';
+      el.style.bottom = '8px';
+      el.style.maxHeight = '30vh';
+      el.style.width = 'min(90vw, 360px)';
+      el.style.overflow = 'auto';
+      el.style.background = 'rgba(0,0,0,0.55)';
+      el.style.color = '#fff';
+      el.style.fontSize = '11px';
+      el.style.lineHeight = '1.35';
+      el.style.padding = '8px';
+      el.style.borderRadius = '8px';
+      el.style.zIndex = '9999';
+      el.style.backdropFilter = 'blur(2px)';
+      el.style.display = 'block'; // visible por defecto (log en tiempo real)
+      document.body.appendChild(el);
+    }
+    this.logContainer = el;
+  } catch (e) {
+    console.error('ensureLogOverlay error:', e);
+  }
+};
+
+// Log en tiempo real + consola
+UI.log = function(message, level = 'info', source = 'app') {
+  try {
+    const ts = new Date().toLocaleTimeString();
+    const line = `[${ts}] [${source}] ${message}`;
+    if (level === 'error') console.error(line);
+    else if (level === 'warn') console.warn(line);
+    else console.log(line);
+    if (!this.logContainer) this.ensureLogOverlay();
+    // Mostrar último N
+    if (this.logContainer) {
+      const row = document.createElement('div');
+      row.textContent = line;
+      this.logContainer.appendChild(row);
+      // Auto recortar si excede 200 líneas
+      const maxLines = 200;
+      while (this.logContainer.childNodes.length > maxLines) {
+        this.logContainer.removeChild(this.logContainer.firstChild);
+      }
+      // Auto-scroll
+      this.logContainer.scrollTop = this.logContainer.scrollHeight;
+    }
+  } catch(_) {}
+};
+
+// Alternar visibilidad del overlay de log
+UI.setLogVisible = function(visible) {
+  try {
+    this.ensureLogOverlay();
+    if (this.logContainer) {
+      this.logContainer.style.display = visible ? 'block' : 'none';
+    }
+  } catch(_){ }
 };
 
 // Utilidad: insertar dinámicamente un badge de fuegos en headers de salas de espera

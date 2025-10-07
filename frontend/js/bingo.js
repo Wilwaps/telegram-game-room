@@ -363,6 +363,8 @@ const Bingo = {
     const activeCard = this.selectedCardId || (this.myCards[0] && this.myCards[0].id);
     if (!activeCard) return;
     // Mostrar loading durante el reclamo
+    this.hideClaimOverlay();
+    try { UI.log(`bingo:claim card=${activeCard}`, 'info', 'bingo'); } catch(_) {}
     this.claiming = true;
     UI.showLoading('Reclamando recompensa...');
     // Fallback: si no llega la transacción en 5s, abrir historial igual
@@ -531,6 +533,30 @@ const Bingo = {
           if (col === 2 && row === 2) cell.classList.add('free');
           if (card.marked && card.marked.has(num)) cell.classList.add('marked');
           grid.appendChild(cell);
+
+          // Marcar manualmente: solo si el número ya fue cantado
+          cell.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Centro libre: no requiere interacción
+            if (col === 2 && row === 2) return;
+            const n = num;
+            if (!this.drawnSet.has(n)) {
+              UI.showToast('Ese número aún no ha sido cantado', 'warning');
+              TelegramApp.hapticFeedback('warning');
+              return;
+            }
+            if (!card.marked) card.marked = new Set();
+            if (cell.classList.contains('marked')) {
+              // Permitir desmarcar por error (opcional)
+              card.marked.delete(n);
+              cell.classList.remove('marked');
+            } else {
+              card.marked.add(n);
+              cell.classList.add('marked');
+              TelegramApp.hapticFeedback('light');
+            }
+            this.updateClaimAvailability();
+          });
         }
       }
 
@@ -558,6 +584,7 @@ const Bingo = {
   // Juego
   // ======================
   handleNumberDrawn(number) {
+    try { UI.log(`bingo:number_drawn ${number}`, 'info', 'bingo'); } catch(_) {}
     this.drawnSet.add(number);
     // Actualizar tablero principal
     const cell = this.gridDraw?.querySelector(`.bingo-number[data-number="${number}"]`);
@@ -574,25 +601,20 @@ const Bingo = {
       this.listRecentDraws.innerHTML = this.recentDraws.map(n => `<div class="bingo-recent-ball">${n}</div>`).join('');
     }
 
-    // Marcar en mis cartones
+    // Resaltar en mis cartones (sin auto-marcar): el usuario debe tocar para marcar
+    // Quitar resaltado previo y aplicar al nuevo número
+    document.querySelectorAll('.bingo-card-cell.last-drawn').forEach(e => e.classList.remove('last-drawn'));
     this.myCards.forEach(card => {
-      // Centro libre ya marcado
-      if (!card.marked) card.marked = new Set();
       for (let col = 0; col < 5; col++) {
         for (let row = 0; row < 5; row++) {
           const num = card.numbers[col][row];
           if (num === number) {
-            card.marked.add(num);
             const el = document.querySelector(`.bingo-card[data-card-id="${card.id}"] .bingo-card-cell[data-num="${num}"]`);
-            if (el) {
-              // Quitar last-drawn previo
-              document.querySelectorAll('.bingo-card-cell.last-drawn').forEach(e => e.classList.remove('last-drawn'));
-              el.classList.add('marked', 'last-drawn');
-            }
+            if (el) el.classList.add('last-drawn');
           }
         }
       }
-     });
+    });
     this.updateClaimAvailability();
   },
 
@@ -622,6 +644,14 @@ const Bingo = {
     this.btnClaim.disabled = !canClaim;
     if (canClaim && !this.selectedCardId && winningCardId) {
       this.selectedCardId = winningCardId;
+    }
+
+    // Mostrar botón flotante central con overlay cuando se pueda cantar
+    if (canClaim) {
+      try { UI.log('bingo:claim_available', 'info', 'bingo'); } catch(_) {}
+      this.showClaimOverlay();
+    } else {
+      this.hideClaimOverlay();
     }
   },
 
@@ -669,7 +699,8 @@ const Bingo = {
     // Asegurar centro libre
     marked.add(numbers[2][2]);
 
-    const has = (n) => marked.has(n) || drawnSet.has(n) || n === numbers[2][2];
+    // Nuevo comportamiento: sólo cuenta lo marcado por el usuario (y el centro libre)
+    const has = (n) => marked.has(n) || n === numbers[2][2];
 
     const checkLine = () => {
       // Horizontales
@@ -721,12 +752,35 @@ const Bingo = {
     }
   },
 
+  // Overlay para reclamar Bingo en el centro de la pantalla
+  showClaimOverlay() {
+    if (document.getElementById('bingo-claim-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'bingo-claim-overlay';
+    overlay.className = 'bingo-claim-overlay';
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-success bingo-claim-cta';
+    btn.textContent = '¡Bingo!';
+    btn.addEventListener('click', () => this.handleClaim());
+    overlay.appendChild(btn);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) this.hideClaimOverlay(); });
+    document.body.appendChild(overlay);
+    try { TelegramApp.hapticFeedback('success'); } catch(_) {}
+    try { UI.log('bingo:claim_overlay_shown', 'debug', 'bingo'); } catch(_) {}
+  },
+
+  hideClaimOverlay() {
+    const overlay = document.getElementById('bingo-claim-overlay');
+    if (overlay) overlay.remove();
+  },
+
   resetState() {
     this.room = null;
     this.myCards = [];
     this.drawnSet = new Set();
     this.recentDraws = [];
     this.selectedCardId = null;
+    this.hideClaimOverlay();
   }
 };
 

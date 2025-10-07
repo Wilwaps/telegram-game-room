@@ -41,17 +41,20 @@ const WaitingRoom = {
   setupSocketListeners() {
     // Inicio de juego (TTT)
     SocketClient.on('game_start', (data) => {
+      try { UI.log('socket: game_start', 'info', 'waiting'); } catch(_) {}
       Game.start(data);
     });
 
     // Sala cerrada
     SocketClient.on('room_closed', () => {
+      try { UI.log('socket: room_closed', 'warn', 'waiting'); } catch(_) {}
       this.currentRoom = null;
       UI.showScreen('lobby-screen');
     });
 
     // Dominó: actualizar sala
     SocketClient.on('domino_room_updated', ({ room }) => {
+      try { UI.log(`socket: domino_room_updated ${room?.code || ''}`, 'debug', 'waiting'); } catch(_) {}
       if (this.currentRoom && room && room.code === this.currentRoom.code) {
         this.updateRoom(room);
       }
@@ -59,6 +62,7 @@ const WaitingRoom = {
 
     // Dominó: inicio de partida
     SocketClient.on('domino_start', ({ room }) => {
+      try { UI.log(`socket: domino_start ${room?.code || ''}`, 'info', 'waiting'); } catch(_) {}
       try {
         if (!room || !this.currentRoom || room.code !== this.currentRoom.code) return;
         this.currentRoom = room;
@@ -72,6 +76,7 @@ const WaitingRoom = {
 
     // Manejar errores del servidor (reiniciar estado de inicio si aplica)
     SocketClient.on('error', (err) => {
+      try { UI.log(`socket: error ${err?.message || err}`, 'error', 'waiting'); } catch(_) {}
       try {
         if (this.currentRoom?.gameType === 'domino' && this.dominoStarting) {
           this.dominoStarting = false;
@@ -86,6 +91,7 @@ const WaitingRoom = {
    */
   show(room) {
     this.currentRoom = room;
+    try { UI.log(`WaitingRoom.show ${room?.code || ''} (${room?.gameType || 'unknown'})`, 'info', 'waiting'); } catch(_) {}
 
     // Ocultar loading primero
     const loadingScreen = document.getElementById('loading-screen');
@@ -227,6 +233,7 @@ const WaitingRoom = {
         </div>
       `;
       actions.prepend(wrap);
+      try { UI.log('UI: Controles de Dominó insertados', 'debug', 'waiting'); } catch(_) {}
 
       // Bind events una sola vez
       const readyBtn = wrap.querySelector('#domino-ready-btn');
@@ -376,6 +383,7 @@ const WaitingRoom = {
       const btn = document.getElementById('domino-start-btn');
       if (btn) { btn.disabled = true; btn.classList.add('disabled'); UI.updateButtonText('domino-start-btn', 'Iniciando…'); }
     } catch(_) {}
+    try { UI.log(`emit: start_domino ${this.currentRoom.code}`, 'info', 'waiting'); } catch(_) {}
     SocketClient.startDomino(this.currentRoom.code);
   },
 

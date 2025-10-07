@@ -17,6 +17,7 @@ const App = {
   async init() {
     try {
       console.log('🚀 Iniciando aplicación...');
+      try { UI.log('App.init start', 'info', 'app'); } catch(_) {}
 
       // Mostrar splash por 1.5 segundos
       await this.showSplash();
@@ -26,6 +27,7 @@ const App = {
 
       // Inicializar UI
       UI.init();
+      try { UI.log('UI.init listo', 'info', 'app'); } catch(_) {}
 
       // Obtener datos del usuario
       this.user = TelegramApp.getUser();
@@ -50,9 +52,11 @@ const App = {
       // Conectar al servidor
       await SocketClient.connect();
       await this.delay(300);
+      try { UI.log('Socket conectado', 'info', 'app'); } catch(_) {}
 
       // Autenticar usuario
       SocketClient.authenticate(this.user);
+      try { UI.log('Authenticate enviado', 'debug', 'app'); } catch(_) {}
 
       // Esperar autenticación
       await this.waitForAuthentication();
@@ -60,6 +64,7 @@ const App = {
       // Transición a pantalla de carga
       UI.showLoading('Preparando tu sala de juegos...');
       await this.delay(800);
+      try { UI.log('Mostrando loading-screen', 'info', 'app'); } catch(_) {}
 
       // Inicializar módulos
       this.initModules();
@@ -67,12 +72,24 @@ const App = {
       // Mostrar lobby
       UI.showScreen('lobby-screen');
       UI.hideLoading();
+      try { UI.log('Mostrando lobby-screen', 'info', 'app'); } catch(_) {}
+
+      // Fallback anti-atasco: si seguimos en loading tras 3s, forzar lobby
+      setTimeout(() => {
+        try {
+          if (UI.currentScreen === 'loading-screen') {
+            UI.log('Fallback: forzando lobby-screen (loading persistía)', 'warn', 'app');
+            UI.showScreen('lobby-screen');
+          }
+        } catch(_) {}
+      }, 3000);
 
       // Verificar parámetros de URL
       this.handleUrlParams();
 
       this.initialized = true;
       console.log('✅ Aplicación inicializada correctamente');
+      try { UI.log('App inicializada', 'info', 'app'); } catch(_) {}
 
     } catch (error) {
       console.error('❌ Error al inicializar aplicación:', error);
@@ -117,6 +134,10 @@ const App = {
     WaitingRoom.init();
     if (typeof Bingo !== 'undefined') {
       Bingo.init();
+    }
+    // Inicializar Dominó (listeners y UI)
+    if (typeof DominoGame !== 'undefined') {
+      DominoGame.init();
     }
     Game.init();
     Result.init();

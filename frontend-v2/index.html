@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#4f46e5" />
+  <title>GameRoom v2</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <link rel="stylesheet" href="css/core.css?v=20251007-01" />
+  <link rel="stylesheet" href="css/bingo.css?v=20251007-01" />
+</head>
+<body>
+  <div id="app">
+    <div id="splash-screen" class="screen active">
+      <div class="center">
+        <div class="logo">🎮</div>
+        <div class="title">GameRoom v2</div>
+        <div class="sub">Cargando...</div>
+      </div>
+    </div>
+
+    <div id="lobby-screen" class="screen">
+      <header class="header">
+        <div class="left">
+          <div class="logo-sm">🎮</div>
+          <div>
+            <h1>Lobby</h1>
+            <div class="muted">Arquitectura modular v2</div>
+          </div>
+        </div>
+        <div class="right">
+          <div id="fires-badge" class="fires">🔥 <span id="fires-count">0</span></div>
+        </div>
+      </header>
+      <main class="content">
+        <section class="games-grid" id="games-grid"></section>
+      </main>
+    </div>
+
+    <div id="game-screen" class="screen">
+      <header class="header">
+        <div class="left">
+          <button id="back-to-lobby" class="btn-icon" title="Volver">←</button>
+          <h1 id="game-title">Juego</h1>
+        </div>
+        <div class="right">
+          <div id="fires-badge-game" class="fires">🔥 <span id="fires-count-game">0</span></div>
+        </div>
+      </header>
+      <main class="content">
+        <div id="game-root" class="game-root"></div>
+      </main>
+    </div>
+
+    <div id="modal-root"></div>
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <script type="module" src="js/core/app.js?v=20251007-01"></script>
+</body>
+</html>

@@ -102,6 +102,18 @@
   transform: translateY(-2px);
 }
 
+/* Último número cantado: brillo rojizo sutil */
+.bingo-number.last {
+  animation: bingo-last-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 18px rgba(255, 75, 75, 0.8), 0 0 0 3px rgba(255, 75, 75, 0.35);
+}
+
+@keyframes bingo-last-pulse {
+  0% { box-shadow: 0 0 0 rgba(255, 75, 75, 0); transform: translateY(-2px) scale(1); }
+  50% { box-shadow: 0 0 22px rgba(255, 75, 75, 0.95), 0 0 0 4px rgba(255, 75, 75, 0.45); transform: translateY(-2px) scale(1.04); }
+  100% { box-shadow: 0 0 0 rgba(255, 75, 75, 0); transform: translateY(-2px) scale(1); }
+}
+
 .bingo-recent-draws {
   display: flex;
   gap: var(--spacing-md);
@@ -146,8 +158,20 @@
 }
 
 @media (max-width: 640px) {
+  /* Dos columnas en móviles con cartones más compactos */
   .bingo-cards-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+  }
+  .bingo-card {
+    padding: var(--spacing-md);
+  }
+  .bingo-card-grid {
+    gap: 4px;
+  }
+  .bingo-card-cell {
+    border-radius: 8px;
+    font-size: 0.8rem;
   }
 }
 
@@ -210,8 +234,16 @@
   box-shadow: inset 0 0 0 3px rgba(255,255,255,0.35), 0 10px 20px rgba(36, 129, 204, 0.2);
 }
 
+/* Resaltado rojizo del número recién cantado en el cartón */
 .bingo-card-cell.last-drawn {
-  box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.65);
+  box-shadow: 0 0 0 3px rgba(255, 75, 75, 0.55), 0 0 16px rgba(255, 75, 75, 0.45);
+  animation: bingo-cell-pulse 1.2s ease-in-out 2;
+}
+
+@keyframes bingo-cell-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.0); transform: scale(1); }
+  50% { box-shadow: 0 0 0 3px rgba(255, 75, 75, 0.55), 0 0 18px rgba(255, 75, 75, 0.5); transform: scale(1.03); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.0); transform: scale(1); }
 }
 
 .bingo-card-win {
@@ -256,6 +288,31 @@
   justify-content: center;
   padding: 16px;
   z-index: 2000;
+}
+
+/* Overlay centrado para reclamar Bingo */
+.bingo-claim-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2500;
+}
+
+.bingo-claim-cta {
+  font-size: 1.25rem;
+  padding: 14px 24px;
+  border-radius: 14px;
+  box-shadow: 0 14px 28px rgba(0,0,0,0.22);
+  animation: bounceIn 0.35s ease, claimGlow 1.6s ease-in-out infinite;
+}
+
+@keyframes claimGlow {
+  0% { box-shadow: 0 0 0 rgba(56, 142, 60, 0); }
+  50% { box-shadow: 0 0 26px rgba(56, 142, 60, 0.55); }
+  100% { box-shadow: 0 0 0 rgba(56, 142, 60, 0); }
 }
 
 .bingo-card-zoom {
