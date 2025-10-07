@@ -76,7 +76,7 @@
 
 .bingo-draw-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
   gap: var(--spacing-sm);
 }
 
@@ -87,7 +87,7 @@
   background: rgba(36, 129, 204, 0.08);
   color: var(--bingo-number-color);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.9rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -238,6 +238,12 @@
 .bingo-card-cell.last-drawn {
   box-shadow: 0 0 0 3px rgba(255, 75, 75, 0.55), 0 0 16px rgba(255, 75, 75, 0.45);
   animation: bingo-cell-pulse 1.2s ease-in-out 2;
+}
+
+/* Si la celda ya está marcada, suprime el efecto de last-drawn */
+.bingo-card-cell.marked.last-drawn {
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,0.35), 0 10px 20px rgba(36, 129, 204, 0.2);
+  animation: none;
 }
 
 @keyframes bingo-cell-pulse {

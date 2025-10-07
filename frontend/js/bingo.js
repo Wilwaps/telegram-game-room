@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ============================================
  * BINGO - FRONTEND
  * ============================================
@@ -88,7 +88,7 @@ const Bingo = {
       if (!this.hostCardsValue) return;
       const count = Math.max(1, parseInt(this.hostCardsValue.value || '1', 10));
       this.hostDesiredCards = count;
-      if (this.hostCost) this.hostCost.textContent = `${count} 🔥`;
+      if (this.hostCost) this.hostCost.textContent = `${count} ðŸ”¥`;
     };
     if (this.hostCardsDec) this.hostCardsDec.addEventListener('click', () => {
       const val = Math.max(1, parseInt(this.hostCardsValue.value || '1', 10) - 1);
@@ -105,7 +105,7 @@ const Bingo = {
     const updateJoinCost = () => {
       if (!this.joinCardsValue) return;
       const count = Math.max(1, parseInt(this.joinCardsValue.value || '1', 10));
-      if (this.joinCost) this.joinCost.textContent = `${count} 🔥`;
+      if (this.joinCost) this.joinCost.textContent = `${count} ðŸ”¥`;
     };
     if (this.joinCardsDec) this.joinCardsDec.addEventListener('click', () => {
       const val = Math.max(1, parseInt(this.joinCardsValue.value || '1', 10) - 1);
@@ -129,14 +129,14 @@ const Bingo = {
     if (this.btnWaitingInvite) this.btnWaitingInvite.addEventListener('click', () => this.handleInvite());
     if (this.btnWaitingStart) this.btnWaitingStart.addEventListener('click', () => this.handleStart());
 
-    // Crear botón "Hacer pública" dinámicamente si no existe en el HTML
+    // Crear botÃ³n "Hacer pÃºblica" dinÃ¡micamente si no existe en el HTML
     const actions = document.querySelector('#bingo-waiting-screen .bingo-waiting-actions');
     if (actions && !this.btnWaitingMakePublic) {
       const btn = document.createElement('button');
       btn.id = 'bingo-make-public-btn';
       btn.className = 'btn btn-secondary';
-      btn.textContent = 'Hacer pública';
-      // Insertar junto al botón Invitar
+      btn.textContent = 'Hacer pÃºblica';
+      // Insertar junto al botÃ³n Invitar
       actions.insertBefore(btn, this.btnWaitingLeave || actions.firstChild);
       this.btnWaitingMakePublic = btn;
     }
@@ -144,7 +144,7 @@ const Bingo = {
       this.btnWaitingMakePublic.addEventListener('click', () => {
         if (!this.room) return;
         SocketClient.makePublicBingo(this.room.code);
-        UI.showToast('Sala ahora es pública', 'success');
+        UI.showToast('Sala ahora es pÃºblica', 'success');
         TelegramApp.hapticFeedback('medium');
         this.btnWaitingMakePublic.disabled = true;
       });
@@ -156,7 +156,7 @@ const Bingo = {
     if (this.btnGameExit) this.btnGameExit.addEventListener('click', () => this.leaveToLobby());
     if (this.btnGameBack) this.btnGameBack.addEventListener('click', () => this.leaveToLobby());
 
-    // Cierre modal genérico por data-close
+    // Cierre modal genÃ©rico por data-close
     document.body.addEventListener('click', (e) => {
       const target = e.target;
       if (target && target.dataset && target.dataset.close) {
@@ -188,7 +188,7 @@ const Bingo = {
       }
     });
 
-    // Unión exitosa (me llegan mis cartones)
+    // UniÃ³n exitosa (me llegan mis cartones)
     SocketClient.on(CONFIG.EVENTS.BINGO_JOINED, ({ room, cards }) => {
       this.room = room;
       this.myCards = (cards || []).map(c => ({
@@ -230,7 +230,7 @@ const Bingo = {
       }
     });
     SocketClient.on(CONFIG.EVENTS.HOST_LEFT_BINGO, () => {
-      UI.showToast('El anfitrión cerró la sala. Se procesaron reembolsos.', 'info');
+      UI.showToast('El anfitriÃ³n cerrÃ³ la sala. Se procesaron reembolsos.', 'info');
       this.resetState();
       Lobby.show();
     });
@@ -242,17 +242,17 @@ const Bingo = {
       this.recentDraws = [];
       UI.showScreen(this.screenGame);
       this.renderGame(room);
-      UI.showToast('¡Comienza el Bingo!', 'success');
+      UI.showToast('Â¡Comienza el Bingo!', 'success');
     });
 
-    // Número cantado
+    // NÃºmero cantado
     SocketClient.on(CONFIG.EVENTS.NUMBER_DRAWN, ({ number }) => {
       this.handleNumberDrawn(number);
     });
 
-    // Bingo inválido
+    // Bingo invÃ¡lido
     SocketClient.on(CONFIG.EVENTS.BINGO_INVALID, ({ reason }) => {
-      UI.showToast(reason || 'Bingo inválido', 'error');
+      UI.showToast(reason || 'Bingo invÃ¡lido', 'error');
       TelegramApp.hapticFeedback('error');
       if (this.claiming) {
         this.claiming = false;
@@ -261,15 +261,15 @@ const Bingo = {
       }
     });
 
-    // Notificación al host: jugador potencialmente tiene Bingo
+    // NotificaciÃ³n al host: jugador potencialmente tiene Bingo
     SocketClient.on(CONFIG.EVENTS.BINGO_POTENTIAL, ({ userName, cardId, pattern }) => {
       if (this.room && App.user && this.room.hostId === App.user.userId) {
-        const pretty = pattern === 'full' ? 'cartón lleno' : (pattern === 'double' ? 'doble línea' : pattern);
-        UI.showToast(`${userName} está cerca de cantar (${pretty})`, 'warning');
+        const pretty = pattern === 'full' ? 'cartÃ³n lleno' : (pattern === 'double' ? 'doble lÃ­nea' : pattern);
+        UI.showToast(`${userName} estÃ¡ cerca de cantar (${pretty})`, 'warning');
       }
     });
 
-    // Cuando llega la transacción del premio, cerrar loading y abrir historial
+    // Cuando llega la transacciÃ³n del premio, cerrar loading y abrir historial
     SocketClient.on(CONFIG.EVENTS.FIRES_TRANSACTION, (tx) => {
       if (!this.claiming || !tx) return;
       if (tx.reason === 'bingo_winner') {
@@ -283,9 +283,9 @@ const Bingo = {
 
     // Hay ganador
     SocketClient.on(CONFIG.EVENTS.BINGO_WINNER, ({ userId, userName, cardId, distribution }) => {
-      UI.showToast(`Ganador: ${userName} (+${distribution.winner} 🔥)`, 'success');
+      UI.showToast(`Ganador: ${userName} (+${distribution.winner} ðŸ”¥)`, 'success');
       UI.createConfetti();
-      // Resaltar mi cartón ganador
+      // Resaltar mi cartÃ³n ganador
       if (App.user && userId === App.user.userId) {
         const el = document.querySelector(`.bingo-card[data-card-id="${cardId}"]`);
         if (el) el.classList.add('bingo-card-win');
@@ -317,7 +317,7 @@ const Bingo = {
     const code = (this.joinRoomCode?.value || '').trim().toUpperCase();
     const count = Math.max(1, parseInt(this.joinCardsValue?.value || '1', 10));
     if (!Utils.isValidRoomCode(code)) {
-      UI.showToast('Código inválido (6 caracteres)', 'error');
+      UI.showToast('CÃ³digo invÃ¡lido (6 caracteres)', 'error');
       TelegramApp.hapticFeedback('error');
       return;
     }
@@ -335,7 +335,7 @@ const Bingo = {
   handleInvite() {
     if (!this.room) return;
     const url = `${window.location.origin}?room=${this.room.code}`;
-    const text = `¡Únete a mi sala de Bingo!\nCódigo: ${this.room.code}`;
+    const text = `Â¡Ãšnete a mi sala de Bingo!\nCÃ³digo: ${this.room.code}`;
     TelegramApp.shareLink(url, text);
     TelegramApp.hapticFeedback('medium');
   },
@@ -343,7 +343,7 @@ const Bingo = {
   handleStart() {
     if (!this.room) return;
     if (this.room.hostId !== App.user.userId) {
-      UI.showToast('Solo el anfitrión puede iniciar', 'warning');
+      UI.showToast('Solo el anfitriÃ³n puede iniciar', 'warning');
       return;
     }
     SocketClient.startBingo(this.room.code);
@@ -352,7 +352,7 @@ const Bingo = {
   handleDrawNext() {
     if (!this.room) return;
     if (this.room.hostId !== App.user.userId) {
-      UI.showToast('Solo el anfitrión puede cantar', 'warning');
+      UI.showToast('Solo el anfitriÃ³n puede cantar', 'warning');
       return;
     }
     SocketClient.drawNext(this.room.code);
@@ -367,7 +367,7 @@ const Bingo = {
     try { UI.log(`bingo:claim card=${activeCard}`, 'info', 'bingo'); } catch(_) {}
     this.claiming = true;
     UI.showLoading('Reclamando recompensa...');
-    // Fallback: si no llega la transacción en 5s, abrir historial igual
+    // Fallback: si no llega la transacciÃ³n en 5s, abrir historial igual
     if (this.claimTimer) { clearTimeout(this.claimTimer); }
     this.claimTimer = setTimeout(() => {
       if (this.claiming) {
@@ -384,7 +384,7 @@ const Bingo = {
   // ======================
   renderWaiting(room) {
     this.room = room;
-    if (this.lblShareCode) this.lblShareCode.textContent = `Código: ${room.code}`;
+    if (this.lblShareCode) this.lblShareCode.textContent = `CÃ³digo: ${room.code}`;
     if (this.lblPot) this.lblPot.textContent = String(room.pot || 0);
     // Asegurar badge de fuegos renderizado
     try {
@@ -400,19 +400,19 @@ const Bingo = {
           <div class="bingo-player-info">
             <span>${Utils.escapeHtml(p.userName || 'Jugador')}</span>
           </div>
-          <div class="bingo-player-cards">🃏 x${p.cardsCount || 0}</div>
+          <div class="bingo-player-cards">ðŸƒ x${p.cardsCount || 0}</div>
         </div>
       `).join('');
     }
 
-    // Botón iniciar solo para host
+    // BotÃ³n iniciar solo para host
     const isHost = room.hostId === (App.user && App.user.userId);
     if (this.btnWaitingStart) this.btnWaitingStart.style.display = isHost ? 'inline-flex' : 'none';
-    // Botón "Hacer pública" solo host; deshabilitado si ya es pública
+    // BotÃ³n "Hacer pÃºblica" solo host; deshabilitado si ya es pÃºblica
     if (this.btnWaitingMakePublic) {
       this.btnWaitingMakePublic.style.display = isHost ? 'inline-flex' : 'none';
       this.btnWaitingMakePublic.disabled = !!room.isPublic;
-      this.btnWaitingMakePublic.textContent = room.isPublic ? 'Pública' : 'Hacer pública';
+      this.btnWaitingMakePublic.textContent = room.isPublic ? 'PÃºblica' : 'Hacer pÃºblica';
     }
 
     // Panel para agregar cartones (solo antes de iniciar)
@@ -429,9 +429,9 @@ const Bingo = {
           panel.style.marginTop = '8px';
           panel.innerHTML = `
             <span style="font-weight:600">Tus cartones</span>
-            <button id="bingo-add-dec" class="btn btn-secondary" style="min-width:36px">−</button>
+            <button id="bingo-add-dec" class="btn btn-secondary" style="min-width:36px">âˆ’</button>
             <input id="bingo-add-count" type="number" min="1" value="1" style="width:56px;text-align:center" />
-            <button id="bingo-add-inc" class="btn btn-secondary" style="min-width:36px">＋</button>
+            <button id="bingo-add-inc" class="btn btn-secondary" style="min-width:36px">ï¼‹</button>
             <span id="bingo-add-cost" style="opacity:0.9"></span>
             <button id="bingo-add-confirm" class="btn btn-primary">Agregar</button>
           `;
@@ -453,7 +453,7 @@ const Bingo = {
           let v = Math.max(1, parseInt(countInput.value || '1', 10));
           v = Math.min(v, Math.max(1, remaining));
           countInput.value = String(v);
-          costLbl.textContent = `Costo: ${v * price} 🔥 (te quedan ${remaining} disponibles)`;
+          costLbl.textContent = `Costo: ${v * price} ðŸ”¥ (te quedan ${remaining} disponibles)`;
           confirmBtn.disabled = remaining <= 0;
         };
         decBtn.onclick = () => { countInput.value = String(Math.max(1, parseInt(countInput.value||'1',10) - 1)); sync(); };
@@ -463,7 +463,7 @@ const Bingo = {
           const add = Math.max(1, parseInt(countInput.value || '1', 10));
           if (add > 0) {
             SocketClient.joinBingo(room.code, add);
-            UI.showToast(`Agregando ${add} cartón(es)...`, 'info');
+            UI.showToast(`Agregando ${add} cartÃ³n(es)...`, 'info');
           }
         };
         sync();
@@ -476,20 +476,24 @@ const Bingo = {
     if (this.lblGamePot) this.lblGamePot.textContent = String(room.pot || 0);
     if (this.lblPlayersCount) this.lblPlayersCount.textContent = String((room.players || []).length);
     if (this.lblMode) {
-      const modeMap = { line: 'línea', double: 'doble línea', full: 'cartón lleno' };
+      const modeMap = { line: 'lÃ­nea', double: 'doble lÃ­nea', full: 'cartÃ³n lleno' };
       this.lblMode.textContent = `Modo ${modeMap[room.mode] || room.mode}`;
     }
 
-    // Render tablero de cantados (1..75)
+    // Render tablero de cantados (1..75) - solo visible para el host
     if (this.gridDraw) {
-      this.gridDraw.innerHTML = '';
-      for (let n = 1; n <= 75; n++) {
-        const cell = document.createElement('div');
-        cell.className = 'bingo-number';
-        cell.dataset.number = String(n);
-        cell.textContent = String(n);
-        if (this.drawnSet.has(n)) cell.classList.add('active');
-        this.gridDraw.appendChild(cell);
+      const isHost = room.hostId === (App.user && App.user.userId);
+      this.gridDraw.style.display = isHost ? 'grid' : 'none';
+      if (isHost) {
+        this.gridDraw.innerHTML = '';
+        for (let n = 1; n <= 75; n++) {
+          const cell = document.createElement('div');
+          cell.className = 'bingo-number';
+          cell.dataset.number = String(n);
+          cell.textContent = String(n);
+          if (this.drawnSet.has(n)) cell.classList.add('active');
+          this.gridDraw.appendChild(cell);
+        }
       }
     }
 
@@ -516,7 +520,7 @@ const Bingo = {
 
       const header = document.createElement('div');
       header.className = 'bingo-card-header';
-      header.innerHTML = `<span>Cartón ${idx + 1}</span>`;
+      header.innerHTML = `<span>CartÃ³n ${idx + 1}</span>`;
 
       const grid = document.createElement('div');
       grid.className = 'bingo-card-grid';
@@ -534,14 +538,14 @@ const Bingo = {
           if (card.marked && card.marked.has(num)) cell.classList.add('marked');
           grid.appendChild(cell);
 
-          // Marcar manualmente: solo si el número ya fue cantado
+          // Marcar manualmente: solo si el nÃºmero ya fue cantado
           cell.addEventListener('click', (e) => {
             e.stopPropagation();
-            // Centro libre: no requiere interacción
+            // Centro libre: no requiere interacciÃ³n
             if (col === 2 && row === 2) return;
             const n = num;
             if (!this.drawnSet.has(n)) {
-              UI.showToast('Ese número aún no ha sido cantado', 'warning');
+              UI.showToast('Ese nÃºmero aÃºn no ha sido cantado', 'warning');
               TelegramApp.hapticFeedback('warning');
               return;
             }
@@ -554,6 +558,8 @@ const Bingo = {
               card.marked.add(n);
               cell.classList.add('marked');
               TelegramApp.hapticFeedback('light');
+              cell.classList.remove('last-drawn');
+              cell.classList.remove('last-drawn');
             }
             this.updateClaimAvailability();
           });
@@ -563,7 +569,7 @@ const Bingo = {
       cardEl.appendChild(header);
       cardEl.appendChild(grid);
 
-      // Selección o zoom
+      // SelecciÃ³n o zoom
       cardEl.addEventListener('click', () => {
         if (this.selectedCardId === card.id) {
           // Abrir zoom
@@ -594,23 +600,24 @@ const Bingo = {
       cell.classList.add('last');
     }
 
-    // Actualizar últimos 5
+    // Actualizar Ãºltimos N (host:5, no-host:10)
+    const isHost = this.room && App.user && (this.room.hostId === App.user.userId);
+    const maxRecent = isHost ? 5 : 10;
     this.recentDraws.unshift(number);
-    this.recentDraws = this.recentDraws.slice(0, 5);
+    this.recentDraws = this.recentDraws.slice(0, maxRecent);
     if (this.listRecentDraws) {
       this.listRecentDraws.innerHTML = this.recentDraws.map(n => `<div class="bingo-recent-ball">${n}</div>`).join('');
     }
 
     // Resaltar en mis cartones (sin auto-marcar): el usuario debe tocar para marcar
-    // Quitar resaltado previo y aplicar al nuevo número
-    document.querySelectorAll('.bingo-card-cell.last-drawn').forEach(e => e.classList.remove('last-drawn'));
+    // Mantener el cÃ­rculo rojo en celdas hasta que el usuario marque esa celda
     this.myCards.forEach(card => {
       for (let col = 0; col < 5; col++) {
         for (let row = 0; row < 5; row++) {
           const num = card.numbers[col][row];
           if (num === number) {
             const el = document.querySelector(`.bingo-card[data-card-id="${card.id}"] .bingo-card-cell[data-num="${num}"]`);
-            if (el) el.classList.add('last-drawn');
+            if (el && !(card.marked && card.marked.has(num))) el.classList.add('last-drawn');
           }
         }
       }
@@ -646,7 +653,7 @@ const Bingo = {
       this.selectedCardId = winningCardId;
     }
 
-    // Mostrar botón flotante central con overlay cuando se pueda cantar
+    // Mostrar botÃ³n flotante central con overlay cuando se pueda cantar
     if (canClaim) {
       try { UI.log('bingo:claim_available', 'info', 'bingo'); } catch(_) {}
       this.showClaimOverlay();
@@ -655,7 +662,7 @@ const Bingo = {
     }
   },
 
-  // Mostrar overlay de zoom del cartón seleccionado
+  // Mostrar overlay de zoom del cartÃ³n seleccionado
   openCardOverlay(card) {
     const overlay = document.createElement('div');
     overlay.className = 'bingo-card-overlay';
@@ -664,7 +671,7 @@ const Bingo = {
 
     const header = document.createElement('div');
     header.className = 'bingo-card-header';
-    header.innerHTML = `<span>Cartón</span>`;
+    header.innerHTML = `<span>CartÃ³n</span>`;
 
     const grid = document.createElement('div');
     grid.className = 'bingo-card-grid';
@@ -699,7 +706,7 @@ const Bingo = {
     // Asegurar centro libre
     marked.add(numbers[2][2]);
 
-    // Nuevo comportamiento: sólo cuenta lo marcado por el usuario (y el centro libre)
+    // Nuevo comportamiento: sÃ³lo cuenta lo marcado por el usuario (y el centro libre)
     const has = (n) => marked.has(n) || n === numbers[2][2];
 
     const checkLine = () => {
@@ -760,7 +767,7 @@ const Bingo = {
     overlay.className = 'bingo-claim-overlay';
     const btn = document.createElement('button');
     btn.className = 'btn btn-success bingo-claim-cta';
-    btn.textContent = '¡Bingo!';
+    btn.textContent = 'Â¡Bingo!';
     btn.addEventListener('click', () => this.handleClaim());
     overlay.appendChild(btn);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) this.hideClaimOverlay(); });
@@ -785,3 +792,5 @@ const Bingo = {
 };
 
 window.Bingo = Bingo;
+
+
