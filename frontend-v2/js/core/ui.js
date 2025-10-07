@@ -43,9 +43,42 @@ export const UI = {
     if (!el) {
       el = document.createElement('div');
       el.id = 'realtime-log';
+      el.style.position = 'fixed';
+      el.style.right = '8px';
+      el.style.bottom = '48px';
+      el.style.maxHeight = '30vh';
+      el.style.width = 'min(90vw, 360px)';
+      el.style.overflow = 'auto';
+      el.style.background = 'rgba(0,0,0,0.55)';
+      el.style.color = '#fff';
+      el.style.fontSize = '11px';
+      el.style.lineHeight = '1.35';
+      el.style.padding = '8px';
+      el.style.borderRadius = '8px';
+      el.style.zIndex = '1500';
+      const stored = localStorage.getItem('ui.log.visible.v2');
+      const visible = stored === 'true';
+      el.style.display = visible ? 'block' : 'none';
       document.body.appendChild(el);
     }
     this.logContainer = el;
+
+    let btn = document.getElementById('realtime-log-toggle');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'realtime-log-toggle';
+      btn.textContent = '📝 Logs';
+      btn.title = 'Mostrar/Ocultar logs';
+      btn.className = 'btn-icon';
+      btn.style.position = 'fixed';
+      btn.style.right = '8px';
+      btn.style.bottom = '8px';
+      btn.style.zIndex = '1600';
+      btn.addEventListener('click', () => this.toggleLog());
+      document.body.appendChild(btn);
+    }
+    const visibleNow = (this.logContainer && this.logContainer.style.display !== 'none');
+    btn.textContent = visibleNow ? '🧹 Ocultar log' : '📝 Logs';
   },
 
   log(message, level = 'info', source = 'app') {
@@ -62,6 +95,19 @@ export const UI = {
       while (this.logContainer.childNodes.length > 200) this.logContainer.removeChild(this.logContainer.firstChild);
       this.logContainer.scrollTop = this.logContainer.scrollHeight;
     }
+  },
+
+  setLogVisible(visible){
+    this.ensureLogOverlay();
+    if (this.logContainer) this.logContainer.style.display = visible ? 'block' : 'none';
+    try { localStorage.setItem('ui.log.visible.v2', String(visible)); } catch(_){}
+    const btn = document.getElementById('realtime-log-toggle');
+    if (btn) btn.textContent = visible ? '🧹 Ocultar log' : '📝 Logs';
+  },
+
+  toggleLog(){
+    const visible = this.logContainer && this.logContainer.style.display !== 'none';
+    this.setLogVisible(!visible);
   }
 };
 

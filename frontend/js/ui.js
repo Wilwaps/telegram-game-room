@@ -358,10 +358,38 @@ UI.ensureLogOverlay = function() {
       el.style.borderRadius = '8px';
       el.style.zIndex = '9999';
       el.style.backdropFilter = 'blur(2px)';
-      el.style.display = 'block'; // visible por defecto (log en tiempo real)
+      // visible segun preferencia (por defecto visible)
+      const stored = localStorage.getItem('ui.log.visible');
+      const visible = stored === null ? true : (stored === 'true');
+      el.style.display = visible ? 'block' : 'none';
       document.body.appendChild(el);
     }
     this.logContainer = el;
+
+    // Botón flotante toggle
+    let btn = document.getElementById('realtime-log-toggle');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'realtime-log-toggle';
+      btn.textContent = '📝 Logs';
+      btn.title = 'Mostrar/Ocultar logs';
+      btn.style.position = 'fixed';
+      btn.style.right = '8px';
+      btn.style.bottom = '8px';
+      btn.style.zIndex = '10000';
+      btn.style.background = 'rgba(0,0,0,0.55)';
+      btn.style.color = '#fff';
+      btn.style.border = '1px solid rgba(255,255,255,0.18)';
+      btn.style.borderRadius = '999px';
+      btn.style.padding = '8px 12px';
+      btn.style.fontWeight = '700';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', () => this.toggleLog());
+      document.body.appendChild(btn);
+    }
+    // Sincronizar etiqueta según visibilidad actual
+    const visibleNow = (this.logContainer && this.logContainer.style.display !== 'none');
+    btn.textContent = visibleNow ? '🧹 Ocultar log' : '📝 Logs';
   } catch (e) {
     console.error('ensureLogOverlay error:', e);
   }
@@ -399,7 +427,16 @@ UI.setLogVisible = function(visible) {
     if (this.logContainer) {
       this.logContainer.style.display = visible ? 'block' : 'none';
     }
+    // Persistir preferencia y sincronizar botón
+    try { localStorage.setItem('ui.log.visible', String(visible)); } catch(_){ }
+    const btn = document.getElementById('realtime-log-toggle');
+    if (btn) btn.textContent = visible ? '🧹 Ocultar log' : '📝 Logs';
   } catch(_){ }
+};
+
+UI.toggleLog = function() {
+  const visible = this.logContainer && this.logContainer.style.display !== 'none';
+  this.setLogVisible(!visible);
 };
 
 // Utilidad: insertar dinámicamente un badge de fuegos en headers de salas de espera
