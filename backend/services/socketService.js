@@ -13,6 +13,7 @@ const { constants } = require('../config/config');
 const logger = require('../config/logger');
 const redisService = require('./redisService');
 const economyService = require('./economyService');
+const supplyService = require('./supplyService');
 const xpService = require('./xpService');
 const bingoService = require('./bingoService');
 const dominoService = require('./dominoService');
@@ -438,7 +439,8 @@ class SocketService {
             return;
           }
           await redisService.client.set(key, '1');
-          const earn = await this.economy.earn(socket.userId, 10, { reason: 'welcome_bonus' });
+          // Deduce desde supply fijo: grant controlado
+          const earn = await supplyService.allocateAndGrant(socket.userId, 10, { reason: 'welcome_bonus', by: 'system' });
           // Notificar a todos los sockets del usuario
           const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
           allSockets.filter(s => s.userId === socket.userId).forEach(s => {

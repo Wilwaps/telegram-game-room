@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard | Game Room</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20251007-01" />
 </head>
 <body>
   <header class="header">
@@ -15,6 +15,50 @@
   </header>
 
   <main class="container">
+    <section class="card">
+      <div class="card-header">
+        <h2>Grant desde Supply (Admin)</h2>
+      </div>
+      <div class="form-row mt">
+        <label for="admin-username">Admin</label>
+        <input id="admin-username" type="text" value="@wilcnct" />
+        <label for="admin-code">Clave</label>
+        <input id="admin-code" type="password" placeholder="658072974" />
+      </div>
+      <div class="form-row mt">
+        <label for="to-user-id">Usuario ID</label>
+        <input id="to-user-id" type="text" placeholder="id del usuario" />
+        <label for="grant-amount">Cantidad</label>
+        <input id="grant-amount" type="number" min="1" placeholder="100" />
+      </div>
+      <div class="form-row mt">
+        <label for="grant-reason">Motivo</label>
+        <input id="grant-reason" type="text" placeholder="motivo (opcional)" />
+        <button id="grant-submit" class="btn btn-primary">Enviar desde Supply</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Usuarios</h2>
+        <div class="row-gap">
+          <input id="users-search" type="text" placeholder="Buscar por @username" />
+          <button id="users-search-btn" class="btn">Buscar</button>
+        </div>
+      </div>
+      <div style="overflow:auto;">
+        <table class="table" id="users-table">
+          <thead>
+            <tr><th>Usuario</th><th>User ID</th><th>Fuegos</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="form-row mt">
+        <button id="users-next-btn" class="btn">Siguiente</button>
+      </div>
+    </section>
+
     <section class="card">
       <div class="card-header">
         <h2>Tokenomics 🔥</h2>
@@ -30,18 +74,13 @@
           <div id="minted" class="stat-value">-</div>
         </div>
         <div class="stat">
-          <div class="stat-label">Burned</div>
-          <div id="burned" class="stat-value">-</div>
+          <div class="stat-label">Reserve</div>
+          <div id="reserve" class="stat-value">-</div>
         </div>
         <div class="stat">
           <div class="stat-label">Circulation</div>
           <div id="circulation" class="stat-value">-</div>
         </div>
-      </div>
-      <div class="form-row mt">
-        <label for="input-supply">Nuevo Supply Cap</label>
-        <input id="input-supply" type="number" min="0" placeholder="ej. 1000000000" />
-        <button id="save-supply" class="btn btn-primary">Guardar</button>
       </div>
     </section>
 
@@ -71,6 +110,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20251007-01"></script>
 </body>
 </html>

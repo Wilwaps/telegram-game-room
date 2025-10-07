@@ -28,6 +28,9 @@ const socketService = require('./services/socketService');
 const telegramService = require('./services/telegramService');
 const xpService = require('./services/xpService');
 const tokenService = require('./services/tokenService');
+const supplyService = require('./services/supplyService');
+const economyRoutes = require('./routes/economy');
+const xpRoutes = require('./routes/xp');
 const brawlEvents = require('./games/brawl/events');
 
 // ============================================
@@ -106,12 +109,20 @@ app.use((req, res, next) => {
 // Servir archivos estáticos (frontend)
 app.use(express.static(path.join(__dirname, '../frontend')));
 
+// Rutas API
+app.use('/api/economy', economyRoutes);
+app.use('/api/xp', xpRoutes);
+
 // ============================================
 // RUTA PRINCIPAL (SPA)
 // ============================================
 
-// Dashboard de administración
+// Dashboard de administración (no cachear)
 app.get('/dashboard', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
   res.sendFile(path.join(__dirname, '../frontend/dashboard/index.html'));
 });
 
@@ -169,7 +180,7 @@ async function initializeServices() {
     // Inicializar Socket.io
     socketService.initialize(io);
     logger.info('✅ Socket.io inicializado');
- 
+
     // Inicializar namespace de Brawl
     brawlEvents.initialize(io);
     logger.info('✅ Brawl namespace inicializado');
@@ -178,12 +189,21 @@ async function initializeServices() {
     telegramService.initialize();
     logger.info('✅ Telegram Bot inicializado');
 
+    // Inicializar Supply (idempotente)
+    try {
+      await supplyService.initIfNeeded();
+      logger.info('✅ Supply inicializado');
+    } catch (e) {
+      logger.error('❌ Error al inicializar Supply:', e);
+    }
+
     logger.info('✅ Todos los servicios iniciados correctamente');
 
   } catch (error) {
     logger.error('❌ Error al inicializar servicios:', error);
     throw error;
   }
+
 }
 
 // ============================================
