@@ -33,3 +33,12 @@
 .table tbody tr{background:#0f172a;border:1px solid #1f2937}
 .table tbody td{padding:8px 10px;border-top:1px solid #1f2937;border-bottom:1px solid #1f2937}
 .btn-mini{padding:6px 10px;font-size:12px}
+
+/* Auditoría Supply */
+.audit{background:#0f172a;border:1px solid #1f2937;border-radius:10px;padding:8px;max-height:280px;overflow:auto}
+.audit-item{display:grid;grid-template-columns:100px 90px 90px 1fr;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid #1f2937}
+.audit-item:last-child{border-bottom:none}
+.audit-time{color:#94a3b8;font-size:12px}
+.audit-type{font-weight:600;color:#f1f5f9}
+.audit-amount{color:#22c55e;font-weight:700}
+.audit-meta{color:#cbd5e1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

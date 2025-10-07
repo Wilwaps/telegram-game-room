@@ -80,8 +80,50 @@ window.addEventListener('DOMContentLoaded',()=>{
   const nextBtn=document.getElementById('users-next-btn'); if(nextBtn) nextBtn.addEventListener('click', ()=> loadUsersPage(usersCursor));
   loadSupply();
   refreshUsers();
+  // SSE auditoría supply
+  startSupplySSE();
   // XP opcional
   const rx=document.getElementById('refresh-xp'); if(rx) rx.addEventListener('click', loadXpConfig);
   const sx=document.getElementById('save-xp'); if(sx) sx.addEventListener('click', saveXpConfig);
   loadXpConfig();
 });
+
+// ---------- SSE: Auditoría de Supply en tiempo real ----------
+function startSupplySSE(){
+  try{
+    const target=document.getElementById('sse-audit');
+    if(!target) return;
+    const es=new EventSource('/api/economy/supply/stream');
+    es.onmessage=(ev)=>{
+      try{
+        const data=JSON.parse(ev.data||'{}');
+        if(data.summary){
+          // Refrescar métricas visibles
+          const s=data.summary;
+          const el=(id,val)=>{ const e=document.getElementById(id); if(e) e.textContent=(val||0).toLocaleString(); };
+          el('supply-cap', s.max);
+          el('minted', s.mintTotal);
+          el('reserve', s.reserveRemaining);
+          el('circulation', s.circulating);
+        }
+        if(Array.isArray(data.items)){
+          renderAuditList(target, data.items);
+        }
+      }catch(e){ console.warn('SSE parse error', e); }
+    };
+    es.onerror=(e)=>{ console.warn('SSE error', e); };
+  }catch(e){ console.warn('No se pudo iniciar SSE', e); }
+}
+
+function renderAuditList(container, items){
+  const fmt=(n)=> new Date(n).toLocaleTimeString();
+  const rows=items.map(it=>{
+    const type=it.type||'-';
+    const amount=it.amount!=null? it.amount: '';
+    const by=it.by||'';
+    const reason=it.reason||'';
+    const ts=fmt(it.ts||Date.now());
+    return `<div class="audit-item"><div class="audit-time">${ts}</div><div class="audit-type">${type}</div><div class="audit-amount">${amount}</div><div class="audit-meta">${by} ${reason? '· '+reason: ''}</div></div>`;
+  }).join('');
+  container.innerHTML=rows||'<div class="muted">Sin eventos recientes</div>';
+}

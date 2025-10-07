@@ -20,6 +20,52 @@ router.get('/supply', async (req, res) => {
   }
 });
 
+// GET /api/economy/supply/stream (SSE)
+router.get('/supply/stream', async (req, res) => {
+  try {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    let closed = false;
+    req.on('close', () => {
+      closed = true;
+      clearInterval(interval);
+    });
+
+    const send = (data) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Primer payload inmediato
+    const firstSummary = await supplyService.getSummary();
+    const firstTxs = await supplyService.getSupplyTxs(20);
+    send({ type: 'init', summary: firstSummary, items: firstTxs });
+
+    // Heartbeat cada 20s para mantener conexión
+    const hb = setInterval(() => { if (!closed) res.write(': ping\n\n'); }, 20000);
+
+    // Poll ligero cada 2s
+    const interval = setInterval(async () => {
+      try {
+        const summary = await supplyService.getSummary();
+        const items = await supplyService.getSupplyTxs(20);
+        send({ type: 'update', summary, items });
+      } catch (err) {
+        logger.error('SSE /supply/stream error:', err);
+      }
+    }, 2000);
+
+    // Limpiar heartbeat al cerrar
+    req.on('close', () => clearInterval(hb));
+  } catch (err) {
+    logger.error('GET /economy/supply/stream error:', err);
+    res.status(500).end();
+  }
+});
+
 // GET /api/economy/supply/txs?limit=100
 router.get('/supply/txs', async (req, res) => {
   try {

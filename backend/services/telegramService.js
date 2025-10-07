@@ -12,7 +12,7 @@
  */
 
 const TelegramBot = require('node-telegram-bot-api');
-const { telegram } = require('../config/config');
+const { telegram, server } = require('../config/config');
 const logger = require('../config/logger');
 
 class TelegramService {
@@ -26,6 +26,12 @@ class TelegramService {
    */
   initialize() {
     try {
+      // Permitir desactivar explícitamente en desarrollo
+      if (server.isDevelopment && process.env.TELEGRAM_ENABLED !== 'true') {
+        logger.warn('⚠️ Telegram desactivado en desarrollo (TELEGRAM_ENABLED!=true)');
+        return;
+      }
+
       if (!telegram.botToken) {
         logger.warn('⚠️ Token de Telegram Bot no configurado');
         return;
