@@ -470,6 +470,7 @@ const SocketClient = {
       console.error('Error del servidor:', error);
       UI.showToast(error.message || 'Error del servidor', 'error');
       TelegramApp.hapticFeedback('error');
+      try { this.emit(CONFIG.EVENTS.ERROR, error); } catch (_) {}
     });
   },
 

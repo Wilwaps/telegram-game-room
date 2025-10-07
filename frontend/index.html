@@ -16,13 +16,14 @@
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
     
     <!-- Estilos -->
-    <link rel="stylesheet" href="css/variables.css?v=20251006-12">
-    <link rel="stylesheet" href="css/main.css?v=20251006-12">
-    <link rel="stylesheet" href="css/splash.css?v=20251006-12">
-    <link rel="stylesheet" href="css/lobby.css?v=20251006-12">
-    <link rel="stylesheet" href="css/game.css?v=20251006-12">
-    <link rel="stylesheet" href="css/bingo.css?v=20251006-12">
-    <link rel="stylesheet" href="css/animations.css?v=20251006-12">
+    <link rel="stylesheet" href="css/variables.css?v=20251006-13">
+    <link rel="stylesheet" href="css/main.css?v=20251006-13">
+    <link rel="stylesheet" href="css/splash.css?v=20251006-13">
+    <link rel="stylesheet" href="css/lobby.css?v=20251006-13">
+    <link rel="stylesheet" href="css/game.css?v=20251006-13">
+    <link rel="stylesheet" href="css/bingo.css?v=20251006-13">
+    <link rel="stylesheet" href="css/animations.css?v=20251006-13">
+    <link rel="stylesheet" href="css/domino.css?v=20251006-13">
     
     <!-- Preconnect para mejor rendimiento -->
     <link rel="preconnect" href="https://telegram.org">
@@ -42,6 +43,39 @@
                 <div class="splash-dot"></div>
                 <div class="splash-dot"></div>
             </div>
+
+  <!-- ========================================== -->
+  <!-- PANTALLA DE DOMINÓ -->
+  <!-- ========================================== -->
+  <div id="domino-game-screen" class="screen domino-screen">
+    <div class="domino-header">
+      <div class="domino-header-left">
+        <button id="domino-exit-btn" class="btn-icon" title="Salir">←</button>
+        <div>
+          <h2 class="domino-title">Dominó</h2>
+          <div class="domino-sub">Partida en curso</div>
+        </div>
+      </div>
+      <div class="domino-room-code" id="domino-room-code">------</div>
+    </div>
+
+    <div class="domino-main">
+      <div class="domino-players" id="domino-players"></div>
+      <div class="domino-board-wrap">
+        <div>
+          <div class="open-ends" id="domino-open-ends"></div>
+          <div class="domino-board" id="domino-board"></div>
+        </div>
+      </div>
+      <div class="domino-hand-wrap">
+        <div class="domino-hand" id="domino-hand"></div>
+      </div>
+      <div class="domino-actions">
+        <button id="domino-draw-btn" class="btn btn-secondary"><span class="btn-text">Robar</span></button>
+        <button id="domino-pass-btn" class="btn btn-danger"><span class="btn-text">Pasar</span></button>
+      </div>
+    </div>
+  </div>
 
     <div id="xp-modal" class="modal">
         <div class="modal-overlay" data-close="xp-modal"></div>
@@ -632,18 +666,19 @@
     <!-- ========================================== -->
     <!-- SCRIPTS -->
     <!-- ========================================== -->
-    <script src="js/config.js?v=20251006-12"></script>
-    <script src="js/utils.js?v=20251006-12"></script>
-    <script src="js/telegram.js?v=20251006-12"></script>
-    <script src="js/socket-client.js?v=20251006-12"></script>
-    <script src="js/ui.js?v=20251006-12"></script>
-    <script src="js/lobby.js?v=20251006-12"></script>
-    <script src="js/waiting-room.js?v=20251006-12"></script>
-    <script src="js/game.js?v=20251006-12"></script>
-    <script src="js/economy.js?v=20251006-12"></script>
-    <script src="js/bingo.js?v=20251006-12"></script>
-    <script src="js/result.js?v=20251006-12"></script>
-    <script src="js/xp-ui.js?v=20251006-12"></script>
-    <script src="js/app.js?v=20251006-12"></script>
+    <script src="js/config.js?v=20251006-13"></script>
+    <script src="js/utils.js?v=20251006-13"></script>
+    <script src="js/telegram.js?v=20251006-13"></script>
+    <script src="js/socket-client.js?v=20251006-13"></script>
+    <script src="js/ui.js?v=20251006-13"></script>
+    <script src="js/lobby.js?v=20251006-13"></script>
+    <script src="js/waiting-room.js?v=20251006-13"></script>
+    <script src="js/game.js?v=20251006-13"></script>
+    <script src="js/economy.js?v=20251006-13"></script>
+    <script src="js/bingo.js?v=20251006-13"></script>
+    <script src="js/result.js?v=20251006-13"></script>
+    <script src="js/xp-ui.js?v=20251006-13"></script>
+    <script src="js/domino.js?v=20251006-13"></script>
+    <script src="js/app.js?v=20251006-13"></script>
   </body>
 </html>

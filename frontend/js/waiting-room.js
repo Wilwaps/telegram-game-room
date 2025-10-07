@@ -1,5 +1,6 @@
 const WaitingRoom = {
   currentRoom: null,
+  dominoStarting: false,
 
   /**
    * Inicializar sala de espera
@@ -61,10 +62,22 @@ const WaitingRoom = {
       try {
         if (!room || !this.currentRoom || room.code !== this.currentRoom.code) return;
         this.currentRoom = room;
+        this.dominoStarting = false;
         UI.showToast('Dominó: ¡Partida iniciada!', 'success');
         TelegramApp.hapticFeedback('success');
-        // Aquí se podría navegar a una pantalla de juego de Dominó cuando exista
+        // Navegar a pantalla de juego Dominó
+        try { DominoGame.start(room); } catch(e) { console.error('DominoGame.start error', e); this.render(); }
       } catch (e) { console.error('domino_start handler error:', e); }
+    });
+
+    // Manejar errores del servidor (reiniciar estado de inicio si aplica)
+    SocketClient.on('error', (err) => {
+      try {
+        if (this.currentRoom?.gameType === 'domino' && this.dominoStarting) {
+          this.dominoStarting = false;
+          this.updateDominoControls();
+        }
+      } catch(_) {}
     });
   },
 
@@ -96,6 +109,16 @@ const WaitingRoom = {
     if (waitingContainer) {
       waitingContainer.classList.toggle('compact', this.currentRoom.gameType === 'domino');
     }
+
+    // Actualizar texto de estado (Esperando... / En juego)
+    try {
+      const statusWrap = document.querySelector('#waiting-room-screen .waiting-status');
+      const statusText = statusWrap ? statusWrap.querySelector('span:nth-child(2)') : null;
+      if (statusText) {
+        const status = this.currentRoom.status || 'waiting';
+        statusText.textContent = status === 'waiting' ? 'Esperando...' : 'En juego';
+      }
+    } catch(_) {}
 
     // Código de sala
     const roomCodeEl = document.getElementById('room-code-display');
@@ -238,25 +261,42 @@ const WaitingRoom = {
     const myReady = !!me?.isReady;
     const isHost = this.isDominoHost();
     const allReady = this.canStartDomino();
+    const status = this.currentRoom.status || 'waiting';
 
     if (readyBtn) {
-      UI.updateButtonText('domino-ready-btn', myReady ? 'Cancelar listo' : 'Estoy listo');
+      if (status !== 'waiting') {
+        UI.updateButtonText('domino-ready-btn', 'Partida en curso');
+        readyBtn.disabled = true;
+        readyBtn.classList.add('disabled');
+      } else {
+        UI.updateButtonText('domino-ready-btn', myReady ? 'Cancelar listo' : 'Estoy listo');
+        readyBtn.disabled = false;
+        readyBtn.classList.remove('disabled');
+      }
     }
     if (startBtn) {
-      const canStart = isHost && allReady;
-      startBtn.disabled = !canStart;
-      if (canStart) {
-        startBtn.classList.remove('disabled');
+      if (status !== 'waiting') {
+        startBtn.disabled = true;
+        startBtn.classList.add('disabled');
+        UI.updateButtonText('domino-start-btn', 'Partida en curso');
         startBtn.title = '';
       } else {
-        startBtn.classList.add('disabled');
-        startBtn.title = isHost ? 'Se requieren 2 o 4 jugadores listos' : 'Solo el anfitrión puede iniciar';
+        UI.updateButtonText('domino-start-btn', this.dominoStarting ? 'Iniciando…' : 'Iniciar partida');
+        const canStart = isHost && allReady && !this.dominoStarting;
+        startBtn.disabled = !canStart;
+        if (canStart) {
+          startBtn.classList.remove('disabled');
+          startBtn.title = '';
+        } else {
+          startBtn.classList.add('disabled');
+          startBtn.title = isHost ? 'Se requieren 2 o 4 jugadores listos' : 'Solo el anfitrión puede iniciar';
+        }
       }
     }
     if (modeBtn) {
       const isFriendly = this.currentRoom.mode === 'friendly';
       UI.updateButtonText('domino-mode-toggle', `Modo: ${isFriendly ? 'Amistoso' : 'Normal'}`);
-      modeBtn.disabled = !isHost;
+      modeBtn.disabled = !isHost || status !== 'waiting';
       if (modeBtn.disabled) modeBtn.classList.add('disabled'); else modeBtn.classList.remove('disabled');
     }
 
@@ -267,10 +307,10 @@ const WaitingRoom = {
         makePublicDominoBtn.classList.add('disabled');
       } else {
         UI.updateButtonText('domino-make-public-btn', 'Hacer Pública');
-        makePublicDominoBtn.disabled = !isHost;
+        makePublicDominoBtn.disabled = !isHost || status !== 'waiting';
         if (makePublicDominoBtn.disabled) {
           makePublicDominoBtn.classList.add('disabled');
-          makePublicDominoBtn.title = 'Solo el anfitrión puede hacer pública la sala';
+          makePublicDominoBtn.title = status !== 'waiting' ? 'Partida en curso' : 'Solo el anfitrión puede hacer pública la sala';
         } else {
           makePublicDominoBtn.classList.remove('disabled');
           makePublicDominoBtn.title = '';
@@ -295,6 +335,7 @@ const WaitingRoom = {
     if (!this.currentRoom) return false;
     const players = this.currentRoom.players || [];
     const n = players.length;
+    if (this.currentRoom.status && this.currentRoom.status !== 'waiting') return false;
     if (!(n === 2 || n === 4)) return false;
     let hostId;
     if (typeof this.currentRoom.host === 'string' || typeof this.currentRoom.host === 'number') {
@@ -309,6 +350,9 @@ const WaitingRoom = {
 
   toggleDominoReady() {
     if (!this.currentRoom) return;
+    if (this.currentRoom.status && this.currentRoom.status !== 'waiting') {
+      return UI.showToast('La partida ya está en curso', 'info');
+    }
     const myId = String(SocketClient.userId);
     const me = (this.currentRoom.players || []).find(p => String(p.userId) === myId);
     const newReady = !(!!me?.isReady);
@@ -326,6 +370,12 @@ const WaitingRoom = {
     if (!this.canStartDomino()) {
       return UI.showToast('Se requieren 2 o 4 jugadores listos', 'warning');
     }
+    if (this.dominoStarting) return; // evitar doble clic
+    this.dominoStarting = true;
+    try {
+      const btn = document.getElementById('domino-start-btn');
+      if (btn) { btn.disabled = true; btn.classList.add('disabled'); UI.updateButtonText('domino-start-btn', 'Iniciando…'); }
+    } catch(_) {}
     SocketClient.startDomino(this.currentRoom.code);
   },
 
