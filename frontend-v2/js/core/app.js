@@ -5,6 +5,7 @@ import { Registry } from './registry.js';
 
 // Importar juegos (plugins)
 import '../plugins/bingo/index.js';
+import '../plugins/domino/index.js';
 
 const App = {
   user: null,

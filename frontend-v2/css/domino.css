@@ -1,0 +1,17 @@
+.dm-wrap{display:grid;grid-template-columns:1fr;gap:24px}
+
+.dm-panel{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:16px;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+.dm-title{font-weight:700;margin-bottom:10px}
+.dm-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.dm-ends{color:var(--muted);font-size:14px}
+
+.dm-board{display:flex;flex-wrap:wrap;gap:8px;min-height:72px;padding:8px;background:rgba(255,255,255,.04);border-radius:12px;border:1px dashed rgba(255,255,255,.12)}
+.dm-actions{display:flex;gap:10px;margin-top:12px}
+
+.dm-hand{display:flex;flex-wrap:wrap;gap:8px}
+
+.dm-tile{display:inline-grid;grid-template-columns:1fr 1fr;gap:2px;align-items:center;justify-content:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;color:#e6e7ef;font-weight:800;min-width:64px;min-height:40px;cursor:pointer;transition:transform .15s ease, box-shadow .15s ease}
+.dm-tile span{display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.15);border-radius:6px;padding:6px 10px}
+.dm-tile.playable{box-shadow:0 10px 22px rgba(34,211,238,.18);outline:1px solid rgba(34,211,238,.45)}
+.dm-tile.playable:hover{transform:translateY(-2px);box-shadow:0 16px 30px rgba(34,211,238,.28)}
+.dm-tile.placed{cursor:default;background:rgba(255,255,255,.08)}
