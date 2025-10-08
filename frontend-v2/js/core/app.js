@@ -133,7 +133,12 @@ App.renderAvatars = function(){
     const img = document.getElementById(id);
     if (!img) return;
     img.src = url || dataUrl;
-    img.onclick = ()=> UI.showScreen('profile-screen');
+    img.onclick = ()=> {
+      UI.showScreen('profile-screen');
+      // activar nav 'profile' en todas las barras
+      document.querySelectorAll('.bottom-nav .nav-item').forEach(n=> n.classList.remove('active'));
+      document.querySelectorAll('.bottom-nav .nav-item[data-action="profile"]').forEach(n=> n.classList.add('active'));
+    };
   };
   set('profile-avatar-lobby');
   set('profile-avatar-game');
