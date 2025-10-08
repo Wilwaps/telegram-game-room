@@ -18,7 +18,6 @@ const logger = require('../config/logger');
 const Room = require('../models/Room');
 const User = require('../models/User');
 const BingoRoom = require('../models/BingoRoom');
-const DominoRoom = require('../models/DominoRoom');
 
 class RedisService {
   constructor() {
@@ -26,56 +25,7 @@ class RedisService {
     this.isConnected = false;
   }
 
-  // ============================================
-  // DOMINÓ - OPERACIONES ESPECÍFICAS
-  // ============================================
-
-  /** Obtener salas públicas de Dominó (solo waiting) */
-  async getPublicDominoRooms() {
-    try {
-      const roomCodes = await this.client.smembers('public_domino_rooms');
-      const rooms = [];
-      for (const code of roomCodes) {
-        const room = await this.getDominoRoom(code);
-        if (room && room.status === 'waiting') {
-          rooms.push(room);
-        } else if (!room) {
-          await this.client.srem('public_domino_rooms', code);
-        }
-      }
-      return rooms;
-    } catch (err) {
-      logger.error('Error getPublicDominoRooms:', err);
-      return [];
-    }
-  }
-
-  /** Guardar sala de Dominó */
-  async setDominoRoom(roomCode, room, ttl = redis.ttl.room) {
-    const key = `${constants.REDIS_PREFIXES.DOMINO_ROOM}${roomCode}`;
-    const data = JSON.stringify(room.toJSON ? room.toJSON() : room);
-    await this.client.setex(key, ttl, data);
-    if (room.isPublic) {
-      await this.client.sadd('public_domino_rooms', roomCode);
-    } else {
-      await this.client.srem('public_domino_rooms', roomCode);
-    }
-  }
-
-  /** Obtener sala de Dominó */
-  async getDominoRoom(roomCode) {
-    const key = `${constants.REDIS_PREFIXES.DOMINO_ROOM}${roomCode}`;
-    const data = await this.client.get(key);
-    if (!data) return null;
-    return DominoRoom.fromJSON(JSON.parse(data));
-  }
-
-  /** Eliminar sala de Dominó */
-  async deleteDominoRoom(roomCode) {
-    const key = `${constants.REDIS_PREFIXES.DOMINO_ROOM}${roomCode}`;
-    await this.client.del(key);
-    await this.client.srem('public_domino_rooms', roomCode);
-  }
+  // Dominó eliminado
 
   /**
    * Obtener todas las salas públicas de Bingo
@@ -611,14 +561,7 @@ class RedisService {
           await this.client.srem('public_rooms', code);
         }
       }
-      // Limpiar índice de salas públicas de Dominó
-      const publicDomino = await this.client.smembers('public_domino_rooms');
-      for (const code of publicDomino) {
-        const room = await this.getDominoRoom(code);
-        if (!room) {
-          await this.client.srem('public_domino_rooms', code);
-        }
-      }
+      // Dominó eliminado
       
       logger.debug('Limpieza de salas expiradas completada');
     } catch (error) {

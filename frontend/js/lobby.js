@@ -13,8 +13,6 @@ const Lobby = {
    * Inicializar lobby
    */
   init() {
-    // Asegurar tarjeta Dominó antes de enlazar eventos
-    this.ensureDominoCard();
     this.setupEventListeners();
     this.setupSocketListeners();
   },
@@ -23,9 +21,6 @@ const Lobby = {
    * Configurar event listeners
    */
   setupEventListeners() {
-    // Asegurar tarjeta Dominó (por si el DOM se montó tarde)
-    this.ensureDominoCard();
-
     // Botón crear sala
     const createRoomBtn = document.getElementById('create-room-btn');
     if (createRoomBtn) {
@@ -83,30 +78,10 @@ const Lobby = {
           const gameType = roomCard.dataset.gameType || 'tic-tac-toe';
           if (gameType === 'bingo') {
             SocketClient.joinBingo(roomCode, 1);
-          } else if (gameType === 'domino') {
-            SocketClient.joinDomino(roomCode);
-            UI.showToast(`Uniéndose a Dominó ${roomCode}...`, 'info');
           } else {
             this.handleJoinRoomByCode(roomCode);
           }
         }
-      });
-    }
-
-    // Botones Dominó (si existen)
-    const createDominoBtn = document.getElementById('create-domino-btn');
-    if (createDominoBtn) {
-      createDominoBtn.addEventListener('click', () => {
-        this.joinGameType = 'domino';
-        UI.showToast('Creando sala de Dominó...', 'info');
-        SocketClient.createDominoRoom({ isPublic: false, mode: 'friendly', stake: 1 });
-      });
-    }
-    const joinDominoBtn = document.getElementById('join-domino-btn');
-    if (joinDominoBtn) {
-      joinDominoBtn.addEventListener('click', () => {
-        this.joinGameType = 'domino';
-        this.handleJoinWithCode('Unirse a Dominó');
       });
     }
   },
@@ -152,30 +127,6 @@ const Lobby = {
       WaitingRoom.show(room);
     });
 
-    // Dominó: al crear sala, navegar a sala de espera
-    SocketClient.on('domino_room_created', ({ room }) => {
-      UI.showToast('Sala de Dominó creada', 'success');
-      try { WaitingRoom.show(room); } catch(e) { console.error('WaitingRoom.show error:', e); }
-    });
-
-    // Dominó: al recibir actualización, si corresponde a la sala actual, mantener visible sala de espera
-    SocketClient.on('domino_room_updated', ({ room }) => {
-      try {
-        if (!room || !room.code) return;
-        // Si es nuestra sala de dominó actual, mantener UI en sala de espera
-        if (SocketClient.currentDominoRoom === room.code) {
-          // Si estamos en otra pantalla, navegar
-          if (UI.currentScreen !== 'waiting-room-screen') {
-            WaitingRoom.show(room);
-          } else {
-            // Si ya estamos, refrescar datos
-            WaitingRoom.updateRoom(room);
-          }
-        }
-      } catch (e) {
-        console.error('domino_room_updated handler error:', e);
-      }
-    });
   },
 
   /**
@@ -237,25 +188,17 @@ const Lobby = {
     if (!input) return;
 
     const roomCodeRaw = input.value.trim();
-    const isDomino = this.joinGameType === 'domino';
-    const roomCode = isDomino ? roomCodeRaw.replace(/\D/g, '').substring(0, 6) : roomCodeRaw.toUpperCase();
-
-    const valid = isDomino ? /^\d{6}$/.test(roomCode) : Utils.isValidRoomCode(roomCode);
+    const roomCode = roomCodeRaw.toUpperCase();
+    const valid = Utils.isValidRoomCode(roomCode);
     if (!valid) {
-      UI.showToast(isDomino ? 'Código inválido (6 dígitos)' : 'Código inválido (6 caracteres)', 'error');
+      UI.showToast('Código inválido (6 caracteres)', 'error');
       TelegramApp.hapticFeedback('error');
       return;
     }
 
     UI.hideModal('code-modal');
-    if (this.joinGameType === 'domino') {
-      // Unirse a Dominó
-      SocketClient.joinDomino(roomCode);
-      UI.showToast(`Uniéndose a Dominó ${roomCode}...`, 'info');
-    } else {
-      // Unirse a Tic Tac Toe
-      this.handleJoinRoomByCode(roomCode);
-    }
+    // Unirse a Tic Tac Toe
+    this.handleJoinRoomByCode(roomCode);
   },
 
   /**
@@ -309,33 +252,6 @@ const Lobby = {
     UI.renderRoomsList(filteredRooms);
   },
 
-  /**
-   * Insertar tarjeta de Dominó si no existe
-   */
-  ensureDominoCard() {
-    try {
-      const selector = document.querySelector('.game-selector');
-      if (!selector) return;
-      if (document.getElementById('select-domino')) return;
-      const card = document.createElement('div');
-      card.className = 'game-card';
-      card.id = 'select-domino';
-      card.innerHTML = `
-        <div class="game-icon">🁣</div>
-        <div class="game-info">
-          <h3>Dominó</h3>
-          <p>2 o 4 jugadores (stake opcional)</p>
-        </div>
-        <div class="game-actions">
-          <button id="create-domino-btn" class="btn btn-primary btn-small">Crear</button>
-          <button id="join-domino-btn" class="btn btn-secondary btn-small">Unirse</button>
-        </div>
-      `;
-      selector.appendChild(card);
-    } catch (e) {
-      console.error('ensureDominoCard error:', e);
-    }
-  },
 
   /**
    * Formatear código de sala según juego seleccionado
