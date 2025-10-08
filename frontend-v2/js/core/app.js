@@ -166,6 +166,13 @@ App.bindProfileUI = function(){
           if (p.email) document.getElementById('pf-email').value=p.email;
         }
       }).catch(()=>{});
+      // Determinar si es patrocinador para mostrar P2P
+      fetch('/api/economy/sponsors').then(r=>r.json()).then(j=>{
+        const items = j?.sponsors||[];
+        const isSponsor = !!items.find(it=> String(it.userId) === String(u.userId));
+        const sec = document.getElementById('pf-p2p-section');
+        if (sec) sec.style.display = isSponsor ? '' : 'none';
+      }).catch(()=>{});
     } else {
       const d = JSON.parse(localStorage.getItem('v2.profile')||'{}');
       if (d.first) document.getElementById('pf-first').value = d.first;
