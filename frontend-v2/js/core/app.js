@@ -6,7 +6,6 @@ import { Socket } from './socket.js';
 
 // Importar juegos (plugins)
 import '../plugins/bingo/index.js';
-import '../plugins/domino/index.js';
 
 const App = {
   user: null,
@@ -82,7 +81,7 @@ const App = {
     document.getElementById('game-title').textContent = game.name;
     // aplicar tema por juego en el screen
     const screen = document.getElementById('game-screen');
-    screen.classList.remove('theme-bingo','theme-domino');
+    screen.classList.remove('theme-bingo');
     screen.classList.add(`theme-${id}`);
     this.renderAvatars();
     const root = document.getElementById('game-root');

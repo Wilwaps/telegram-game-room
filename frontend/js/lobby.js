@@ -7,7 +7,7 @@
 const Lobby = {
   rooms: [],
   currentFilter: 'all',
-  joinGameType: 'tic-tac-toe', // 'tic-tac-toe' | 'domino'
+  joinGameType: 'tic-tac-toe',
 
   /**
    * Inicializar lobby
@@ -152,20 +152,12 @@ const Lobby = {
       const input = modal ? modal.querySelector('#room-code-input') : null;
       const hint = modal ? modal.querySelector('.input-hint') : null;
       if (input) {
-        if (this.joinGameType === 'domino') {
-          input.placeholder = 'Ingresa el código (6 dígitos)';
-          input.setAttribute('inputmode', 'numeric');
-          input.setAttribute('pattern', '\\d{6}');
-        } else {
-          input.placeholder = 'Ingresa el código (6 caracteres)';
-          input.setAttribute('inputmode', 'text');
-          input.setAttribute('pattern', '[A-Za-z0-9]{6}');
-        }
+        input.placeholder = 'Ingresa el código (6 caracteres)';
+        input.setAttribute('inputmode', 'text');
+        input.setAttribute('pattern', '[A-Za-z0-9]{6}');
       }
       if (hint) {
-        hint.textContent = this.joinGameType === 'domino'
-          ? 'El código debe tener 6 dígitos'
-          : 'El código debe tener 6 caracteres alfanuméricos';
+        hint.textContent = 'El código debe tener 6 caracteres alfanuméricos';
       }
     } catch(_) {}
     UI.showModal('code-modal');
@@ -257,9 +249,6 @@ const Lobby = {
    * Formatear código de sala según juego seleccionado
    */
   formatRoomCodeForCurrentGame(value) {
-    if (this.joinGameType === 'domino') {
-      return value.replace(/\D/g, '').substring(0, 6);
-    }
     return Utils.formatRoomCode(value);
   },
 

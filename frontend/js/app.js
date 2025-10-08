@@ -135,10 +135,6 @@ const App = {
     if (typeof Bingo !== 'undefined') {
       Bingo.init();
     }
-    // Inicializar Dominó (listeners y UI)
-    if (typeof DominoGame !== 'undefined') {
-      DominoGame.init();
-    }
     Game.init();
     Result.init();
 
@@ -165,14 +161,9 @@ const App = {
     if (params.room) {
       const roomCode = params.room.toUpperCase();
       if (Utils.isValidRoomCode(roomCode)) {
-        const isDomino = (params.game && String(params.game).toLowerCase() === 'domino');
-        console.log('Uniéndose a sala desde URL:', roomCode, 'tipo:', isDomino ? 'domino' : 'tic-tac-toe');
+        console.log('Uniéndose a sala desde URL:', roomCode, 'tipo:', 'tic-tac-toe');
         setTimeout(() => {
-          if (isDomino) {
-            SocketClient.joinDomino(roomCode);
-          } else {
-            SocketClient.joinRoom(roomCode);
-          }
+          SocketClient.joinRoom(roomCode);
         }, 500);
         return;
       }

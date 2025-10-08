@@ -86,11 +86,9 @@ body{
 
 /* Temas por juego: override de acentos */
 .theme-bingo{--accent:#22d3ee;--primary:#2481cc}
-.theme-domino{--accent:#9b59b6;--primary:#7e3af2}
 
 /* Variantes en cards del grid */
 .gc-bingo .icon{color:#22d3ee}
-.gc-domino .icon{color:#9b59b6}
 
 /* Perfil */
 .profile-section{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:var(--space-lg);margin:var(--space-lg) 0}

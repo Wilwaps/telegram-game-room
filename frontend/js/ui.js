@@ -198,7 +198,7 @@ const UI = {
 
     roomsList.innerHTML = rooms.map(room => {
       const type = room.gameType || 'tic-tac-toe';
-      const icon = type === 'bingo' ? '🎱' : (type === 'domino' ? '🁣' : '🎮');
+      const icon = type === 'bingo' ? '🎱' : '🎮';
       const host = room.hostName || (room.players && room.players[0]?.userName) || 'Desconocido';
       const statusText = room.status === 'waiting' ? 'Esperando' : (room.status === 'playing' ? 'En juego' : 'Finalizada');
       return `
