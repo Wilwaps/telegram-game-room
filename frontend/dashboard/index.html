@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard | Game Room</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20251007-01" />
 </head>
 <body>
@@ -82,7 +84,7 @@
 
         <table class="table hidden" id="sponsors-table">
           <thead>
-            <tr><th>Usuario</th><th>User ID</th><th>Fuegos</th><th></th></tr>
+            <tr><th>Usuario</th><th>User ID</th><th>Fuegos</th><th>Descripción</th><th>Clave</th><th>Acciones</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -100,7 +102,22 @@
         <input id="sponsor-to-user-id" type="text" placeholder="to userId" />
         <input id="sponsor-amount" type="number" min="1" placeholder="100" />
         <input id="sponsor-reason" type="text" placeholder="motivo (opcional)" />
+        <input id="sponsor-key" type="password" placeholder="clave patrocinador" />
         <button id="sponsor-transfer" class="btn btn-primary">Transferir</button>
+      </div>
+      <div id="sponsor-add-extended" class="form-row mt hidden">
+        <label class="muted">Alta unificada</label>
+        <input id="sponsor-add-key" type="password" placeholder="clave (opcional)" />
+        <input id="sponsor-add-amount" type="number" min="0" placeholder="fuegos iniciales (opcional)" />
+        <input id="sponsor-add-desc" type="text" placeholder="descripción (opcional)" />
+        <button id="sponsor-add-submit" class="btn btn-primary">Crear patrocinador</button>
+      </div>
+      <div id="sponsor-key-actions" class="form-row mt hidden">
+        <label class="muted">Clave Patrocinador</label>
+        <select id="sponsor-key-user"></select>
+        <input id="sponsor-new-key" type="password" placeholder="nueva clave" />
+        <button id="sponsor-set-key" class="btn">Asignar/Actualizar clave</button>
+        <button id="sponsor-remove-key" class="btn">Quitar clave</button>
       </div>
     </section>
 

@@ -24,8 +24,16 @@ router.get('/supply', async (req, res) => {
 router.post('/sponsors/add', adminAuth, async (req, res) => {
   try {
     const userId = String(req.body?.userId || '').trim();
+    const key = String(req.body?.key || '').trim();
+    const description = String(req.body?.description || '').trim();
+    const initialAmount = Math.max(0, parseInt(req.body?.initialAmount || '0', 10));
     if (!userId) return res.status(400).json({ success: false, error: 'userId requerido' });
     await supplyService.addSponsor(userId);
+    if (key) { await supplyService.setSponsorKey(userId, key); }
+    if (description) { await supplyService.setSponsorMeta(userId, { description }); }
+    if (initialAmount > 0) {
+      await supplyService.allocateAndGrant(userId, initialAmount, { reason: 'sponsor_initial_grant', by: req.admin?.userName || 'admin' });
+    }
     const list = await supplyService.listSponsorsWithFires();
     res.json({ success: true, sponsors: list.items });
   } catch (err) {
@@ -48,6 +56,20 @@ router.post('/sponsors/remove', adminAuth, async (req, res) => {
   }
 });
 
+// POST /api/economy/sponsors/set-meta { userId, description }
+router.post('/sponsors/set-meta', adminAuth, async (req, res) => {
+  try {
+    const userId = String(req.body?.userId || '').trim();
+    const description = String(req.body?.description || '').trim();
+    if (!userId) return res.status(400).json({ success: false, error: 'userId requerido' });
+    await supplyService.setSponsorMeta(userId, { description });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('POST /economy/sponsors/set-meta error:', err);
+    res.status(400).json({ success: false, error: err.message || 'No se pudo establecer descripción' });
+  }
+});
+
 // GET /api/economy/sponsors
 router.get('/sponsors', async (req, res) => {
   try {
@@ -67,14 +89,45 @@ router.post('/transfer', async (req, res) => {
     const toUserId = String(req.body?.toUserId || '').trim();
     const amount = Math.abs(parseInt(req.body?.amount || '0', 10));
     const reason = String(req.body?.reason || 'transfer');
+    const sponsorKey = String(req.body?.sponsorKey || '');
     if (!fromUserId || !toUserId || !amount) return res.status(400).json({ success: false, error: 'Datos inválidos' });
     const isSponsor = (await redisService.client.sismember('economy:sponsors', fromUserId)) === 1;
     if (!isSponsor) return res.status(403).json({ success: false, error: 'Solo patrocinadores pueden transferir' });
+    // Validación de clave de patrocinador
+    const okKey = await supplyService.verifySponsorKey(fromUserId, sponsorKey);
+    if (!okKey) return res.status(403).json({ success: false, error: 'Clave de patrocinador inválida' });
     const result = await economyService.transfer(fromUserId, toUserId, amount, { reason });
     res.json({ success: true, result });
   } catch (err) {
     logger.error('POST /economy/transfer error:', err);
     res.status(400).json({ success: false, error: err.message || 'No se pudo transferir' });
+  }
+});
+
+// POST /api/economy/sponsors/set-key { userId, key }
+router.post('/sponsors/set-key', adminAuth, async (req, res) => {
+  try {
+    const userId = String(req.body?.userId || '').trim();
+    const key = String(req.body?.key || '').trim();
+    if (!userId || !key) return res.status(400).json({ success: false, error: 'userId y key requeridos' });
+    await supplyService.setSponsorKey(userId, key);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('POST /economy/sponsors/set-key error:', err);
+    res.status(400).json({ success: false, error: err.message || 'No se pudo asignar clave' });
+  }
+});
+
+// POST /api/economy/sponsors/remove-key { userId }
+router.post('/sponsors/remove-key', adminAuth, async (req, res) => {
+  try {
+    const userId = String(req.body?.userId || '').trim();
+    if (!userId) return res.status(400).json({ success: false, error: 'userId requerido' });
+    await supplyService.removeSponsorKey(userId);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('POST /economy/sponsors/remove-key error:', err);
+    res.status(400).json({ success: false, error: err.message || 'No se pudo remover clave' });
   }
 });
 

@@ -8,6 +8,7 @@
 const redisService = require('./redisService');
 const economyService = require('./economyService');
 const logger = require('../config/logger');
+const crypto = require('crypto');
 
 const SUPPLY_KEYS = {
   MAX: 'supply:max',
@@ -21,6 +22,10 @@ const SUPPLY_KEYS = {
 
 // Conjunto de patrocinadores
 const SPONSOR_SET = 'economy:sponsors';
+// Hash de claves de patrocinador: HSET economy:sponsor:keys <userId> <sha256>
+const SPONSOR_KEYS = 'economy:sponsor:keys';
+// Hash de metadatos de patrocinador: HSET economy:sponsor:meta <userId> '{"description":"..."}'
+const SPONSOR_META = 'economy:sponsor:meta';
 
 const DEFAULTS = {
   MAX_SUPPLY: parseInt(process.env.SUPPLY_MAX, 10) || 1_000_000_000,
@@ -179,6 +184,10 @@ module.exports = {
       const pipe = redisService.client.pipeline();
       ids.forEach(id => pipe.hget(`user:${id}:currency`, 'fires'));
       const res = await pipe.exec();
+      // keys presence
+      const pipeKeys = redisService.client.pipeline();
+      ids.forEach(id => pipeKeys.hget(SPONSOR_KEYS, String(id)));
+      const keysRes = await pipeKeys.exec();
       for (let i = 0; i < ids.length; i++) {
         const userId = ids[i];
         const fires = parseInt((res[i] && res[i][1]) || '0', 10);
@@ -187,10 +196,49 @@ module.exports = {
           const udata = await redisService.client.get(`user:${userId}`);
           if (udata) { const u = JSON.parse(udata); userName = u.userName || null; createdAt = u.createdAt || null; lastSeen = u.lastSeen || null; }
         } catch (_) {}
+        // meta opcional
+        let description = null;
+        try { const m = await redisService.client.hget(SPONSOR_META, String(userId)); if (m) { const o=JSON.parse(m); description=o.description||null; } } catch(_){ }
+        const hasKey = !!(keysRes && keysRes[i] && keysRes[i][1]);
         const isAnon = !userName || !/^\d+$/.test(String(userId));
-        items.push({ userId, userName, fires, createdAt, lastSeen, isAnon, isSponsor: true });
+        items.push({ userId, userName, fires, createdAt, lastSeen, isAnon, isSponsor: true, description, hasKey });
       }
     }
     return { items };
+  },
+
+  /** Asignar clave a patrocinador (hash sha256) */
+  async setSponsorKey(userId, plainKey){
+    if(!userId || !plainKey) throw new Error('userId y clave requeridos');
+    const hash = crypto.createHash('sha256').update(String(plainKey)).digest('hex');
+    await redisService.client.hset(SPONSOR_KEYS, String(userId), hash);
+    return true;
+  },
+
+  /** Verificar clave de patrocinador */
+  async verifySponsorKey(userId, plainKey){
+    if(!userId || !plainKey) return false;
+    const stored = await redisService.client.hget(SPONSOR_KEYS, String(userId));
+    if(!stored) return false;
+    const hash = crypto.createHash('sha256').update(String(plainKey)).digest('hex');
+    return stored === hash;
+  },
+
+  /** Quitar clave */
+  async removeSponsorKey(userId){
+    if(!userId) throw new Error('userId requerido');
+    await redisService.client.hdel(SPONSOR_KEYS, String(userId));
+    return true;
+  },
+
+  /** Metadatos de patrocinador */
+  async setSponsorMeta(userId, meta){
+    if(!userId) throw new Error('userId requerido');
+    await redisService.client.hset(SPONSOR_META, String(userId), JSON.stringify(meta||{}));
+    return true;
+  },
+  async getSponsorMeta(userId){
+    const val = await redisService.client.hget(SPONSOR_META, String(userId));
+    if(!val) return null; try{ return JSON.parse(val); }catch{ return null; }
   }
 };

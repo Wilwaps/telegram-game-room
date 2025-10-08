@@ -83,6 +83,8 @@ function renderUsersTables(items){
   document.getElementById('anon-table').classList.toggle('hidden', usersMode!=='anon');
   document.getElementById('sponsors-table').classList.toggle('hidden', usersMode!=='sponsors');
   document.getElementById('sponsor-actions')?.classList.toggle('hidden', usersMode!=='sponsors');
+  document.getElementById('sponsor-add-extended')?.classList.toggle('hidden', usersMode!=='sponsors');
+  document.getElementById('sponsor-key-actions')?.classList.toggle('hidden', usersMode!=='sponsors');
   document.getElementById('users-next-btn')?.classList.toggle('hidden', usersMode==='sponsors');
   document.getElementById('users-next-pages')?.classList.toggle('hidden', usersMode==='sponsors');
 }
@@ -167,6 +169,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   // Sponsor actions
   document.getElementById('sponsor-add')?.addEventListener('click', sponsorAdd);
   document.getElementById('sponsor-transfer')?.addEventListener('click', sponsorTransfer);
+  document.getElementById('sponsor-add-submit')?.addEventListener('click', sponsorAddUnified);
+  document.getElementById('sponsor-set-key')?.addEventListener('click', sponsorSetKey);
+  document.getElementById('sponsor-remove-key')?.addEventListener('click', sponsorRemoveKey);
   loadSupply();
   refreshUsers();
   // SSE auditoría supply
@@ -187,14 +192,24 @@ async function loadSponsors(){
     items.forEach(it=>{
       const tr=document.createElement('tr');
       const uname=it.userName||'(sin nombre)';
-      tr.innerHTML=`<td>${uname}</td><td>${it.userId}</td><td>${(it.fires||0).toLocaleString()}</td><td></td>`;
+      const desc = it.description ? it.description : '';
+      const keyBadge = it.hasKey ? '<span class="badge ok">sí</span>' : '<span class="badge warn">no</span>';
+      tr.innerHTML=`<td>${uname}</td><td>${it.userId}</td><td>${(it.fires||0).toLocaleString()}</td><td>${desc}</td><td>${keyBadge}</td><td><button class="btn btn-mini" data-action="remove-sponsor" data-uid="${it.userId}">Quitar</button></td>`;
       tbody.appendChild(tr);
     });
-    // poblar select from
+    // poblar selects
     const sel=document.getElementById('sponsor-from');
     if(sel){ sel.innerHTML=''; items.forEach(it=>{ const o=document.createElement('option'); o.value=it.userId; o.textContent=`${it.userName||'(sin nombre)'} (${it.userId})`; sel.appendChild(o); }); }
+    const selKey=document.getElementById('sponsor-key-user');
+    if(selKey){ selKey.innerHTML=''; items.forEach(it=>{ const o=document.createElement('option'); o.value=it.userId; o.textContent=`${it.userName||'(sin nombre)'} (${it.userId})`; selKey.appendChild(o); }); }
     // mostrar acciones
     document.getElementById('sponsor-actions')?.classList.remove('hidden');
+    document.getElementById('sponsor-key-actions')?.classList.remove('hidden');
+    document.getElementById('sponsor-add-extended')?.classList.remove('hidden');
+    // wire remove
+    tbody.querySelectorAll('button[data-action="remove-sponsor"]').forEach(btn=>{
+      btn.addEventListener('click',()=> sponsorRemove(btn.dataset.uid));
+    });
     // ocultar otras tablas
     renderUsersTables(lastUsersItems);
   }catch(e){ toast('Error cargando patrocinadores'); console.error(e); }
@@ -212,17 +227,69 @@ async function sponsorAdd(){
   }catch(e){ toast('Error agregando patrocinador'); console.error(e); }
 }
 
+async function sponsorAddUnified(){
+  try{
+    const userId=document.getElementById('sponsor-user-id').value.trim();
+    const key=document.getElementById('sponsor-add-key').value.trim();
+    const initialAmount=parseInt(document.getElementById('sponsor-add-amount').value,10)||0;
+    const description=document.getElementById('sponsor-add-desc').value.trim();
+    if(!userId) return toast('userId requerido');
+    const adminUser=document.getElementById('admin-username').value.trim();
+    const adminCode=document.getElementById('admin-code').value.trim();
+    await fetchJSON('/api/economy/sponsors/add',{method:'POST',body:JSON.stringify({ userId, key, description, initialAmount, adminUsername:adminUser, adminCode })});
+    toast('Patrocinador creado');
+    document.getElementById('sponsor-add-key').value='';
+    document.getElementById('sponsor-add-amount').value='';
+    document.getElementById('sponsor-add-desc').value='';
+    await loadSponsors();
+  }catch(e){ toast('Error en alta unificada'); console.error(e); }
+}
+
 async function sponsorTransfer(){
   try{
     const from=document.getElementById('sponsor-from').value.trim();
     const to=document.getElementById('sponsor-to-user-id').value.trim();
     const amount=parseInt(document.getElementById('sponsor-amount').value,10);
     const reason=document.getElementById('sponsor-reason').value.trim();
+    const sponsorKey=document.getElementById('sponsor-key').value.trim();
     if(!from||!to||!amount) return toast('Datos inválidos');
-    await fetchJSON('/api/economy/transfer',{method:'POST',body:JSON.stringify({ fromUserId:from, toUserId:to, amount, reason })});
+    await fetchJSON('/api/economy/transfer',{method:'POST',body:JSON.stringify({ fromUserId:from, toUserId:to, amount, reason, sponsorKey })});
     toast('Transferencia realizada');
     await loadSponsors();
   }catch(e){ toast('Error en transferencia'); console.error(e); }
+}
+
+async function sponsorRemove(userId){
+  try{
+    const adminUser=document.getElementById('admin-username').value.trim();
+    const adminCode=document.getElementById('admin-code').value.trim();
+    await fetchJSON('/api/economy/sponsors/remove',{method:'POST',body:JSON.stringify({ userId, adminUsername:adminUser, adminCode })});
+    toast('Patrocinador quitado');
+    await loadSponsors();
+  }catch(e){ toast('Error al quitar patrocinador'); console.error(e); }
+}
+
+async function sponsorSetKey(){
+  try{
+    const userId=document.getElementById('sponsor-key-user').value.trim();
+    const key=document.getElementById('sponsor-new-key').value.trim();
+    if(!userId||!key) return toast('userId y clave requeridos');
+    const adminUser=document.getElementById('admin-username').value.trim();
+    const adminCode=document.getElementById('admin-code').value.trim();
+    await fetchJSON('/api/economy/sponsors/set-key',{method:'POST',body:JSON.stringify({ userId, key, adminUsername:adminUser, adminCode })});
+    toast('Clave asignada');
+    document.getElementById('sponsor-new-key').value='';
+  }catch(e){ toast('Error al asignar clave'); console.error(e); }
+}
+
+async function sponsorRemoveKey(){
+  try{
+    const userId=document.getElementById('sponsor-key-user').value.trim();
+    const adminUser=document.getElementById('admin-username').value.trim();
+    const adminCode=document.getElementById('admin-code').value.trim();
+    await fetchJSON('/api/economy/sponsors/remove-key',{method:'POST',body:JSON.stringify({ userId, adminUsername:adminUser, adminCode })});
+    toast('Clave removida');
+  }catch(e){ toast('Error al quitar clave'); console.error(e); }
 }
 
 // ---------- SSE: Auditoría de Supply en tiempo real ----------

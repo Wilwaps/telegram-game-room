@@ -9,10 +9,12 @@ import '../plugins/domino/index.js';
 
 const App = {
   user: null,
+  selectedGameId: null,
 
   async init(){
     UI.init();
     this.user = this.getUser();
+    this.bindNav();
     this.renderLobby();
     // Splash breve
     await Utils.sleep(700);
@@ -41,7 +43,7 @@ const App = {
     }
     games.forEach(game => {
       const card = document.createElement('div');
-      card.className = 'game-card';
+      card.className = `game-card gc-${game.id}`;
       card.innerHTML = `
         <div class="icon">${game.icon || '🎮'}</div>
         <div class="meta">
@@ -52,16 +54,32 @@ const App = {
           </div>
         </div>
       `;
-      card.addEventListener('click', ()=> this.startGame(game.id));
+      card.addEventListener('click', ()=> {
+        this.markCardActive(game.id);
+        this.startGame(game.id);
+      });
       grid.appendChild(card);
     });
+    if (this.selectedGameId){ this.markCardActive(this.selectedGameId); }
+  },
+
+  markCardActive(id){
+    this.selectedGameId = id;
+    document.querySelectorAll('#games-grid .game-card').forEach(el=> el.classList.remove('active'));
+    const el = document.querySelector(`#games-grid .gc-${CSS.escape(id)}`);
+    if (el) el.classList.add('active');
   },
 
   startGame(id){
     const game = Registry.get(id);
     if (!game){ UI.showToast('Juego no encontrado', 'error'); return; }
+    this.selectedGameId = id;
     UI.showScreen('game-screen');
     document.getElementById('game-title').textContent = game.name;
+    // aplicar tema por juego en el screen
+    const screen = document.getElementById('game-screen');
+    screen.classList.remove('theme-bingo','theme-domino');
+    screen.classList.add(`theme-${id}`);
     const root = document.getElementById('game-root');
     root.innerHTML = '';
     try {
@@ -80,6 +98,26 @@ const App = {
     root.__plugin = null;
     UI.showScreen('lobby-screen');
   }
+};
+
+App.bindNav = function(){
+  document.addEventListener('click', (e)=>{
+    const a = e.target.closest && e.target.closest('a.nav-item[data-action]');
+    if (!a) return;
+    e.preventDefault();
+    const action = a.getAttribute('data-action');
+    // actualizar estados activos en todas las navs
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(n=> n.classList.remove('active'));
+    document.querySelectorAll(`.bottom-nav .nav-item[data-action="${action}"]`).forEach(n=> n.classList.add('active'));
+    switch(action){
+      case 'lobby': UI.showScreen('lobby-screen'); break;
+      case 'profile': UI.showScreen('profile-screen'); break;
+      case 'raffles': UI.showScreen('raffles-screen'); break;
+      case 'bingo': App.startGame('bingo'); break;
+      case 'game': UI.showScreen('game-screen'); break;
+      default: UI.showScreen('lobby-screen'); break;
+    }
+  }, { passive:false });
 };
 
 window.AppV2 = App;
