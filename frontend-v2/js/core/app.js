@@ -154,11 +154,25 @@ App.bindProfileUI = function(){
   const saveBtn = document.getElementById('pf-save');
   const reqKeyBtn = document.getElementById('pf-request-key');
   try{
-    const d = JSON.parse(localStorage.getItem('v2.profile')||'{}');
-    if (d.first) document.getElementById('pf-first').value = d.first;
-    if (d.last) document.getElementById('pf-last').value = d.last;
-    if (d.phone) document.getElementById('pf-phone').value = d.phone;
-    if (d.email) document.getElementById('pf-email').value = d.email;
+    // Cargar desde backend si existe
+    const u = App.user;
+    if (u?.userId){
+      fetch(`/api/profile/${encodeURIComponent(u.userId)}`).then(r=>r.json()).then(j=>{
+        if (j?.success && j.profile){
+          const p=j.profile;
+          if (p.firstName) document.getElementById('pf-first').value=p.firstName;
+          if (p.lastName) document.getElementById('pf-last').value=p.lastName;
+          if (p.phone) document.getElementById('pf-phone').value=p.phone;
+          if (p.email) document.getElementById('pf-email').value=p.email;
+        }
+      }).catch(()=>{});
+    } else {
+      const d = JSON.parse(localStorage.getItem('v2.profile')||'{}');
+      if (d.first) document.getElementById('pf-first').value = d.first;
+      if (d.last) document.getElementById('pf-last').value = d.last;
+      if (d.phone) document.getElementById('pf-phone').value = d.phone;
+      if (d.email) document.getElementById('pf-email').value = d.email;
+    }
   }catch(_){ }
   sendBtn && sendBtn.addEventListener('click', async ()=>{
     const to = document.getElementById('pf-to-id').value.trim();
@@ -187,16 +201,30 @@ App.bindProfileUI = function(){
     const last = document.getElementById('pf-last').value.trim();
     const phone = document.getElementById('pf-phone').value.trim();
     const email = document.getElementById('pf-email').value.trim();
-    const data = { first, last, phone, email };
-    try{ localStorage.setItem('v2.profile', JSON.stringify(data)); }catch(_){ }
-    UI.showToast('Datos guardados localmente', 'success');
-    UI.log('profile:saved local', 'info', 'profile');
+    const data = { firstName:first, lastName:last, phone, email };
+    const u = App.user;
+    if (u?.userId){
+      fetch(`/api/profile/${encodeURIComponent(u.userId)}`,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) })
+        .then(r=>r.json()).then(j=>{
+          if(j?.success){ UI.showToast('Perfil actualizado', 'success'); UI.log('profile:saved remote','info','profile'); }
+          else { throw new Error(j?.error||'fail'); }
+        }).catch(()=>{ UI.showToast('Error guardando perfil', 'error'); });
+    } else {
+      try{ localStorage.setItem('v2.profile', JSON.stringify({ first, last, phone, email })); }catch(_){ }
+      UI.showToast('Datos guardados localmente', 'success');
+      UI.log('profile:saved local', 'info', 'profile');
+    }
   });
   reqKeyBtn && reqKeyBtn.addEventListener('click', ()=>{
     const newKey = document.getElementById('pf-new-key').value.trim();
     if (!newKey) { UI.showToast('Ingresa nueva clave', 'warning'); return; }
-    UI.showToast('Solicitud de cambio enviada (demo)', 'success');
-    UI.log('profile:key_change_request', 'info', 'profile');
+    const u = App.user;
+    if (!u?.userId){ UI.showToast('Usuario no identificado', 'error'); return; }
+    fetch(`/api/profile/${encodeURIComponent(u.userId)}/request-key-change`,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ newKey }) })
+      .then(r=>r.json()).then(j=>{
+        if(j?.success){ UI.showToast('Solicitud de cambio enviada', 'success'); UI.log('profile:key_change_request','info','profile'); }
+        else { throw new Error(j?.error||'fail'); }
+      }).catch(()=>{ UI.showToast('Error al solicitar cambio', 'error'); });
   });
 };
 

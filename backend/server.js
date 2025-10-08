@@ -31,6 +31,7 @@ const tokenService = require('./services/tokenService');
 const supplyService = require('./services/supplyService');
 const economyRoutes = require('./routes/economy');
 const xpRoutes = require('./routes/xp');
+const profileRoutes = require('./routes/profile');
 const brawlEvents = require('./games/brawl/events');
 
 // ============================================
@@ -112,6 +113,7 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // Rutas API
 app.use('/api/economy', economyRoutes);
 app.use('/api/xp', xpRoutes);
+app.use('/api/profile', profileRoutes);
 
 // ============================================
 // RUTA PRINCIPAL (SPA)
