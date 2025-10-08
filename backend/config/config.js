@@ -127,6 +127,15 @@ const features = {
 };
 
 /**
+ * Configuración de economía (bonos y cooldowns)
+ */
+const economy = {
+  welcomeAmount: parseInt(process.env.WELCOME_FIRES, 10) || 10,
+  dailyAmount: parseInt(process.env.DAILY_FIRES, 10) || 0,
+  dailyCooldownHours: parseInt(process.env.DAILY_COOLDOWN_HOURS, 10) || 24
+};
+
+/**
  * Constantes de la aplicación
  */
 const constants = {
@@ -205,6 +214,10 @@ const constants = {
     WELCOME_STATUS: 'welcome_status',
     WELCOME_INFO: 'welcome_info',
     WELCOME_CLAIM: 'welcome_claim',
+    // Bono diario
+    DAILY_BONUS_STATUS: 'daily_bonus_status',
+    DAILY_BONUS_INFO: 'daily_bonus_info',
+    DAILY_BONUS_CLAIM: 'daily_bonus_claim',
     
     // XP / Niveles
     GET_XP: 'get_xp',
@@ -299,5 +312,6 @@ module.exports = {
   logging,
   metrics,
   features,
+  economy,
   constants
 };

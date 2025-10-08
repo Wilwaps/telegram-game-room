@@ -9,7 +9,7 @@
  * @module services/socketService
  */
 
-const { constants } = require('../config/config');
+const { constants, economy } = require('../config/config');
 const logger = require('../config/logger');
 const redisService = require('./redisService');
 const economyService = require('./economyService');
@@ -416,9 +416,10 @@ class SocketService {
         try {
           const key = `${constants.REDIS_PREFIXES.USER}${socket.userId}:welcome_claimed`;
           const claimed = !!(await redisService.client.get(key));
+          const amount = Math.max(0, parseInt(economy?.welcomeAmount ?? 0, 10));
           socket.emit(constants.SOCKET_EVENTS.WELCOME_INFO, {
             claimed,
-            amount: 10,
+            amount,
             message: 'Necesitas los fuegos para participar en las actividades. No te preocupes qué también hay formas de ganarlos!! Disfruta tu tiempo en este espacio 🎵'
           });
         } catch (err) {
@@ -431,26 +432,77 @@ class SocketService {
         try {
           const key = `${constants.REDIS_PREFIXES.USER}${socket.userId}:welcome_claimed`;
           const already = await redisService.client.get(key);
+          const amount = Math.max(0, parseInt(economy?.welcomeAmount ?? 0, 10));
           if (already) {
             // Reenviar estado y balance actual
             const balance = await this.economy.getFires(socket.userId);
             socket.emit(constants.SOCKET_EVENTS.FIRES_BALANCE, balance);
-            socket.emit(constants.SOCKET_EVENTS.WELCOME_INFO, { claimed: true, amount: 10 });
+            socket.emit(constants.SOCKET_EVENTS.WELCOME_INFO, { claimed: true, amount });
             return;
           }
+          if (amount <= 0) {
+            socket.emit(constants.SOCKET_EVENTS.WELCOME_INFO, { claimed: false, amount: 0 });
+            return;
+          }
+          // Emisión controlada desde reserva
+          const earn = await supplyService.allocateAndGrant(socket.userId, amount, { reason: 'welcome_bonus', by: 'system' });
           await redisService.client.set(key, '1');
-          // Deduce desde supply fijo: grant controlado
-          const earn = await supplyService.allocateAndGrant(socket.userId, 10, { reason: 'welcome_bonus', by: 'system' });
           // Notificar a todos los sockets del usuario
           const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
           allSockets.filter(s => s.userId === socket.userId).forEach(s => {
             s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: earn.fires });
             if (earn.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, earn.tx);
-            s.emit(constants.SOCKET_EVENTS.WELCOME_INFO, { claimed: true, amount: 10 });
+            s.emit(constants.SOCKET_EVENTS.WELCOME_INFO, { claimed: true, amount });
           });
         } catch (err) {
           logger.error('Error WELCOME_CLAIM:', err);
           this.emitError(socket, 'No se pudo reclamar el bono de bienvenida');
+        }
+      });
+
+      // Bono diario - estado y reclamo
+      socket.on(constants.SOCKET_EVENTS.DAILY_BONUS_STATUS, async () => {
+        try {
+          const amount = Math.max(0, parseInt(economy?.dailyAmount ?? 0, 10));
+          const cooldownH = Math.max(1, parseInt(economy?.dailyCooldownHours ?? 24, 10));
+          const key = `${constants.REDIS_PREFIXES.USER}${socket.userId}:daily_last_claim_ms`;
+          const last = parseInt((await redisService.client.get(key)) || '0', 10);
+          const now = Date.now();
+          const cooldownMs = cooldownH * 3600 * 1000;
+          const available = amount > 0 && (now - last) >= cooldownMs;
+          const remainingMs = available ? 0 : Math.max(0, cooldownMs - (now - last));
+          socket.emit(constants.SOCKET_EVENTS.DAILY_BONUS_INFO, { available, amount, remainingMs, lastClaimAt: last || null });
+        } catch (err) {
+          logger.error('Error DAILY_BONUS_STATUS:', err);
+        }
+      });
+
+      socket.on(constants.SOCKET_EVENTS.DAILY_BONUS_CLAIM, async () => {
+        try {
+          const amount = Math.max(0, parseInt(economy?.dailyAmount ?? 0, 10));
+          const cooldownH = Math.max(1, parseInt(economy?.dailyCooldownHours ?? 24, 10));
+          const key = `${constants.REDIS_PREFIXES.USER}${socket.userId}:daily_last_claim_ms`;
+          const last = parseInt((await redisService.client.get(key)) || '0', 10);
+          const now = Date.now();
+          const cooldownMs = cooldownH * 3600 * 1000;
+          const available = amount > 0 && (now - last) >= cooldownMs;
+          if (!available) {
+            const remainingMs = Math.max(0, cooldownMs - (now - last));
+            socket.emit(constants.SOCKET_EVENTS.DAILY_BONUS_INFO, { available: false, amount, remainingMs, lastClaimAt: last || null });
+            return;
+          }
+          // Acreditar desde reserva
+          const earn = await supplyService.allocateAndGrant(socket.userId, amount, { reason: 'daily_bonus', by: 'system' });
+          await redisService.client.set(key, String(now));
+          const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+          allSockets.filter(s => s.userId === socket.userId).forEach(s => {
+            s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: earn.fires });
+            if (earn.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, earn.tx);
+          });
+          socket.emit(constants.SOCKET_EVENTS.DAILY_BONUS_INFO, { available: false, amount, remainingMs: cooldownMs, lastClaimAt: now });
+        } catch (err) {
+          logger.error('Error DAILY_BONUS_CLAIM:', err);
+          this.emitError(socket, 'No se pudo reclamar el bono diario');
         }
       });
 

@@ -2,6 +2,7 @@ import { CONFIG } from './config.js';
 import { UI } from './ui.js';
 import { Utils } from './utils.js';
 import { Registry } from './registry.js';
+import { Socket } from './socket.js';
 
 // Importar juegos (plugins)
 import '../plugins/bingo/index.js';
@@ -14,6 +15,7 @@ const App = {
   async init(){
     UI.init();
     this.user = this.getUser();
+    await this.setupSocket();
     this.bindNav();
     this.renderLobby();
     this.bindProfileUI();
@@ -103,6 +105,36 @@ const App = {
   }
 };
 
+App.setupSocket = async function(){
+  try{
+    await Socket.connect();
+    const s = Socket.socket;
+    if (!s || !s.on) return;
+    // Estado inicial del bono diario
+    s.on('connect', ()=>{ try{ s.emit('daily_bonus_status'); }catch(_){ } });
+    try{ s.emit('daily_bonus_status'); }catch(_){ }
+    // Actualizaciones de bono diario
+    s.on('daily_bonus_info', (info)=>{
+      try{
+        const amtEl = document.getElementById('daily-amount');
+        const stEl = document.getElementById('daily-status');
+        const remEl = document.getElementById('daily-remaining');
+        const btn = document.getElementById('daily-claim');
+        if (amtEl) amtEl.textContent = String(info?.amount ?? 0);
+        if (stEl) stEl.textContent = info?.available ? 'Disponible' : 'No disponible';
+        if (remEl){
+          const ms = Math.max(0, parseInt(info?.remainingMs||0,10));
+          if (ms > 0){
+            const h = Math.floor(ms/3600000); const m = Math.floor((ms%3600000)/60000);
+            remEl.textContent = `${h}h ${m}m`;
+          } else remEl.textContent = '0h 0m';
+        }
+        if (btn){ btn.disabled = !info?.available; btn.classList.remove('is-loading'); }
+      }catch(e){ console.error(e); }
+    });
+  }catch(e){ console.warn('socket setup failed', e); }
+};
+
 App.bindNav = function(){
   document.addEventListener('click', (e)=>{
     const a = e.target.closest && e.target.closest('a.nav-item[data-action]');
@@ -153,6 +185,7 @@ App.bindProfileUI = function(){
   const sendBtn = document.getElementById('pf-send');
   const saveBtn = document.getElementById('pf-save');
   const reqKeyBtn = document.getElementById('pf-request-key');
+  const dailyBtn = document.getElementById('daily-claim');
   try{
     // Cargar desde backend si existe
     const u = App.user;
@@ -173,6 +206,8 @@ App.bindProfileUI = function(){
         const sec = document.getElementById('pf-p2p-section');
         if (sec) sec.style.display = isSponsor ? '' : 'none';
       }).catch(()=>{});
+      // Solicitar estado de bono diario
+      try{ Socket.socket && Socket.socket.emit && Socket.socket.emit('daily_bonus_status'); }catch(_){ }
     } else {
       const d = JSON.parse(localStorage.getItem('v2.profile')||'{}');
       if (d.first) document.getElementById('pf-first').value = d.first;
@@ -181,6 +216,13 @@ App.bindProfileUI = function(){
       if (d.email) document.getElementById('pf-email').value = d.email;
     }
   }catch(_){ }
+  dailyBtn && dailyBtn.addEventListener('click', ()=>{
+    try{
+      dailyBtn.disabled = true; dailyBtn.classList.add('is-loading');
+      Socket.socket && Socket.socket.emit && Socket.socket.emit('daily_bonus_claim');
+      setTimeout(()=>{ dailyBtn.classList.remove('is-loading'); }, 1200);
+    }catch(e){ dailyBtn.classList.remove('is-loading'); }
+  });
   sendBtn && sendBtn.addEventListener('click', async ()=>{
     const to = document.getElementById('pf-to-id').value.trim();
     const amount = parseInt(document.getElementById('pf-amount').value, 10);
