@@ -9,7 +9,7 @@ async function sponsorPromote(){
     const adminUser=document.getElementById('admin-username').value.trim();
     const adminCode=document.getElementById('admin-code').value.trim();
     const payload={ userId, key, description, initialAmount, adminUsername:adminUser, adminCode };
-    await fetchJSON('/api/economy/sponsors/add',{ method:'POST', body: JSON.stringify(payload) });
+    await fetchJSON('/api/economy/sponsors/add',{ method:'POST', headers:{'x-admin-username':adminUser,'x-admin-code':adminCode}, body: JSON.stringify(payload) });
     toast('Patrocinador promovido');
     // limpiar campos
     document.getElementById('sponsor-promote-key').value='';
@@ -229,7 +229,7 @@ async function sponsorAdd(){
     if(!userId) return toast('userId requerido');
     const adminUser=document.getElementById('admin-username').value.trim();
     const adminCode=document.getElementById('admin-code').value.trim();
-    await fetchJSON('/api/economy/sponsors/add',{method:'POST',body:JSON.stringify({ userId, adminUsername:adminUser, adminCode})});
+    await fetchJSON('/api/economy/sponsors/add',{method:'POST',headers:{'x-admin-username':adminUser,'x-admin-code':adminCode},body:JSON.stringify({ userId, adminUsername:adminUser, adminCode})});
     toast('Patrocinador agregado');
     await loadSponsors();
   }catch(e){ toast('Error agregando patrocinador'); console.error(e); }
@@ -244,7 +244,7 @@ async function sponsorAddUnified(){
     if(!userId) return toast('userId requerido');
     const adminUser=document.getElementById('admin-username').value.trim();
     const adminCode=document.getElementById('admin-code').value.trim();
-    await fetchJSON('/api/economy/sponsors/add',{method:'POST',body:JSON.stringify({ userId, key, description, initialAmount, adminUsername:adminUser, adminCode })});
+    await fetchJSON('/api/economy/sponsors/add',{method:'POST',headers:{'x-admin-username':adminUser,'x-admin-code':adminCode},body:JSON.stringify({ userId, key, description, initialAmount, adminUsername:adminUser, adminCode })});
     toast('Patrocinador creado');
     document.getElementById('sponsor-add-key').value='';
     document.getElementById('sponsor-add-amount').value='';
@@ -271,7 +271,7 @@ async function sponsorRemove(userId){
   try{
     const adminUser=document.getElementById('admin-username').value.trim();
     const adminCode=document.getElementById('admin-code').value.trim();
-    await fetchJSON('/api/economy/sponsors/remove',{method:'POST',body:JSON.stringify({ userId, adminUsername:adminUser, adminCode })});
+    await fetchJSON('/api/economy/sponsors/remove',{method:'POST',headers:{'x-admin-username':adminUser,'x-admin-code':adminCode},body:JSON.stringify({ userId, adminUsername:adminUser, adminCode })});
     toast('Patrocinador quitado');
     await loadSponsors();
   }catch(e){ toast('Error al quitar patrocinador'); console.error(e); }
@@ -284,7 +284,7 @@ async function sponsorSetKey(){
     if(!userId||!key) return toast('userId y clave requeridos');
     const adminUser=document.getElementById('admin-username').value.trim();
     const adminCode=document.getElementById('admin-code').value.trim();
-    await fetchJSON('/api/economy/sponsors/set-key',{method:'POST',body:JSON.stringify({ userId, key, adminUsername:adminUser, adminCode })});
+    await fetchJSON('/api/economy/sponsors/set-key',{method:'POST',headers:{'x-admin-username':adminUser,'x-admin-code':adminCode},body:JSON.stringify({ userId, key, adminUsername:adminUser, adminCode })});
     toast('Clave asignada');
     document.getElementById('sponsor-new-key').value='';
   }catch(e){ toast('Error al asignar clave'); console.error(e); }
@@ -295,7 +295,7 @@ async function sponsorRemoveKey(){
     const userId=document.getElementById('sponsor-key-user').value.trim();
     const adminUser=document.getElementById('admin-username').value.trim();
     const adminCode=document.getElementById('admin-code').value.trim();
-    await fetchJSON('/api/economy/sponsors/remove-key',{method:'POST',body:JSON.stringify({ userId, adminUsername:adminUser, adminCode })});
+    await fetchJSON('/api/economy/sponsors/remove-key',{method:'POST',headers:{'x-admin-username':adminUser,'x-admin-code':adminCode},body:JSON.stringify({ userId, adminUsername:adminUser, adminCode })});
     toast('Clave removida');
   }catch(e){ toast('Error al quitar clave'); console.error(e); }
 }
