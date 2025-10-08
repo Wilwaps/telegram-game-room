@@ -112,6 +112,96 @@ class SocketService {
         await this.handlePlayAgain(socket, roomCode);
       });
 
+      // Modo de sala (TTT): 'friendly' | 'fire'
+      socket.on(constants.SOCKET_EVENTS.SET_ROOM_MODE, async ({ roomCode, mode = 'friendly', entryCost } = {}) => {
+        try {
+          const code = roomCode || socket.currentRoom;
+          if (!code) return this.emitError(socket, 'Sala no encontrada');
+          const room = await redisService.getRoom(code);
+          if (!room) return this.emitError(socket, 'Sala no encontrada');
+          if (room.host !== socket.userId) return this.emitError(socket, 'Solo el anfitrión puede cambiar el modo');
+          if (room.status !== constants.ROOM_STATUS.WAITING) return this.emitError(socket, 'La partida ya inició');
+
+          room.mode = (mode === 'fire') ? 'fire' : 'friendly';
+          if (typeof entryCost === 'number') {
+            room.entryCost = Math.max(0, parseInt(entryCost, 10) || room.entryCost || 1);
+          }
+
+          await redisService.setRoom(code, room);
+
+          // Calcular insuficientes si aplica
+          let insufficientUserIds = [];
+          if (room.mode === 'fire') {
+            try {
+              const checks = await Promise.all((room.players || []).map(async (p) => {
+                const bal = await this.economy.getFires(p.userId);
+                return { userId: p.userId, ok: (parseInt(bal?.fires || 0, 10) >= room.entryCost) };
+              }));
+              insufficientUserIds = checks.filter(c => !c.ok).map(c => c.userId);
+            } catch(_) {}
+          }
+
+          // Notificar a la sala
+          this.io.to(code).emit(constants.SOCKET_EVENTS.ROOM_MODE_UPDATED, { room: room.toJSON(), insufficientUserIds });
+          // Mantener lobby sincronizado
+          if (room.isPublic) this.io.emit(constants.SOCKET_EVENTS.ROOM_UPDATED, room.toJSON());
+        } catch (err) {
+          logger.error('Error SET_ROOM_MODE:', err);
+          this.emitError(socket, 'No se pudo actualizar el modo');
+        }
+      });
+
+      // Solicitud de inicio de juego (TTT)
+      socket.on(constants.SOCKET_EVENTS.START_GAME_REQUEST, async ({ roomCode } = {}) => {
+        try {
+          const code = roomCode || socket.currentRoom;
+          if (!code) return this.emitError(socket, 'Sala no encontrada');
+          const room = await redisService.getRoom(code);
+          if (!room) return this.emitError(socket, 'Sala no encontrada');
+          if (room.host !== socket.userId) return this.emitError(socket, 'Solo el anfitrión puede iniciar');
+          if (room.status !== constants.ROOM_STATUS.WAITING) return this.emitError(socket, 'La partida ya inició');
+          if (!room.isFull()) return this.emitError(socket, 'Se requieren 2 jugadores');
+
+          // Validar saldo si el modo es 'fire'
+          let insufficientUserIds = [];
+          if (room.mode === 'fire') {
+            const entry = Math.max(0, parseInt(room.entryCost || 1, 10));
+            const checks = await Promise.all((room.players || []).map(async (p) => {
+              const bal = await this.economy.getFires(p.userId);
+              return { userId: p.userId, ok: (parseInt(bal?.fires || 0, 10) >= entry) };
+            }));
+            insufficientUserIds = checks.filter(c => !c.ok).map(c => c.userId);
+            if (insufficientUserIds.length > 0) {
+              this.io.to(code).emit(constants.SOCKET_EVENTS.ROOM_MODE_UPDATED, { room: room.toJSON(), insufficientUserIds });
+              return this.emitError(socket, 'Jugadores sin fuegos suficientes');
+            }
+            // Descontar entradas
+            for (const p of (room.players || [])) {
+              const res = await this.economy.spend(p.userId, entry, { reason: 'ttt_entry', roomCode: code });
+              // Notificar saldo al jugador
+              const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+              allSockets.filter(s => s.userId === p.userId).forEach(s => {
+                s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: res.fires });
+                if (res.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx);
+              });
+            }
+          }
+
+          // Iniciar juego
+          room.startGame();
+          room.currentTurn = Math.random() < 0.5 ? constants.PLAYER_SYMBOLS.X : constants.PLAYER_SYMBOLS.O;
+          room.turnStartTime = Date.now();
+          room.lastActivity = Date.now();
+          await redisService.setRoom(code, room);
+
+          this.io.to(code).emit(constants.SOCKET_EVENTS.GAME_START, { room: room.toJSON(), message: '¡Que comience el juego!' });
+          if (room.isPublic) this.io.emit(constants.SOCKET_EVENTS.ROOM_UPDATED, room.toJSON());
+        } catch (err) {
+          logger.error('Error START_GAME_REQUEST:', err);
+          this.emitError(socket, err.message || 'No se pudo iniciar');
+        }
+      });
+
       // ==========================================
       // ECONOMÍA - FUEGOS
       // ==========================================
@@ -794,27 +884,17 @@ class SocketService {
         socketId: socket.id
       });
 
-      // Iniciar juego automáticamente
-      room.startGame();
-      // Turno inicial aleatorio (50/50)
-      room.currentTurn = Math.random() < 0.5 
-        ? constants.PLAYER_SYMBOLS.X 
-        : constants.PLAYER_SYMBOLS.O;
-      room.turnStartTime = Date.now();
-      room.lastActivity = Date.now();
-
-      // Guardar cambios
+      // Guardar sala (en estado 'waiting')
       await redisService.setRoom(roomCode, room);
 
       // Unir socket a la sala
       socket.join(roomCode);
       socket.currentRoom = roomCode;
 
-      // Notificar a ambos jugadores
-      this.io.to(roomCode).emit(constants.SOCKET_EVENTS.GAME_START, {
-        room: room.toJSON(),
-        message: '¡Que comience el juego!'
-      });
+      // Enviar al que se une la vista de sala de espera
+      socket.emit(constants.SOCKET_EVENTS.ROOM_CREATED, room.toJSON());
+      // Notificar a la sala la actualización de estado
+      this.io.to(roomCode).emit(constants.SOCKET_EVENTS.ROOM_UPDATED, room.toJSON());
 
       // Actualizar lista de salas si es pública
       if (room.isPublic) {

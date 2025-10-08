@@ -184,6 +184,10 @@ const constants = {
     GAME_OVER: 'game_over',
     GAME_DRAW: 'game_draw',
     MOVE_MADE: 'move_made',
+    // Control de modo e inicio (TTT)
+    SET_ROOM_MODE: 'set_room_mode',
+    ROOM_MODE_UPDATED: 'room_mode_updated',
+    START_GAME_REQUEST: 'start_game_request',
     
     // Revancha
     PLAY_AGAIN: 'play_again',

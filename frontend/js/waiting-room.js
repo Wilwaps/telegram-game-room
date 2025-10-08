@@ -1,5 +1,6 @@
 const WaitingRoom = {
   currentRoom: null,
+  insufficientUserIds: [],
 
   /**
    * Inicializar sala de espera
@@ -7,6 +8,70 @@ const WaitingRoom = {
   init() {
     this.setupEventListeners();
     this.setupSocketListeners();
+  },
+
+  // ==============================
+  // Controles TTT: modo e inicio
+  // ==============================
+  ensureTTTControls() {
+    const actions = document.querySelector('#waiting-room-screen .waiting-actions');
+    if (!actions) return;
+    if (!document.getElementById('ttt-controls')) {
+      const wrap = document.createElement('div');
+      wrap.id = 'ttt-controls';
+      wrap.innerHTML = `
+        <div class="ttt-controls">
+          <button id="ttt-mode-toggle" class="btn btn-secondary"><span class="btn-icon">🎮</span><span class="btn-text">Modo: Amistoso</span></button>
+          <button id="ttt-start-btn" class="btn btn-success"><span class="btn-icon">▶️</span><span class="btn-text">Iniciar partida</span></button>
+        </div>
+      `;
+      actions.prepend(wrap);
+      const modeBtn = wrap.querySelector('#ttt-mode-toggle');
+      const startBtn = wrap.querySelector('#ttt-start-btn');
+      modeBtn && modeBtn.addEventListener('click', () => this.toggleTTTMode());
+      startBtn && startBtn.addEventListener('click', () => this.handleTTTStart());
+    }
+  },
+
+  updateTTTControls() {
+    const modeBtn = document.getElementById('ttt-mode-toggle');
+    const startBtn = document.getElementById('ttt-start-btn');
+    if (!this.currentRoom) return;
+    const isHost = String(this.currentRoom.host) === String(SocketClient.userId) || String(this.currentRoom.host?.userId) === String(SocketClient.userId);
+    const status = this.currentRoom.status || 'waiting';
+    const isFire = this.currentRoom.mode === 'fire';
+    const playersOk = Array.isArray(this.currentRoom.players) && this.currentRoom.players.length === 2;
+    const noInsuff = !isFire || (this.insufficientUserIds.length === 0);
+
+    if (modeBtn) {
+      UI.updateButtonText('ttt-mode-toggle', `Modo: ${isFire ? 'Fire' : 'Amistoso'}`);
+      modeBtn.disabled = !isHost || status !== 'waiting';
+      modeBtn.classList.toggle('disabled', modeBtn.disabled);
+      modeBtn.title = modeBtn.disabled ? 'Solo el anfitrión puede cambiar el modo (y antes de iniciar)' : '';
+    }
+    if (startBtn) {
+      const canStart = isHost && status === 'waiting' && playersOk && noInsuff;
+      startBtn.disabled = !canStart;
+      startBtn.classList.toggle('disabled', !canStart);
+      startBtn.title = !playersOk ? 'Se requieren 2 jugadores' : (!noInsuff ? 'Hay jugadores sin fuegos suficientes' : (!isHost ? 'Solo el anfitrión puede iniciar' : ''));
+    }
+  },
+
+  toggleTTTMode() {
+    if (!this.currentRoom) return;
+    const isHost = String(this.currentRoom.host) === String(SocketClient.userId) || String(this.currentRoom.host?.userId) === String(SocketClient.userId);
+    if (!isHost) return UI.showToast('Solo el anfitrión puede cambiar el modo', 'warning');
+    const next = this.currentRoom.mode === 'fire' ? 'friendly' : 'fire';
+    SocketClient.setRoomMode(next, undefined, this.currentRoom.code);
+  },
+
+  handleTTTStart() {
+    if (!this.currentRoom) return;
+    const isHost = String(this.currentRoom.host) === String(SocketClient.userId) || String(this.currentRoom.host?.userId) === String(SocketClient.userId);
+    if (!isHost) return UI.showToast('Solo el anfitrión puede iniciar', 'warning');
+    const btn = document.getElementById('ttt-start-btn');
+    try { if (btn) { btn.disabled = true; btn.classList.add('disabled'); UI.updateButtonText('ttt-start-btn', 'Iniciando…'); } } catch(_) {}
+    SocketClient.startGameRequest(this.currentRoom.code);
   },
 
   /**
@@ -49,6 +114,27 @@ const WaitingRoom = {
       try { UI.log('socket: room_closed', 'warn', 'waiting'); } catch(_) {}
       this.currentRoom = null;
       UI.showScreen('lobby-screen');
+    });
+
+    // Actualización de sala (TTT)
+    SocketClient.on('room_updated', (room) => {
+      try { UI.log(`socket: room_updated ${room?.code || ''}`, 'debug', 'waiting'); } catch(_) {}
+      if (this.currentRoom && room && room.code === this.currentRoom.code) {
+        this.updateRoom(room);
+      }
+    });
+
+    // Modo actualizado (TTT)
+    SocketClient.on(CONFIG.EVENTS.ROOM_MODE_UPDATED, ({ room, insufficientUserIds = [] } = {}) => {
+      try { UI.log(`socket: room_mode_updated ${room?.code || ''} mode=${room?.mode}`, 'info', 'waiting'); } catch(_) {}
+      if (!room) return;
+      if (!this.currentRoom || room.code !== this.currentRoom.code) return;
+      this.currentRoom = room;
+      this.insufficientUserIds = Array.isArray(insufficientUserIds) ? insufficientUserIds.map(String) : [];
+      this.render();
+      if (this.insufficientUserIds.length > 0 && room.mode === 'fire') {
+        UI.showToast('Hay jugadores sin fuegos suficientes', 'warning');
+      }
     });
 
     // Manejar errores del servidor
@@ -95,10 +181,13 @@ const WaitingRoom = {
     const roomCodeEl = document.getElementById('room-code-display');
     if (roomCodeEl) roomCodeEl.textContent = this.currentRoom.code;
 
+    // Insertar controles TTT si no existen y actualizar estado
+    this.ensureTTTControls();
     // Actualizar jugadores (TTT)
     this.updateHostInfo();
     this.updatePlayerSlots();
     this.updatePublicButton();
+    this.updateTTTControls();
   },
 
   // Dominó eliminado
@@ -162,6 +251,9 @@ const WaitingRoom = {
           img.src = guestAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(guestName)}&background=2481cc&color=fff`;
           wrapper.querySelector('img')?.remove();
           wrapper.prepend(img);
+          // Aura roja si invitado está insuficiente (modo fire)
+          const insuff = this.insufficientUserIds.includes(String(guest.userId));
+          wrapper.classList.toggle('insufficient', insuff && this.currentRoom.mode === 'fire');
         }
         const info = guestSlot.querySelector('.player-info .player-name');
         if (info) info.textContent = guestName;
@@ -170,6 +262,17 @@ const WaitingRoom = {
       guestSlot.classList.add('empty');
       guestSlot.classList.remove('filled');
     }
+    // Aura para host si aplica
+    try {
+      let hostId = null;
+      if (this.currentRoom.host && typeof this.currentRoom.host === 'object') hostId = this.currentRoom.host.userId;
+      else if (typeof this.currentRoom.host === 'string' || typeof this.currentRoom.host === 'number') hostId = this.currentRoom.host;
+      const hostWrap = document.querySelector('#host-slot .player-avatar-wrapper');
+      if (hostWrap) {
+        const insuffHost = this.insufficientUserIds.includes(String(hostId));
+        hostWrap.classList.toggle('insufficient', insuffHost && this.currentRoom.mode === 'fire');
+      }
+    } catch(_) {}
   },
 
   // Botón atrás → confirmación y salida

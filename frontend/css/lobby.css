@@ -444,6 +444,12 @@
   object-fit: cover;
 }
 
+/* Aura roja para usuarios sin fuegos suficientes (modo Fire) */
+.player-avatar-wrapper.insufficient .player-avatar {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.9), 0 0 16px rgba(239,68,68,0.55);
+}
+
 .player-avatar-placeholder {
   width: var(--size-avatar-xl);
   height: var(--size-avatar-xl);

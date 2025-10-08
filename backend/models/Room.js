@@ -53,6 +53,12 @@ class Room {
       averageMoveTime: 0,
       ...data.metadata
     };
+
+    // Modo y costo de entrada (para modos Amistoso/Fire)
+    this.mode = data.mode || 'friendly'; // 'friendly' | 'fire'
+    // costo por jugador cuando mode==='fire'
+    const ec = (typeof data.entryCost === 'number') ? data.entryCost : parseInt(process.env.TTT_ENTRY_COST || '1', 10);
+    this.entryCost = Math.max(0, parseInt(ec, 10) || 1);
   }
 
   /**
@@ -327,6 +333,8 @@ class Room {
       winner: this.winner,
       winningLine: this.winningLine,
       rematchRequests: this.rematchRequests,
+      mode: this.mode,
+      entryCost: this.entryCost,
       createdAt: this.createdAt,
       startTime: this.startTime,
       endTime: this.endTime,

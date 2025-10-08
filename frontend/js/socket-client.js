@@ -31,6 +31,11 @@ const SocketClient = {
           forceNew: false
         });
 
+    // Modo de sala actualizado (TTT)
+    this.socket.on(CONFIG.EVENTS.ROOM_MODE_UPDATED, (payload) => {
+      this.emit(CONFIG.EVENTS.ROOM_MODE_UPDATED, payload);
+    });
+
         let connectionTimeout = setTimeout(() => {
           if (!this.connected) {
             reject(new Error('Timeout de conexión al servidor'));
@@ -119,6 +124,23 @@ const SocketClient = {
 
   getXpHistory(limit = 50, offset = 0) {
     this.socket.emit(CONFIG.EVENTS.GET_XP_HISTORY, { limit, offset });
+  },
+
+  /**
+   * ======================
+   * TTT - MODOS Y START
+   * ======================
+   */
+  setRoomMode(mode = 'friendly', entryCost, roomCode) {
+    const code = roomCode || this.currentRoom;
+    const payload = { roomCode: code, mode };
+    if (typeof entryCost === 'number') payload.entryCost = entryCost;
+    if (code) this.socket.emit(CONFIG.EVENTS.SET_ROOM_MODE, payload);
+  },
+
+  startGameRequest(roomCode) {
+    const code = roomCode || this.currentRoom;
+    if (code) this.socket.emit(CONFIG.EVENTS.START_GAME_REQUEST, { roomCode: code });
   },
 
   /**
