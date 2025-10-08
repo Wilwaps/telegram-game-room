@@ -178,32 +178,57 @@ module.exports = {
   async addSponsor(userId) { if (!userId) throw new Error('userId requerido'); await redisService.client.sadd(SPONSOR_SET, String(userId)); return true; },
   async removeSponsor(userId) { if (!userId) throw new Error('userId requerido'); await redisService.client.srem(SPONSOR_SET, String(userId)); return true; },
   async listSponsorsWithFires() {
+    const t0 = Date.now();
     const ids = await redisService.client.smembers(SPONSOR_SET);
     const items = [];
     if (ids && ids.length) {
-      const pipe = redisService.client.pipeline();
-      ids.forEach(id => pipe.hget(`user:${id}:currency`, 'fires'));
-      const res = await pipe.exec();
-      // keys presence
-      const pipeKeys = redisService.client.pipeline();
-      ids.forEach(id => pipeKeys.hget(SPONSOR_KEYS, String(id)));
-      const keysRes = await pipeKeys.exec();
+      // 1) Saldos de fuego (pipeline hget)
+      const firesPipe = redisService.client.pipeline();
+      ids.forEach(id => firesPipe.hget(`user:${id}:currency`, 'fires'));
+      const firesRes = await firesPipe.exec();
+
+      // 2) Datos de usuario (mget en bloque)
+      const userKeys = ids.map(id => `user:${id}`);
+      let usersData = [];
+      try {
+        usersData = await redisService.client.mget(userKeys);
+      } catch (_) {
+        // Fallback a pipeline get si mget no está disponible
+        const userPipe = redisService.client.pipeline();
+        userKeys.forEach(k => userPipe.get(k));
+        const up = await userPipe.exec();
+        usersData = up.map(([, v]) => v);
+      }
+
+      // 3) Presencia de claves (pipeline hget)
+      const keysPipe = redisService.client.pipeline();
+      ids.forEach(id => keysPipe.hget(SPONSOR_KEYS, String(id)));
+      const keysRes = await keysPipe.exec();
+
+      // 4) Metadatos (pipeline hget)
+      const metaPipe = redisService.client.pipeline();
+      ids.forEach(id => metaPipe.hget(SPONSOR_META, String(id)));
+      const metaRes = await metaPipe.exec();
+
       for (let i = 0; i < ids.length; i++) {
         const userId = ids[i];
-        const fires = parseInt((res[i] && res[i][1]) || '0', 10);
+        const fires = parseInt((firesRes[i] && firesRes[i][1]) || '0', 10);
         let userName = null, createdAt = null, lastSeen = null;
         try {
-          const udata = await redisService.client.get(`user:${userId}`);
+          const udata = usersData[i];
           if (udata) { const u = JSON.parse(udata); userName = u.userName || null; createdAt = u.createdAt || null; lastSeen = u.lastSeen || null; }
         } catch (_) {}
-        // meta opcional
         let description = null;
-        try { const m = await redisService.client.hget(SPONSOR_META, String(userId)); if (m) { const o=JSON.parse(m); description=o.description||null; } } catch(_){ }
+        try {
+          const m = metaRes[i] && metaRes[i][1];
+          if (m) { const o = JSON.parse(m); description = o.description || null; }
+        } catch (_) {}
         const hasKey = !!(keysRes && keysRes[i] && keysRes[i][1]);
         const isAnon = !userName || !/^\d+$/.test(String(userId));
         items.push({ userId, userName, fires, createdAt, lastSeen, isAnon, isSponsor: true, description, hasKey });
       }
     }
+    try { logger.info('listSponsorsWithFires', { count: ids?.length || 0, durationMs: Date.now() - t0 }); } catch (_) {}
     return { items };
   },
 
