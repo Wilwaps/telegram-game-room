@@ -1,3 +1,23 @@
+// Nuevo flujo simplificado: Promover a Patrocinador
+async function sponsorPromote(){
+  try{
+    const userId=document.getElementById('sponsor-user-id').value.trim();
+    const key=document.getElementById('sponsor-promote-key').value.trim();
+    const initialAmount=parseInt(document.getElementById('sponsor-promote-amount').value,10)||0;
+    const description=document.getElementById('sponsor-promote-desc').value.trim();
+    if(!userId){ return toast('ID Telegram requerido'); }
+    const adminUser=document.getElementById('admin-username').value.trim();
+    const adminCode=document.getElementById('admin-code').value.trim();
+    const payload={ userId, key, description, initialAmount, adminUsername:adminUser, adminCode };
+    await fetchJSON('/api/economy/sponsors/add',{ method:'POST', body: JSON.stringify(payload) });
+    toast('Patrocinador promovido');
+    // limpiar campos
+    document.getElementById('sponsor-promote-key').value='';
+    document.getElementById('sponsor-promote-amount').value='';
+    document.getElementById('sponsor-promote-desc').value='';
+    await loadSponsors();
+  }catch(e){ toast('Error al promover patrocinador'); console.error(e); }
+}
 async function fetchJSON(url, opts={}){
   const r=await fetch(url,{headers:{'Content-Type':'application/json', ...(opts.headers||{})},...opts});
   if(!r.ok){ const t=await r.text().catch(()=>" "); throw new Error(`HTTP ${r.status} ${t}`); }
@@ -82,9 +102,8 @@ function renderUsersTables(items){
   document.getElementById('users-table').classList.toggle('hidden', usersMode!=='users');
   document.getElementById('anon-table').classList.toggle('hidden', usersMode!=='anon');
   document.getElementById('sponsors-table').classList.toggle('hidden', usersMode!=='sponsors');
-  document.getElementById('sponsor-actions')?.classList.toggle('hidden', usersMode!=='sponsors');
-  document.getElementById('sponsor-add-extended')?.classList.toggle('hidden', usersMode!=='sponsors');
-  document.getElementById('sponsor-key-actions')?.classList.toggle('hidden', usersMode!=='sponsors');
+  // simplificado: solo un formulario de Promover
+  document.getElementById('sponsor-promote')?.classList.toggle('hidden', usersMode!=='sponsors');
   document.getElementById('users-next-btn')?.classList.toggle('hidden', usersMode==='sponsors');
   document.getElementById('users-next-pages')?.classList.toggle('hidden', usersMode==='sponsors');
 }
@@ -166,12 +185,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(tabAnon) tabAnon.addEventListener('click', ()=>{ usersMode='anon'; tabAnon.classList.add('active'); tabUsers?.classList.remove('active'); document.getElementById('tab-sponsors')?.classList.remove('active'); renderUsersTables(lastUsersItems); });
   const tabSponsors=document.getElementById('tab-sponsors');
   if(tabSponsors) tabSponsors.addEventListener('click', async ()=>{ usersMode='sponsors'; tabSponsors.classList.add('active'); tabUsers?.classList.remove('active'); tabAnon?.classList.remove('active'); await loadSponsors(); });
-  // Sponsor actions
-  document.getElementById('sponsor-add')?.addEventListener('click', sponsorAdd);
-  document.getElementById('sponsor-transfer')?.addEventListener('click', sponsorTransfer);
-  document.getElementById('sponsor-add-submit')?.addEventListener('click', sponsorAddUnified);
-  document.getElementById('sponsor-set-key')?.addEventListener('click', sponsorSetKey);
-  document.getElementById('sponsor-remove-key')?.addEventListener('click', sponsorRemoveKey);
+  // Sponsor Promote (formulario único)
+  document.getElementById('sponsor-promote-submit')?.addEventListener('click', sponsorPromote);
   loadSupply();
   refreshUsers();
   // SSE auditoría supply
@@ -197,15 +212,8 @@ async function loadSponsors(){
       tr.innerHTML=`<td>${uname}</td><td>${it.userId}</td><td>${(it.fires||0).toLocaleString()}</td><td>${desc}</td><td>${keyBadge}</td><td><button class="btn btn-mini" data-action="remove-sponsor" data-uid="${it.userId}">Quitar</button></td>`;
       tbody.appendChild(tr);
     });
-    // poblar selects
-    const sel=document.getElementById('sponsor-from');
-    if(sel){ sel.innerHTML=''; items.forEach(it=>{ const o=document.createElement('option'); o.value=it.userId; o.textContent=`${it.userName||'(sin nombre)'} (${it.userId})`; sel.appendChild(o); }); }
-    const selKey=document.getElementById('sponsor-key-user');
-    if(selKey){ selKey.innerHTML=''; items.forEach(it=>{ const o=document.createElement('option'); o.value=it.userId; o.textContent=`${it.userName||'(sin nombre)'} (${it.userId})`; selKey.appendChild(o); }); }
-    // mostrar acciones
-    document.getElementById('sponsor-actions')?.classList.remove('hidden');
-    document.getElementById('sponsor-key-actions')?.classList.remove('hidden');
-    document.getElementById('sponsor-add-extended')?.classList.remove('hidden');
+    // mostrar formulario simplificado
+    document.getElementById('sponsor-promote')?.classList.remove('hidden');
     // wire remove
     tbody.querySelectorAll('button[data-action="remove-sponsor"]').forEach(btn=>{
       btn.addEventListener('click',()=> sponsorRemove(btn.dataset.uid));

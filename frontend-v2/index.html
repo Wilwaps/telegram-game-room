@@ -34,6 +34,7 @@
         </div>
         <div class="right">
           <div id="fires-badge" class="fires">🔥 <span id="fires-count">0</span></div>
+          <img id="profile-avatar-lobby" class="avatar" alt="Perfil" title="Perfil" />
         </div>
       </header>
       <main class="content">
@@ -79,10 +80,67 @@
         </div>
       </header>
       <main class="content">
-        <section class="games-grid" id="profile-grid">
-          <div class="game-card"><div class="icon">🏆</div><div class="meta"><div class="name">Rango</div><div class="desc">Proximamente</div></div></div>
-          <div class="game-card"><div class="icon">🎒</div><div class="meta"><div class="name">Inventario</div><div class="desc">Proximamente</div></div></div>
-          <div class="game-card"><div class="icon">📊</div><div class="meta"><div class="name">Estadísticas</div><div class="desc">Proximamente</div></div></div>
+        <section class="profile-section">
+          <h2 class="section-title">Enviar tokens</h2>
+          <div class="form">
+            <label class="label" for="pf-to-id">ID Telegram destino</label>
+            <input id="pf-to-id" class="input" type="text" placeholder="Ej: 123456789" />
+            <div class="row">
+              <div class="col">
+                <label class="label" for="pf-amount">Cantidad</label>
+                <input id="pf-amount" class="input" type="number" min="1" placeholder="100" />
+              </div>
+              <div class="col">
+                <label class="label" for="pf-reason">Comentario (opcional)</label>
+                <input id="pf-reason" class="input" type="text" placeholder="motivo" />
+              </div>
+            </div>
+            <label class="label" for="pf-key">Clave de patrocinador</label>
+            <input id="pf-key" class="input" type="password" placeholder="Tu clave" />
+            <div class="actions">
+              <button id="pf-send" class="btn btn-primary">Enviar</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="profile-section">
+          <h2 class="section-title">Datos personales</h2>
+          <div class="form">
+            <div class="row">
+              <div class="col">
+                <label class="label" for="pf-first">Nombre</label>
+                <input id="pf-first" class="input" type="text" placeholder="Nombre" />
+              </div>
+              <div class="col">
+                <label class="label" for="pf-last">Apellido</label>
+                <input id="pf-last" class="input" type="text" placeholder="Apellido" />
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <label class="label" for="pf-phone">Teléfono</label>
+                <input id="pf-phone" class="input" type="tel" placeholder="+58..." />
+              </div>
+              <div class="col">
+                <label class="label" for="pf-email">Correo</label>
+                <input id="pf-email" class="input" type="email" placeholder="tucorreo@ejemplo.com" />
+              </div>
+            </div>
+            <div class="actions">
+              <button id="pf-save" class="btn">Guardar</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="profile-section">
+          <h2 class="section-title">Clave de patrocinador</h2>
+          <div class="form">
+            <label class="label" for="pf-new-key">Nueva clave (requiere autorización)</label>
+            <input id="pf-new-key" class="input" type="password" placeholder="Nueva clave" />
+            <div class="actions">
+              <button id="pf-request-key" class="btn btn-outline">Solicitar cambio</button>
+            </div>
+          </div>
         </section>
       </main>
       <footer class="bottom-nav">
@@ -164,6 +222,7 @@
         </div>
         <div class="right">
           <div id="fires-badge-game" class="fires">🔥 <span id="fires-count-game">0</span></div>
+          <img id="profile-avatar-game" class="avatar" alt="Perfil" title="Perfil" />
         </div>
       </header>
       <main class="content">

@@ -23,23 +23,19 @@ body{
 
 .screen{display:none;position:fixed;inset:0;overflow:auto}
 .screen.active{display:block}
-
 .header{display:flex;align-items:center;justify-content:space-between;padding:var(--space-lg);gap:var(--space-md)}
 .header .left{display:flex;align-items:center;gap:var(--space-md)}
 .header .right{display:flex;align-items:center;gap:var(--space-md)}
 .logo{font-size:42px}
 .logo-sm{font-size:28px}
-.title{font-size:20px;font-weight:700}
 .muted{color:var(--muted)}
 .content{padding:0 var(--space-lg) calc(var(--space-xl) + var(--nav-h))}
 .center{min-height:100%;display:grid;place-content:center;gap:8px;text-align:center}
 
-.fires{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);padding:6px 10px;border-radius:999px}
+/* Avatar */
+.avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.15);box-shadow:0 6px 14px rgba(0,0,0,.25);cursor:pointer}
 
-.games-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-lg);padding:var(--space-lg)}
-@media (max-width:1024px){.games-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:640px){.games-grid{grid-template-columns:1fr}}
-
+/* Formularios de perfil */
 .game-card{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:var(--space-lg);display:flex;gap:var(--space-md);align-items:center;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.25);transition:transform .2s ease, box-shadow .2s ease}
 .game-card:hover{transform:translateY(-4px);box-shadow:0 18px 36px rgba(0,0,0,.35)}
 .game-card:active{transform:translateY(-1px) scale(.99)}
@@ -94,3 +90,15 @@ body{
 /* Variantes en cards del grid */
 .gc-bingo .icon{color:#22d3ee}
 .gc-domino .icon{color:#9b59b6}
+
+/* Perfil */
+.profile-section{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:var(--space-lg);margin:var(--space-lg) 0}
+.section-title{margin:0 0 10px;font-weight:700}
+.form{display:flex;flex-direction:column;gap:10px}
+.label{font-size:12px;color:var(--muted)}
+.input{background:#0b1220;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;color:var(--text)}
+.input:focus{outline:2px solid var(--primary);outline-offset:2px}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:640px){.row{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:6px}
+.actions{display:flex;gap:10px;justify-content:flex-end}

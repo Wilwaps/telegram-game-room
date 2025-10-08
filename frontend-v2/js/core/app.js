@@ -16,6 +16,8 @@ const App = {
     this.user = this.getUser();
     this.bindNav();
     this.renderLobby();
+    this.bindProfileUI();
+    this.renderAvatars();
     // Splash breve
     await Utils.sleep(700);
     UI.showScreen('lobby-screen');
@@ -80,6 +82,7 @@ const App = {
     const screen = document.getElementById('game-screen');
     screen.classList.remove('theme-bingo','theme-domino');
     screen.classList.add(`theme-${id}`);
+    this.renderAvatars();
     const root = document.getElementById('game-root');
     root.innerHTML = '';
     try {
@@ -118,6 +121,78 @@ App.bindNav = function(){
       default: UI.showScreen('lobby-screen'); break;
     }
   }, { passive:false });
+};
+
+// -------- Perfil y Avatar --------
+App.renderAvatars = function(){
+  const u = this.user || {};
+  const url = (window.Telegram?.WebApp?.initDataUnsafe?.user?.photo_url) || '';
+  const name = u.userName || 'U';
+  const dataUrl = App._avatarDataUrl((name && name[0] ? name[0] : 'U').toUpperCase());
+  const set = (id)=>{
+    const img = document.getElementById(id);
+    if (!img) return;
+    img.src = url || dataUrl;
+    img.onclick = ()=> UI.showScreen('profile-screen');
+  };
+  set('profile-avatar-lobby');
+  set('profile-avatar-game');
+};
+
+App._avatarDataUrl = function(letter){
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72'><rect width='100%' height='100%' rx='36' ry='36' fill='%231b1f3a'/><text x='50%' y='58%' font-size='36' font-family='Arial, Helvetica, sans-serif' fill='%23ffffff' text-anchor='middle'>${letter}</text></svg>`;
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+};
+
+App.bindProfileUI = function(){
+  const sendBtn = document.getElementById('pf-send');
+  const saveBtn = document.getElementById('pf-save');
+  const reqKeyBtn = document.getElementById('pf-request-key');
+  try{
+    const d = JSON.parse(localStorage.getItem('v2.profile')||'{}');
+    if (d.first) document.getElementById('pf-first').value = d.first;
+    if (d.last) document.getElementById('pf-last').value = d.last;
+    if (d.phone) document.getElementById('pf-phone').value = d.phone;
+    if (d.email) document.getElementById('pf-email').value = d.email;
+  }catch(_){ }
+  sendBtn && sendBtn.addEventListener('click', async ()=>{
+    const to = document.getElementById('pf-to-id').value.trim();
+    const amount = parseInt(document.getElementById('pf-amount').value, 10);
+    const reason = (document.getElementById('pf-reason').value||'transfer').trim();
+    const key = document.getElementById('pf-key').value.trim();
+    const from = App.user?.userId;
+    if (!from || !to || !amount){ return UI.showToast('Datos inválidos', 'warning'); }
+    try{
+      sendBtn.disabled = true; sendBtn.classList.add('is-loading');
+      const r = await fetch('/api/economy/transfer', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ fromUserId: from, toUserId: to, amount, reason, sponsorKey: key }) });
+      const j = await r.json().catch(()=>({success:false}));
+      if (!r.ok || !j.success){ throw new Error(j?.error||('HTTP '+r.status)); }
+      UI.showToast('Transferencia enviada', 'success');
+      UI.log(`p2p: ${from} -> ${to} amount=${amount} reason=${reason}`, 'info', 'profile');
+    }catch(e){
+      console.error(e);
+      UI.showToast('Error en transferencia', 'error');
+      UI.log(`p2p:error ${String(e)}`, 'error', 'profile');
+    }finally{
+      sendBtn.disabled = false; sendBtn.classList.remove('is-loading');
+    }
+  });
+  saveBtn && saveBtn.addEventListener('click', ()=>{
+    const first = document.getElementById('pf-first').value.trim();
+    const last = document.getElementById('pf-last').value.trim();
+    const phone = document.getElementById('pf-phone').value.trim();
+    const email = document.getElementById('pf-email').value.trim();
+    const data = { first, last, phone, email };
+    try{ localStorage.setItem('v2.profile', JSON.stringify(data)); }catch(_){ }
+    UI.showToast('Datos guardados localmente', 'success');
+    UI.log('profile:saved local', 'info', 'profile');
+  });
+  reqKeyBtn && reqKeyBtn.addEventListener('click', ()=>{
+    const newKey = document.getElementById('pf-new-key').value.trim();
+    if (!newKey) { UI.showToast('Ingresa nueva clave', 'warning'); return; }
+    UI.showToast('Solicitud de cambio enviada (demo)', 'success');
+    UI.log('profile:key_change_request', 'info', 'profile');
+  });
 };
 
 window.AppV2 = App;
