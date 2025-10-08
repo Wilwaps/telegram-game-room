@@ -23,7 +23,7 @@
         <label for="admin-username">Admin</label>
         <input id="admin-username" type="text" value="@wilcnct" />
         <label for="admin-code">Clave</label>
-        <input id="admin-code" type="password" placeholder="658072974" />
+        <input id="admin-code" type="password" />
       </div>
       <div class="form-row mt">
         <label for="to-user-id">Usuario ID</label>
@@ -42,6 +42,13 @@
       <div class="card-header">
         <h2>Auditoría Supply (tiempo real)</h2>
       </div>
+      <div class="form-row mt">
+        <label class="muted">Filtros</label>
+        <label><input type="checkbox" id="flt-mint" checked> mint</label>
+        <label><input type="checkbox" id="flt-revert" checked> revert</label>
+        <label><input type="checkbox" id="flt-init" checked> init</label>
+        <label><input type="checkbox" id="flt-autoscroll" checked> autoscroll</label>
+      </div>
       <div id="sse-audit" class="audit"></div>
     </section>
 
@@ -49,7 +56,12 @@
       <div class="card-header">
         <h2>Usuarios</h2>
         <div class="row-gap">
-          <input id="users-search" type="text" placeholder="Buscar por @username" />
+          <div class="tabs">
+            <button id="tab-users" class="tab-btn active">Usuarios</button>
+            <button id="tab-anon" class="tab-btn">Conexiones anónimas</button>
+            <button id="tab-sponsors" class="tab-btn">Patrocinadores</button>
+          </div>
+          <input id="users-search" type="text" placeholder="Buscar por @username o id" />
           <button id="users-search-btn" class="btn">Buscar</button>
         </div>
       </div>
@@ -60,9 +72,35 @@
           </thead>
           <tbody></tbody>
         </table>
+
+        <table class="table hidden" id="anon-table">
+          <thead>
+            <tr><th>Usuario</th><th>User ID</th><th>Fuegos</th><th>Creado</th><th>Último</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <table class="table hidden" id="sponsors-table">
+          <thead>
+            <tr><th>Usuario</th><th>User ID</th><th>Fuegos</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
       <div class="form-row mt">
         <button id="users-next-btn" class="btn">Siguiente</button>
+        <div id="users-next-pages" class="next-pages"></div>
+      </div>
+      <div id="sponsor-actions" class="form-row mt hidden">
+        <label class="muted">Gestión Patrocinadores</label>
+        <input id="sponsor-user-id" type="text" placeholder="userId" />
+        <button id="sponsor-add" class="btn">Agregar</button>
+        <span class="muted">Transferir:</span>
+        <select id="sponsor-from"></select>
+        <input id="sponsor-to-user-id" type="text" placeholder="to userId" />
+        <input id="sponsor-amount" type="number" min="1" placeholder="100" />
+        <input id="sponsor-reason" type="text" placeholder="motivo (opcional)" />
+        <button id="sponsor-transfer" class="btn btn-primary">Transferir</button>
       </div>
     </section>
 

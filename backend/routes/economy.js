@@ -10,13 +10,71 @@ const logger = require('../config/logger');
 router.get('/supply', async (req, res) => {
   try {
     const summary = await supplyService.getSummary();
-    // Conteo rápido de usuarios con currency
     const [_, keys] = await redisService.client.scan('0', 'MATCH', 'user:*:currency', 'COUNT', 10000);
     const usersCount = (keys && keys.length) || 0;
     res.json({ success: true, summary: { ...summary, usersCount } });
   } catch (err) {
     logger.error('GET /economy/supply error:', err);
     res.status(500).json({ success: false, error: 'No se pudo obtener el resumen de supply' });
+  }
+});
+
+// =============== PATROCINADORES ===============
+// POST /api/economy/sponsors/add { userId }
+router.post('/sponsors/add', adminAuth, async (req, res) => {
+  try {
+    const userId = String(req.body?.userId || '').trim();
+    if (!userId) return res.status(400).json({ success: false, error: 'userId requerido' });
+    await supplyService.addSponsor(userId);
+    const list = await supplyService.listSponsorsWithFires();
+    res.json({ success: true, sponsors: list.items });
+  } catch (err) {
+    logger.error('POST /economy/sponsors/add error:', err);
+    res.status(400).json({ success: false, error: err.message || 'No se pudo agregar patrocinador' });
+  }
+});
+
+// POST /api/economy/sponsors/remove { userId }
+router.post('/sponsors/remove', adminAuth, async (req, res) => {
+  try {
+    const userId = String(req.body?.userId || '').trim();
+    if (!userId) return res.status(400).json({ success: false, error: 'userId requerido' });
+    await supplyService.removeSponsor(userId);
+    const list = await supplyService.listSponsorsWithFires();
+    res.json({ success: true, sponsors: list.items });
+  } catch (err) {
+    logger.error('POST /economy/sponsors/remove error:', err);
+    res.status(400).json({ success: false, error: err.message || 'No se pudo quitar patrocinador' });
+  }
+});
+
+// GET /api/economy/sponsors
+router.get('/sponsors', async (req, res) => {
+  try {
+    const list = await supplyService.listSponsorsWithFires();
+    res.json({ success: true, sponsors: list.items });
+  } catch (err) {
+    logger.error('GET /economy/sponsors error:', err);
+    res.status(500).json({ success: false, error: 'No se pudo obtener patrocinadores' });
+  }
+});
+
+// POST /api/economy/transfer { fromUserId, toUserId, amount, reason }
+// Requiere que fromUserId sea patrocinador
+router.post('/transfer', async (req, res) => {
+  try {
+    const fromUserId = String(req.body?.fromUserId || '').trim();
+    const toUserId = String(req.body?.toUserId || '').trim();
+    const amount = Math.abs(parseInt(req.body?.amount || '0', 10));
+    const reason = String(req.body?.reason || 'transfer');
+    if (!fromUserId || !toUserId || !amount) return res.status(400).json({ success: false, error: 'Datos inválidos' });
+    const isSponsor = (await redisService.client.sismember('economy:sponsors', fromUserId)) === 1;
+    if (!isSponsor) return res.status(403).json({ success: false, error: 'Solo patrocinadores pueden transferir' });
+    const result = await economyService.transfer(fromUserId, toUserId, amount, { reason });
+    res.json({ success: true, result });
+  } catch (err) {
+    logger.error('POST /economy/transfer error:', err);
+    res.status(400).json({ success: false, error: err.message || 'No se pudo transferir' });
   }
 });
 

@@ -17,6 +17,9 @@
 .mt{margin-top:14px}
 .row-gap{display:flex;gap:10px}
 .muted{color:#94a3b8}
+.tabs{display:flex;gap:6px;margin-right:10px}
+.tab-btn{background:#0f172a;border:1px solid #1f2937;color:#e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer}
+.tab-btn.active{background:#2563eb;border-color:#3b82f6}
 .xp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
 .xp-item{background:#0f172a;border:1px solid #1f2937;border-radius:8px;padding:10px}
 .xp-item label{font-size:12px;color:#94a3b8;display:block;margin-bottom:6px}
@@ -42,3 +45,5 @@
 .audit-type{font-weight:600;color:#f1f5f9}
 .audit-amount{color:#22c55e;font-weight:700}
 .audit-meta{color:#cbd5e1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.next-pages{display:flex;gap:8px;align-items:center}
+.page-dot{background:#0f172a;border:1px solid #1f2937;color:#e5e7eb;border-radius:6px;padding:4px 8px;font-size:12px}

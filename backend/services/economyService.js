@@ -122,3 +122,55 @@ module.exports = {
     }).filter(Boolean);
   }
 };
+
+/**
+ * Transferir fuegos entre usuarios de forma atómica
+ * @param {string} fromUserId
+ * @param {string} toUserId
+ * @param {number} amount
+ * @param {object} meta
+ */
+module.exports.transfer = async function transfer(fromUserId, toUserId, amount, meta = {}) {
+  if (!fromUserId || !toUserId) throw new Error('Usuarios inválidos');
+  if (fromUserId === toUserId) throw new Error('No puedes transferir a ti mismo');
+  const amt = Math.abs(parseInt(amount, 10));
+  if (!amt || amt <= 0) throw new Error('Cantidad inválida');
+
+  const keyA = currencyKey(fromUserId);
+  const keyB = currencyKey(toUserId);
+  // Orden canónico para WATCH para evitar deadlocks
+  const [k1, k2] = keyA < keyB ? [keyA, keyB] : [keyB, keyA];
+  while (true) {
+    await redisService.client.watch(k1, k2);
+    const [fromBalRaw, toBalRaw] = await Promise.all([
+      redisService.client.hget(keyA, 'fires'),
+      redisService.client.hget(keyB, 'fires')
+    ]);
+    const fromBal = parseInt(fromBalRaw || '0', 10);
+    const toBal = parseInt(toBalRaw || '0', 10);
+    if (fromBal < amt) { await redisService.client.unwatch(); throw new Error('Saldo insuficiente'); }
+    const multi = redisService.client.multi();
+    multi.hset(keyA, 'fires', fromBal - amt);
+    multi.hset(keyB, 'fires', toBal + amt);
+    // Historial dual
+    const outTx = {
+      type: 'transfer_out', amount: amt, balance: fromBal - amt,
+      reason: meta.reason || 'transfer', meta: { ...meta, to: toUserId }, ts: Date.now()
+    };
+    const inTx = {
+      type: 'transfer_in', amount: amt, balance: toBal + amt,
+      reason: meta.reason || 'transfer', meta: { ...meta, from: fromUserId }, ts: Date.now()
+    };
+    multi.lpush(historyKey(fromUserId), JSON.stringify(outTx));
+    multi.ltrim(historyKey(fromUserId), 0, 199);
+    multi.lpush(historyKey(toUserId), JSON.stringify(inTx));
+    multi.ltrim(historyKey(toUserId), 0, 199);
+    const ok = await multi.exec();
+    if (!ok) {
+      logger.warn('Conflicto de transacción en transfer, reintentar');
+      continue;
+    }
+    logger.info(`🔥 Transfer ${amt} de ${fromUserId} -> ${toUserId}`);
+    return { from: { userId: fromUserId, fires: fromBal - amt, tx: outTx }, to: { userId: toUserId, fires: toBal + amt, tx: inTx } };
+  }
+};

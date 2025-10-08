@@ -40,34 +40,114 @@ async function grantFromSupply(){
 // Listado de usuarios con paginación
 let usersCursor='0';
 let usersSearchTerm='';
-function renderUsers(items){
-  const tbody=document.querySelector('#users-table tbody');
-  tbody.innerHTML='';
-  items.forEach(it=>{
+let usersCurrentPage=1;
+let usersHasNext=false;
+let usersMode='users'; // 'users' | 'anon' | 'sponsors'
+let lastUsersItems=[];
+let usersPageCursors=['', '0']; // index 1 = page1 cursor
+let prefetching=false;
+
+function formatTs(ts){ if(!ts) return '-'; try{ return new Date(ts).toLocaleString(); }catch(_){ return '-'; } }
+
+function renderUsersTables(items){
+  const usersTbody=document.querySelector('#users-table tbody');
+  const anonTbody=document.querySelector('#anon-table tbody');
+  const sponsorsTbody=document.querySelector('#sponsors-table tbody');
+  usersTbody.innerHTML='';
+  anonTbody.innerHTML='';
+  sponsorsTbody.innerHTML='';
+  const named=items.filter(i=>!i.isAnon);
+  const anon=items.filter(i=>i.isAnon);
+  const sponsors=items.filter(i=>i.isSponsor);
+  named.forEach(it=>{
     const tr=document.createElement('tr');
     const uname=it.userName?it.userName:`(sin nombre)`;
     tr.innerHTML=`<td>${uname}</td><td>${it.userId}</td><td>${(it.fires||0).toLocaleString()}</td><td><button class="btn btn-primary btn-mini" data-uid="${it.userId}" data-fires="${it.fires||0}">Grant</button></td>`;
-    tbody.appendChild(tr);
+    usersTbody.appendChild(tr);
   });
-  // Wire grant fill
-  tbody.querySelectorAll('button.btn-mini').forEach(btn=>{
+  anon.forEach(it=>{
+    const tr=document.createElement('tr');
+    const uname=it.userName?it.userName:`(sin nombre)`;
+    tr.innerHTML=`<td>${uname}</td><td>${it.userId}</td><td>${(it.fires||0).toLocaleString()}</td><td>${formatTs(it.createdAt)}</td><td>${formatTs(it.lastSeen)}</td>`;
+    anonTbody.appendChild(tr);
+  });
+  // Wire grant fill solo en tabla de usuarios
+  usersTbody.querySelectorAll('button.btn-mini').forEach(btn=>{
     btn.addEventListener('click',()=>{
       document.getElementById('to-user-id').value=btn.dataset.uid;
       document.getElementById('grant-amount').focus();
     });
   });
+  // Toggle de pestañas
+  document.getElementById('users-table').classList.toggle('hidden', usersMode!=='users');
+  document.getElementById('anon-table').classList.toggle('hidden', usersMode!=='anon');
+  document.getElementById('sponsors-table').classList.toggle('hidden', usersMode!=='sponsors');
+  document.getElementById('sponsor-actions')?.classList.toggle('hidden', usersMode!=='sponsors');
+  document.getElementById('users-next-btn')?.classList.toggle('hidden', usersMode==='sponsors');
+  document.getElementById('users-next-pages')?.classList.toggle('hidden', usersMode==='sponsors');
 }
 
-async function loadUsersPage(nextCursor='0'){
+async function loadUsersPage(nextCursor='0', pageIndex=1){
   try{
     const url=`/api/economy/users?cursor=${encodeURIComponent(nextCursor)}&limit=50&search=${encodeURIComponent(usersSearchTerm)}`;
     const j=await fetchJSON(url);
     usersCursor=j.cursor||'0';
-    renderUsers(j.items||[]);
+    usersHasNext = usersCursor !== '0';
+    lastUsersItems = j.items||[];
+    // guardar cursores por página
+    usersPageCursors[pageIndex]=nextCursor;
+    usersPageCursors[pageIndex+1]=usersCursor;
+    renderUsersTables(lastUsersItems);
+    renderNextPages();
+    prefetchNext(5);
   }catch(e){ toast('Error cargando usuarios'); console.error(e); }
 }
 
-async function refreshUsers(){ await loadUsersPage('0'); }
+async function refreshUsers(){ usersCurrentPage=1; usersPageCursors=['','0']; await loadUsersPage('0',1); }
+
+function renderNextPages(){
+  const el=document.getElementById('users-next-pages');
+  if(!el) return;
+  el.innerHTML='';
+  if(!usersHasNext){ el.textContent=''; return; }
+  const max=5;
+  const frag=document.createDocumentFragment();
+  const label=document.createElement('span'); label.className='muted'; label.textContent='Próximas: ';
+  frag.appendChild(label);
+  for(let i=1;i<=max;i++){
+    const page=usersCurrentPage+i;
+    const span=document.createElement('button');
+    const known=!!usersPageCursors[page];
+    span.className='page-dot'+(known?' clickable':'');
+    span.textContent=String(page);
+    span.disabled=!known;
+    if(known){ span.addEventListener('click',()=>goToPage(page)); }
+    frag.appendChild(span);
+  }
+  el.appendChild(frag);
+}
+
+async function goToPage(page){
+  const cursor=usersPageCursors[page];
+  if(cursor){ usersCurrentPage=page; await loadUsersPage(cursor,page); }
+}
+
+async function prefetchNext(n=5){
+  if(prefetching) return; prefetching=true;
+  try{
+    let start=usersCurrentPage;
+    for(let i=1;i<=n;i++){
+      const p=start+i; if(usersPageCursors[p]) continue;
+      const prevCursor=usersPageCursors[p-1]; if(!prevCursor) break;
+      const url=`/api/economy/users?cursor=${encodeURIComponent(prevCursor)}&limit=1&search=${encodeURIComponent(usersSearchTerm)}`;
+      const j=await fetchJSON(url);
+      usersPageCursors[p]=prevCursor;
+      usersPageCursors[p+1]=j.cursor||'0';
+      if((j.cursor||'0')==='0') break;
+    }
+  }catch(e){ console.warn('Prefetch cursors fallo',e); }
+  finally{ prefetching=false; renderNextPages(); }
+}
 
 // XP config (placeholder si no existe backend)
 async function loadXpConfig(){ try{ const j=await fetchJSON('/api/xp/config'); const t=j.thresholds||{}; const grid=document.getElementById('xp-grid'); grid.innerHTML=''; const levels=[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]; for(const lv of levels){ const val=t[lv]??''; const el=document.createElement('div'); el.className='xp-item'; el.innerHTML=`<label>Nivel ${lv}</label><input type="number" min="0" id="xp-${lv}" value="${val}">`; grid.appendChild(el);} }catch(e){ /* opcional */ console.warn('XP config no disponible',e);} }
@@ -77,7 +157,16 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('refresh-token').addEventListener('click', loadSupply);
   const grantBtn=document.getElementById('grant-submit'); if(grantBtn) grantBtn.addEventListener('click', grantFromSupply);
   const searchBtn=document.getElementById('users-search-btn'); if(searchBtn) searchBtn.addEventListener('click', ()=>{ usersSearchTerm=document.getElementById('users-search').value||''; refreshUsers(); });
-  const nextBtn=document.getElementById('users-next-btn'); if(nextBtn) nextBtn.addEventListener('click', ()=> loadUsersPage(usersCursor));
+  const nextBtn=document.getElementById('users-next-btn'); if(nextBtn) nextBtn.addEventListener('click', ()=> { if(usersHasNext){ usersCurrentPage++; loadUsersPage(usersCursor);} });
+  const tabUsers=document.getElementById('tab-users');
+  const tabAnon=document.getElementById('tab-anon');
+  if(tabUsers) tabUsers.addEventListener('click', ()=>{ usersMode='users'; tabUsers.classList.add('active'); tabAnon?.classList.remove('active'); renderUsersTables(lastUsersItems); });
+  if(tabAnon) tabAnon.addEventListener('click', ()=>{ usersMode='anon'; tabAnon.classList.add('active'); tabUsers?.classList.remove('active'); document.getElementById('tab-sponsors')?.classList.remove('active'); renderUsersTables(lastUsersItems); });
+  const tabSponsors=document.getElementById('tab-sponsors');
+  if(tabSponsors) tabSponsors.addEventListener('click', async ()=>{ usersMode='sponsors'; tabSponsors.classList.add('active'); tabUsers?.classList.remove('active'); tabAnon?.classList.remove('active'); await loadSponsors(); });
+  // Sponsor actions
+  document.getElementById('sponsor-add')?.addEventListener('click', sponsorAdd);
+  document.getElementById('sponsor-transfer')?.addEventListener('click', sponsorTransfer);
   loadSupply();
   refreshUsers();
   // SSE auditoría supply
@@ -87,6 +176,54 @@ window.addEventListener('DOMContentLoaded',()=>{
   const sx=document.getElementById('save-xp'); if(sx) sx.addEventListener('click', saveXpConfig);
   loadXpConfig();
 });
+
+// --------- Patrocinadores ---------
+async function loadSponsors(){
+  try{
+    const j=await fetchJSON('/api/economy/sponsors');
+    const items=j.sponsors||[];
+    const tbody=document.querySelector('#sponsors-table tbody');
+    tbody.innerHTML='';
+    items.forEach(it=>{
+      const tr=document.createElement('tr');
+      const uname=it.userName||'(sin nombre)';
+      tr.innerHTML=`<td>${uname}</td><td>${it.userId}</td><td>${(it.fires||0).toLocaleString()}</td><td></td>`;
+      tbody.appendChild(tr);
+    });
+    // poblar select from
+    const sel=document.getElementById('sponsor-from');
+    if(sel){ sel.innerHTML=''; items.forEach(it=>{ const o=document.createElement('option'); o.value=it.userId; o.textContent=`${it.userName||'(sin nombre)'} (${it.userId})`; sel.appendChild(o); }); }
+    // mostrar acciones
+    document.getElementById('sponsor-actions')?.classList.remove('hidden');
+    // ocultar otras tablas
+    renderUsersTables(lastUsersItems);
+  }catch(e){ toast('Error cargando patrocinadores'); console.error(e); }
+}
+
+async function sponsorAdd(){
+  try{
+    const userId=document.getElementById('sponsor-user-id').value.trim();
+    if(!userId) return toast('userId requerido');
+    const adminUser=document.getElementById('admin-username').value.trim();
+    const adminCode=document.getElementById('admin-code').value.trim();
+    await fetchJSON('/api/economy/sponsors/add',{method:'POST',body:JSON.stringify({ userId, adminUsername:adminUser, adminCode})});
+    toast('Patrocinador agregado');
+    await loadSponsors();
+  }catch(e){ toast('Error agregando patrocinador'); console.error(e); }
+}
+
+async function sponsorTransfer(){
+  try{
+    const from=document.getElementById('sponsor-from').value.trim();
+    const to=document.getElementById('sponsor-to-user-id').value.trim();
+    const amount=parseInt(document.getElementById('sponsor-amount').value,10);
+    const reason=document.getElementById('sponsor-reason').value.trim();
+    if(!from||!to||!amount) return toast('Datos inválidos');
+    await fetchJSON('/api/economy/transfer',{method:'POST',body:JSON.stringify({ fromUserId:from, toUserId:to, amount, reason })});
+    toast('Transferencia realizada');
+    await loadSponsors();
+  }catch(e){ toast('Error en transferencia'); console.error(e); }
+}
 
 // ---------- SSE: Auditoría de Supply en tiempo real ----------
 function startSupplySSE(){
@@ -107,7 +244,18 @@ function startSupplySSE(){
           el('circulation', s.circulating);
         }
         if(Array.isArray(data.items)){
-          renderAuditList(target, data.items);
+          const fMint=document.getElementById('flt-mint')?.checked!==false;
+          const fRev=document.getElementById('flt-revert')?.checked!==false;
+          const fInit=document.getElementById('flt-init')?.checked!==false;
+          const filtered=data.items.filter(it=>{
+            if(it.type==='mint') return fMint;
+            if(it.type==='revert') return fRev;
+            if(it.type==='init') return fInit;
+            return true;
+          });
+          renderAuditList(target, filtered);
+          const auto=document.getElementById('flt-autoscroll');
+          if(auto && auto.checked){ target.scrollTop=target.scrollHeight; }
         }
       }catch(e){ console.warn('SSE parse error', e); }
     };
