@@ -32,6 +32,7 @@ const supplyService = require('./services/supplyService');
 const economyRoutes = require('./routes/economy');
 const xpRoutes = require('./routes/xp');
 const profileRoutes = require('./routes/profile');
+const storeRoutes = require('./routes/store');
 const brawlEvents = require('./games/brawl/events');
 
 // ============================================
@@ -107,13 +108,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// Servir archivos estáticos (frontend)
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Servir archivos estáticos (frontend-v2 por defecto)
+// Mantener v1 accesible en /v1/*
+app.use('/v1', express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, '../frontend-v2'), {
+  setHeaders: (res, filePath) => {
+    try{
+      if (filePath.endsWith('.html')) res.set('Content-Type', 'text/html; charset=utf-8');
+      else if (filePath.endsWith('.css')) res.set('Content-Type', 'text/css; charset=utf-8');
+      else if (filePath.endsWith('.js')) res.set('Content-Type', 'application/javascript; charset=utf-8');
+    }catch(_){}
+  }
+}));
 
 // Rutas API
 app.use('/api/economy', economyRoutes);
 app.use('/api/xp', xpRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/store', storeRoutes);
 
 // ============================================
 // RUTA PRINCIPAL (SPA)
@@ -133,11 +145,22 @@ app.get('/brawl', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/brawl/index.html'));
 });
 
+// SPA fallback v1
+app.get('/v1*', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
+// SPA fallback v2 (por defecto)
 app.get('*', (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.sendFile(path.join(__dirname, '../frontend-v2/index.html'));
 });
 
 // ============================================

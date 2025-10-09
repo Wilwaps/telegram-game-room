@@ -6,6 +6,8 @@ import { Socket } from './socket.js';
 
 // Importar juegos (plugins)
 import '../plugins/bingo/index.js';
+import '../plugins/tictactoe/index.js';
+import { Market } from './market.js';
 
 const App = {
   user: null,
@@ -18,6 +20,7 @@ const App = {
     this.bindNav();
     this.renderLobby();
     this.bindProfileUI();
+    this.bindFiresBadges();
     this.renderAvatars();
     // Splash breve
     await Utils.sleep(700);
@@ -28,9 +31,9 @@ const App = {
     const tg = window.Telegram?.WebApp;
     if (tg?.initDataUnsafe?.user) {
       const u = tg.initDataUnsafe.user;
-      return { userId: String(u.id), userName: u.username || u.first_name || 'Usuario' };
+      return { userId: String(u.id), userName: u.username || u.first_name || 'Usuario', firstName: u.first_name || '', lastName: u.last_name || '', photoUrl: u.photo_url || '' };
     }
-    return { userId: 'dev_'+Math.random().toString(36).slice(2,10), userName: 'Dev User' };
+    return { userId: 'dev_'+Math.random().toString(36).slice(2,10), userName: 'Dev User', firstName:'Dev', lastName:'User', photoUrl:'' };
   },
 
   renderLobby(){
@@ -84,6 +87,8 @@ const App = {
     screen.classList.remove('theme-bingo');
     screen.classList.add(`theme-${id}`);
     this.renderAvatars();
+    // sincronizar HUD de fuegos en pantalla de juego
+    this.updateFiresUI(this._lastFiresBalance ?? 0);
     const root = document.getElementById('game-root');
     root.innerHTML = '';
     try {
@@ -109,9 +114,35 @@ App.setupSocket = async function(){
     await Socket.connect();
     const s = Socket.socket;
     if (!s || !s.on) return;
-    // Estado inicial del bono diario
-    s.on('connect', ()=>{ try{ s.emit('daily_bonus_status'); }catch(_){ } });
+    // Autenticación y estado inicial
+    const authPayload = ()=>{
+      const u = App.user || {};
+      return {
+        userId: u.userId,
+        userName: u.userName,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        userAvatar: u.photoUrl
+      };
+    };
+    s.on('connect', ()=>{
+      try{
+        UI.log('socket: connect', 'info', 'v2');
+        s.emit('authenticate', authPayload());
+        s.emit('daily_bonus_status');
+        s.emit('get_fires');
+      }catch(_){ }
+    });
+    try{ s.emit('authenticate', authPayload()); }catch(_){ }
     try{ s.emit('daily_bonus_status'); }catch(_){ }
+    try{ s.emit('get_fires'); }catch(_){ }
+
+    // Respuesta de autenticación
+    s.on('authenticated', (data)=>{
+      try{ UI.log(`socket: authenticated ${data?.userId||''}`, 'info', 'v2'); }catch(_){ }
+      try{ s.emit('get_fires'); }catch(_){ }
+    });
+
     // Actualizaciones de bono diario
     s.on('daily_bonus_info', (info)=>{
       try{
@@ -131,6 +162,30 @@ App.setupSocket = async function(){
         if (btn){ btn.disabled = !info?.available; btn.classList.remove('is-loading'); }
       }catch(e){ console.error(e); }
     });
+
+    // Economía: fuegos (saldo y transacciones)
+    s.on('fires_balance', (data)=>{
+      const fires = parseInt((data&&data.fires)||0,10)||0;
+      App._lastFiresBalance = fires;
+      App.updateFiresUI(fires);
+      try{ UI.log(`fires_balance=${fires}`, 'info', 'economy'); }catch(_){ }
+    });
+    s.on('fires_updated', (data)=>{
+      const fires = parseInt((data&&data.fires)||0,10)||0;
+      App._lastFiresBalance = fires;
+      App.updateFiresUI(fires);
+      try{ UI.log(`fires_updated=${fires}`, 'info', 'economy'); }catch(_){ }
+    });
+    s.on('fires_transaction', (tx)=>{
+      try{ UI.log(`fires_tx: ${JSON.stringify(tx)}`, 'info', 'economy'); }catch(_){ }
+      if (tx && typeof tx.amount === 'number'){
+        const sign = tx.amount>=0?'+':'';
+        UI.showToast(`🔥 ${sign}${tx.amount} ${tx.reason?'- '+tx.reason:''}`,'success');
+      }
+    });
+    // bingo: fallback para asegurar HUD tras reembolsos inmediatos
+    try{ s.on('player_left_bingo', ()=>{ try{ s.emit('get_fires'); }catch(_){ } }); }catch(_){ }
+    try{ s.on('host_left_bingo', ()=>{ try{ s.emit('get_fires'); }catch(_){ } }); }catch(_){ }
   }catch(e){ console.warn('socket setup failed', e); }
 };
 
@@ -148,10 +203,28 @@ App.bindNav = function(){
       case 'profile': UI.showScreen('profile-screen'); break;
       case 'raffles': UI.showScreen('raffles-screen'); break;
       case 'bingo': App.startGame('bingo'); break;
+      case 'market': UI.showScreen('market-screen'); Market.render(App.user); App.updateFiresUI(App._lastFiresBalance ?? 0); break;
       case 'game': UI.showScreen('game-screen'); break;
       default: UI.showScreen('lobby-screen'); break;
     }
   }, { passive:false });
+};
+
+// -------- Fuegos HUD --------
+App.updateFiresUI = function(fires){
+  try{
+    const v = (typeof fires === 'number') ? fires : parseInt(fires||0,10)||0;
+    const set = (id)=>{ const el = document.getElementById(id); if (el) el.textContent = String(v); };
+    set('fires-count');     // lobby
+    set('fires-count-prof');
+    set('fires-count-game');
+    set('fires-count-mkt');
+    set('fires-count-rf');
+  }catch(_){ }
+};
+
+App.bindFiresBadges = function(){
+  try{ App.updateFiresUI(App._lastFiresBalance ?? 0); }catch(_){ }
 };
 
 // -------- Perfil y Avatar --------

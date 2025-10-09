@@ -44,8 +44,20 @@ class SocketService {
     for (const userId of Object.keys(room.entries)) {
       const amount = room.entries[userId] || 0;
       if (amount > 0) {
-        await this.economy.earn(userId, amount, { reason: 'bingo_refund_host_left', roomCode: room.code });
+        const earnRes = await this.economy.earn(userId, amount, { reason: 'bingo_refund_host_left', roomCode: room.code });
         refunds[userId] = amount;
+        // Notificar al usuario reembolsado inmediatamente
+        try {
+          const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+          allSockets
+            .filter(s => s.userId === userId)
+            .forEach(s => {
+              s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: earnRes.fires });
+              if (earnRes?.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, earnRes.tx);
+            });
+        } catch (e) {
+          logger.warn('No se pudo emitir refund FIRES_UPDATED (host_left):', e?.message);
+        }
       }
     }
     return refunds;
