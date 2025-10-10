@@ -19,7 +19,8 @@ dist/
 build/
 
 # TestSprite temp
-testsprite_tests/tmp/
+testsprite_tests/tmp/*
+!testsprite_tests/tmp/code_summary.json
 
 # OS / editor
 .DS_Store

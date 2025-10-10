@@ -12,7 +12,13 @@ class BingoRoom {
     this.status = data.status || 'waiting';
     this.isPublic = data.isPublic !== undefined ? data.isPublic : true;
     this.maxPlayers = data.maxPlayers || 30;
-    this.players = data.players || [];
+    this.players = (data.players || []).map(p => ({
+      userId: p.userId,
+      userName: p.userName,
+      cardIds: p.cardIds || [],
+      cardsCount: p.cardsCount || 0,
+      ready: !!p.ready
+    }));
     
     // Economía
     this.pot = data.pot || 0;
@@ -20,6 +26,8 @@ class BingoRoom {
     
     // Juego
     this.mode = data.mode || 'line'; // 'line' | 'double' | 'full'
+    this.ecoMode = data.ecoMode || 'friendly'; // 'friendly' | 'fire'
+    this.entryCost = data.entryCost || undefined; // opcional, usa ticketPrice si no definido
     this.drawOrder = data.drawOrder || [];
     this.drawnSet = new Set(data.drawnSet || []);
     this.drawnCount = data.drawnCount || 0;
@@ -55,7 +63,8 @@ class BingoRoom {
       userId,
       userName,
       cardIds: [],
-      cardsCount
+      cardsCount,
+      ready: false
     });
   }
 
@@ -71,6 +80,22 @@ class BingoRoom {
    */
   getPlayer(userId) {
     return this.players.find(p => p.userId === userId);
+  }
+
+  /**
+   * Marcar listo/no listo
+   */
+  setReady(userId, ready) {
+    const p = this.getPlayer(userId);
+    if (p) p.ready = !!ready;
+  }
+
+  /**
+   * ¿Todos listos?
+   */
+  allReady() {
+    if (!this.players.length) return false;
+    return this.players.every(p => !!p.ready);
   }
 
   /**
@@ -145,6 +170,8 @@ class BingoRoom {
       pot: this.pot,
       entries: this.entries,
       mode: this.mode,
+      ecoMode: this.ecoMode,
+      entryCost: this.entryCost,
       drawOrder: this.drawOrder,
       drawnSet: Array.from(this.drawnSet),
       drawnCount: this.drawnCount,

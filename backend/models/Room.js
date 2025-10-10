@@ -62,11 +62,11 @@ class Room {
   }
 
   /**
-   * Generar código único de sala (6 caracteres alfanuméricos)
+   * Generar código único de sala (6 dígitos numéricos)
    * @returns {string} Código de sala
    */
   generateRoomCode() {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const characters = '0123456789';
     let code = '';
     for (let i = 0; i < 6; i++) {
       code += characters.charAt(Math.floor(Math.random() * characters.length));

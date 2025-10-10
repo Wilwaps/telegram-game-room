@@ -12,11 +12,11 @@
 const Joi = require('joi');
 
 /**
- * Generar código único de sala (6 caracteres alfanuméricos)
+ * Generar código único de sala (6 dígitos)
  * @returns {string} Código de sala
  */
 function generateRoomCode() {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const characters = '0123456789';
   let code = '';
   
   for (let i = 0; i < 6; i++) {
@@ -33,7 +33,7 @@ function generateRoomCode() {
  * @returns {boolean}
  */
 function isValidRoomCode(code) {
-  return /^[A-Z0-9]{6}$/.test(code);
+  return /^\d{6}$/.test(code);
 }
 
 /**
@@ -110,7 +110,7 @@ const createRoomSchema = Joi.object({
  * Schema de validación para unirse a sala
  */
 const joinRoomSchema = Joi.object({
-  roomCode: Joi.string().length(6).pattern(/^[A-Z0-9]+$/).required(),
+  roomCode: Joi.string().length(6).pattern(/^\d+$/).required(),
   userId: Joi.alternatives().try(
     Joi.string().required(),
     Joi.number().positive().required()
@@ -123,7 +123,7 @@ const joinRoomSchema = Joi.object({
  * Schema de validación para hacer movimiento
  */
 const makeMoveSchema = Joi.object({
-  roomCode: Joi.string().length(6).pattern(/^[A-Z0-9]+$/).required(),
+  roomCode: Joi.string().length(6).pattern(/^\d+$/).required(),
   position: Joi.number().integer().min(0).max(8).required(),
   userId: Joi.alternatives().try(
     Joi.string().required(),

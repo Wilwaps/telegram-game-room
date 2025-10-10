@@ -33,7 +33,7 @@ class SocketService {
   // AUXILIARES BINGO
   // ==========================================
   generateCode(length = 6) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars = '0123456789';
     let out = '';
     for (let i = 0; i < length; i++) out += chars[Math.floor(Math.random() * chars.length)];
     return out;

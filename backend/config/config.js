@@ -231,8 +231,7 @@ const constants = {
     GET_XP_HISTORY: 'get_xp_history',
     XP_HISTORY: 'xp_history',
     XP_TRANSACTION: 'xp_transaction',
-    
-    // Bingo
+    //bingo
     CREATE_BINGO_ROOM: 'create_bingo_room',
     BINGO_ROOM_CREATED: 'bingo_room_created',
     JOIN_BINGO: 'join_bingo',
@@ -258,17 +257,20 @@ const constants = {
     BINGO_PAUSED: 'bingo_paused',
     BINGO_RESUMED: 'bingo_resumed',
     ROOM_FULL: 'room_full',
-    
+    //bingo - Lobby de espera y modo economía
+    BINGO_SET_MODE: 'bingo_set_mode',
+    BINGO_MODE_UPDATED: 'bingo_mode_updated',
+    BINGO_SET_READY: 'bingo_set_ready',
+    BINGO_READY_UPDATED: 'bingo_ready_updated',
     
     // Errores
     ERROR: 'error'
   },
-
+  
   ADMIN: {
     USERNAME: process.env.ADMIN_USERNAME || 'Wilcnct'
   },
   
-  // Prefijos de Redis
   REDIS_PREFIXES: {
     ROOM: 'room:',
     USER: 'user:',

@@ -2,7 +2,7 @@
   {
     "id": "TC001",
     "title": "get_supply_summary",
-    "description": "Verify that the GET /api/economy/supply endpoint returns the correct supply summary with status 200."
+    "description": "Test the GET /api/economy/supply endpoint to verify it returns the correct supply summary with status 200."
   },
   {
     "id": "TC002",
@@ -12,41 +12,41 @@
   {
     "id": "TC003",
     "title": "supply_sse_stream_connection",
-    "description": "Validate that the GET /api/economy/supply/stream endpoint establishes a Server-Sent Events (SSE) stream and sends supply updates correctly."
+    "description": "Test the GET /api/economy/supply/stream endpoint to verify it establishes a Server-Sent Events (SSE) stream and sends supply updates correctly."
   },
   {
     "id": "TC004",
     "title": "list_users_with_fires_pagination_and_search",
-    "description": "Test the GET /api/economy/users endpoint with cursor, limit, and search query parameters to verify correct pagination and filtering of users with fires."
+    "description": "Test the GET /api/economy/users endpoint with cursor, limit, and search query parameters to verify it returns a filtered and paginated list of users with fires."
   },
   {
     "id": "TC005",
     "title": "get_user_fires_history_with_pagination",
-    "description": "Verify the GET /api/economy/history/{userId} endpoint returns the correct fires transaction history for a user with support for limit and offset pagination."
+    "description": "Test the GET /api/economy/history/{userId} endpoint with limit and offset query parameters to ensure it returns the correct paginated history of fires transactions for the specified user."
   },
   {
     "id": "TC006",
     "title": "list_sponsors",
-    "description": "Test the GET /api/economy/sponsors endpoint to ensure it returns the list of sponsors with status 200."
+    "description": "Test the GET /api/economy/sponsors endpoint to verify it returns the list of sponsors with status 200."
   },
   {
     "id": "TC007",
     "title": "add_sponsor_with_valid_data",
-    "description": "Verify that the POST /api/economy/sponsors/add endpoint allows an admin to add a sponsor with valid userId, key, description, and initialAmount, returning status 200."
+    "description": "Test the POST /api/economy/sponsors/add endpoint with valid sponsor data and admin authorization to verify a sponsor is added successfully."
   },
   {
     "id": "TC008",
-    "title": "remove_sponsor_by_userid",
-    "description": "Test the POST /api/economy/sponsors/remove endpoint to remove a sponsor by userId and verify the response status is 200."
+    "title": "remove_sponsor_with_valid_userid",
+    "description": "Test the POST /api/economy/sponsors/remove endpoint with a valid userId and admin authorization to verify the sponsor is removed successfully."
   },
   {
     "id": "TC009",
-    "title": "transfer_fires_between_users_with_sponsor_key",
-    "description": "Validate the POST /api/economy/transfer endpoint to transfer fires from one user to another with required fields and optional sponsorKey, ensuring the transfer is successful."
+    "title": "transfer_fires_between_users",
+    "description": "Test the POST /api/economy/transfer endpoint with valid fromUserId, toUserId, amount, and optional sponsorKey to verify fires are transferred correctly and transaction is recorded."
   },
   {
     "id": "TC010",
     "title": "redeem_item_from_store",
-    "description": "Test the POST /api/store/redeem endpoint to redeem an item from the store using userId and itemId, verifying the response status is 200 and the item is correctly redeemed."
+    "description": "Test the POST /api/store/redeem endpoint with valid userId and itemId to verify the item redemption process using fires works correctly and returns status 200."
   }
 ]
