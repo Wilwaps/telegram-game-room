@@ -3,7 +3,7 @@
 ## ✅ Estado Actual del Proyecto
 
 - ✅ Bot creado: @wilprueba1n8nbot
-- ✅ Token configurado: 7734154282:AAHuk7rYVV2RI9HmfEPoVVv3E7aM6Jvma0w
+- ✅ Token configurado: YOUR_TELEGRAM_BOT_TOKEN
 - ✅ Redis funcionando
 - ✅ Servidor activo en: http://localhost:3000
 

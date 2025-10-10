@@ -1,0 +1,389 @@
+[
+  {
+    "id": "TC001",
+    "title": "Create public game room successfully",
+    "description": "Verify that a user can create a public game room with valid parameters and the room is available for others to join.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the Sala de Juegos MiniApp from Telegram."
+      },
+      {
+        "type": "action",
+        "description": "Select option to create a new public room."
+      },
+      {
+        "type": "action",
+        "description": "Submit room creation form with valid inputs."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the public room is created and visible in the available rooms list."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Join existing room using invitation code",
+    "description": "Verify a user can join a private or public room via an invitation code shared through Telegram or input manually.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Receive or obtain a valid room invitation code."
+      },
+      {
+        "type": "action",
+        "description": "Open Sala de Juegos MiniApp and input the invitation code to join."
+      },
+      {
+        "type": "assertion",
+        "description": "User successfully joins the specified room and can see active players."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Real-time Tic Tac Toe gameplay synchronization",
+    "description": "Ensure that when one user places a move, all participants in the room see the updated game state instantly with minimal latency.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start a new Tic Tac Toe game in a room with two users."
+      },
+      {
+        "type": "action",
+        "description": "User A places a mark in a cell."
+      },
+      {
+        "type": "assertion",
+        "description": "User B's client immediately reflects the move in the same cell without delay."
+      },
+      {
+        "type": "action",
+        "description": "User B places a mark in response."
+      },
+      {
+        "type": "assertion",
+        "description": "User A sees User B's move in real time."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Handle game host disconnect gracefully",
+    "description": "Verify that if the host leaves the game room unexpectedly, the system transfers hosting responsibilities and ensures game continuity.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start a multiplayer game with a designated host."
+      },
+      {
+        "type": "action",
+        "description": "Host disconnects abruptly."
+      },
+      {
+        "type": "assertion",
+        "description": "System assigns new host automatically and game continues without requiring reload."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Multiple consecutive game rounds without reloading",
+    "description": "Check that users can play multiple matches (revancha) in the same room without refreshing or creating a new room.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Complete one full Tic Tac Toe game."
+      },
+      {
+        "type": "action",
+        "description": "Start a new game round in the same room."
+      },
+      {
+        "type": "assertion",
+        "description": "The new game initializes correctly and users can play again seamlessly."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Validate Fuegos currency accumulation after game completion",
+    "description": "Ensure users earn the correct amount of Fuegos as reward after finishing a game match according to rules.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Play a complete game and end it with a win or draw condition."
+      },
+      {
+        "type": "action",
+        "description": "Check the Fuegos balance update for participating users."
+      },
+      {
+        "type": "assertion",
+        "description": "Fuegos balances increment correctly and transaction history reflects the earned amounts."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Attempt redemption from store with insufficient Fuegos",
+    "description": "Verify the system denies redemption requests when user Fuegos balance is insufficient for the item price.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Authenticate as a user with low or zero Fuegos balance."
+      },
+      {
+        "type": "action",
+        "description": "Request to redeem an item costing more Fuegos than owned."
+      },
+      {
+        "type": "assertion",
+        "description": "System returns an error preventing the redemption and displays an appropriate message."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Administrator grants Fuegos from supply reserve",
+    "description": "Test that an admin user can grant Fuegos from the central supply to a target user through the admin API properly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Use valid admin credentials to call grant-from-supply API with valid target user and amount."
+      },
+      {
+        "type": "assertion",
+        "description": "API returns success response and target user Fuegos balance is updated accordingly."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Valid sponsor key required for transfers",
+    "description": "Validate that sponsor transfers require correct sponsorKey authorization and reject requests with missing or invalid keys.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to transfer Fuegos from sponsor account to a user leaving the sponsorKey empty or incorrect."
+      },
+      {
+        "type": "assertion",
+        "description": "The transfer API responds with an authorization error and no transfer occurs."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Retrieve user profile information by userId",
+    "description": "Ensure the profile API returns complete and correct profile data for a given valid userId.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Call the GET profile API with a valid userId."
+      },
+      {
+        "type": "assertion",
+        "description": "API response contains all expected fields with correct user profile data."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Update user profile with valid data",
+    "description": "Verify users can update first name, last name, phone, and email via the profile API and changes are persisted.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send a POST request to update profile API containing valid new values for fields."
+      },
+      {
+        "type": "assertion",
+        "description": "API confirms update success and subsequent GET returns updated profile data."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Request and process user key change",
+    "description": "Validate that users can submit a request for a key change and the system processes it with correct parameters and updates status.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send a POST request to the request-key-change API with a newKey and optional note."
+      },
+      {
+        "type": "assertion",
+        "description": "API returns success and the pending key change request is recorded for admin processing."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Retrieve paginated and filtered users with Fuegos",
+    "description": "Verify that economy API endpoint listing users supports pagination parameters and search filters returning correct subsets.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Call list users API with limit and search query parameters."
+      },
+      {
+        "type": "assertion",
+        "description": "Response contains the specified number of users matching the search criteria."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Stream supply updates via Server Sent Events",
+    "description": "Test that supply SSE endpoint establishes a streaming connection delivering real-time updates without dropping the connection.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open SSE connection to supply stream endpoint."
+      },
+      {
+        "type": "assertion",
+        "description": "Connection remains open and sends valid supply update events periodically."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Display responsive UI on mobile and desktop within Telegram",
+    "description": "Verify the MiniApp UI adapts correctly when opened in Telegram WebApp on different devices and screen sizes.",
+    "category": "ui",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the MiniApp on mobile Telegram app."
+      },
+      {
+        "type": "assertion",
+        "description": "UI layout is usable, elements are sized correctly, and no overflow or clipping occurs."
+      },
+      {
+        "type": "action",
+        "description": "Open the MiniApp on desktop Telegram client or browser."
+      },
+      {
+        "type": "assertion",
+        "description": "UI adapts to larger screen, maintaining usability and correct styling."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Handle invalid or expired room invitation codes gracefully",
+    "description": "Ensure that entering an invalid or expired room invitation code returns a clear error without app crash or weird UI behavior.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Input an invalid room invitation code."
+      },
+      {
+        "type": "assertion",
+        "description": "User receives an informative error message about invalid or expired code."
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Sponsor management API operations with authorization",
+    "description": "Verify that sponsor add, update, key set, and remove endpoints enforce admin authentication and process valid requests correctly.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt sponsor add without admin authorization token."
+      },
+      {
+        "type": "assertion",
+        "description": "API rejects request with authorization error."
+      },
+      {
+        "type": "action",
+        "description": "Perform sponsor add, set-meta, set-key, remove-key, and remove operations with valid admin token and valid data."
+      },
+      {
+        "type": "assertion",
+        "description": "API responds with success and data is correctly created, updated, or removed."
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Verify logs are created for key operations and errors",
+    "description": "Confirm that when key events like transactions, transfers, or errors occur, Winston logging creates appropriate entries for troubleshooting.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger key API operations such as transfer fires, failed transfer, or profile update errors."
+      },
+      {
+        "type": "assertion",
+        "description": "Log files contain timestamped informative entries related to these events."
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "XP thresholds get and set",
+    "description": "Validate that XP API can retrieve current XP thresholds and allow admins to update them correctly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Call GET /api/xp/config to retrieve current thresholds."
+      },
+      {
+        "type": "assertion",
+        "description": "Response contains valid threshold object."
+      },
+      {
+        "type": "action",
+        "description": "Call POST /api/xp/config with valid threshold values."
+      },
+      {
+        "type": "assertion",
+        "description": "API confirms update success and GET returns the updated thresholds."
+      }
+    ]
+  }
+]

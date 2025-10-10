@@ -22,7 +22,7 @@ Edita `.env` con tus datos:
 ```env
 NODE_ENV=development
 PORT=3000
-TELEGRAM_BOT_TOKEN=7734154282:AAHuk7rYVV2RI9HmfEPoVVv3E7aM6Jvma0w
+TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN
 TELEGRAM_BOT_USERNAME=tu_bot_username
 ```
 
@@ -124,7 +124,6 @@ Para desarrollo local sin Telegram, la app usará datos de prueba automáticamen
 Lee el [README.md](README.md) completo para más información sobre:
 - Arquitectura del proyecto
 - Despliegue en producción
-- Agregar nuevos juegos
 - Contribuir al proyecto
 
 ---

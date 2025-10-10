@@ -1,0 +1,14 @@
+﻿[2025-10-05 08:15:08] Inicio de limpieza
+[08:15:08] MOVED: ngrok -> ngrok
+[08:15:08] MOVED: ngrok.exe -> ngrok.exe
+[08:15:08] MOVED: ngrok_latest -> ngrok_latest
+[08:15:08] MOVED: ngrok_new -> ngrok_new
+[08:15:08] MOVED: ngrok.zip -> ngrok.zip
+[08:15:08] MOVED: ngrok_latest.zip -> ngrok_latest.zip
+[08:15:08] MOVED: ngrok_new.zip -> ngrok_new.zip
+[08:15:08] MOVED: ngrok_output.txt -> ngrok_output.txt
+[08:15:08] MOVED: Redis -> Redis
+[08:15:08] MOVED: Redis.zip -> Redis.zip
+[08:15:08] MOVED: .env.local -> .env.local
+[08:15:08] MOVED: .env.local.example -> .env.local.example
+[2025-10-05 08:15:08] Fin de limpieza

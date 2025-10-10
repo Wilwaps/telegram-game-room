@@ -1,0 +1,657 @@
+{
+  "meta": {
+    "project": "Sala de Juegos - Telegram MiniApp",
+    "date": "2025-10-04",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "Sala de Juegos es una MiniApp de Telegram que ofrece juegos multijugador en tiempo real con un sistema de economía basado en una moneda virtual llamada \"Fuegos\". Inicialmente incluye Tic Tac Toe y una arquitectura escalable para agregar más juegos como Bingo. La aplicación proporciona interacción fluida basada en WebSockets, gestión avanzada de usuarios y salas, además de funcionalidades administrativas para gestionar economía y perfiles.",
+  "core_goals": [
+    "Permitir a los usuarios jugar juegos multijugador en tiempo real mediante Telegram.",
+    "Implementar un sistema de economía llamado \"Fuegos\" para monetizar la participación y canje de artículos.",
+    "Permitir la creación y gestión de salas públicas y privadas con invitaciones compartibles.",
+    "Garantizar una experiencia de usuario fluida con sincronización instantánea y UI moderna adaptada a Telegram.",
+    "Facilitar la administración de usuarios, perfiles y economía a través de APIs REST seguras y eficientes.",
+    "Escalar la plataforma para añadir nuevos juegos manteniendo la calidad y rendimiento."
+  ],
+  "key_features": [
+    "Juego en tiempo real con Socket.io para partidas multijugador como Tic Tac Toe.",
+    "Sistema de economía \"Fuegos\" que permite a los usuarios acumular, transferir y canjear moneda virtual.",
+    "Catálogo de artículos para canjear usando fuegos disponibles a través de la Store API.",
+    "Gestión de perfiles de usuario con opciones para actualización de datos y petición de cambio de clave.",
+    "Sistema de salas con posibilidad de creación pública o privada, invitaciones mediante código o Telegram.",
+    "Administración avanzada para sponsors, transferencia de fuegos y configuración de umbrales de XP.",
+    "Backend robusto con Node.js, Express y Redis para procesamiento rápido y escalable.",
+    "Frontend responsive y adaptado a la interfaz y experiencia de Telegram WebApp SDK."
+  ],
+  "user_flow_summary": [
+    "El usuario abre el bot de Telegram y accede a la MiniApp de Sala de Juegos.",
+    "El usuario crea una sala nueva o se une a una existente mediante código o invitación.",
+    "Se inicia una partida multijugador en tiempo real sincronizada vía Socket.io.",
+    "Los usuarios acumulan y gastan \"Fuegos\" para jugar o canjear artículos del catálogo.",
+    "El usuario puede visualizar estadísticas y gestionar su perfil incluyendo solicitudes de cambio de clave.",
+    "Los administradores pueden gestionar sponsors, transferir fuegos y controlar el suministro desde el panel o APIs.",
+    "El sistema monitorea en tiempo real las partidas, actualizaciones de economía, y maneja eventos de host y revancha."
+  ],
+  "validation_criteria": [
+    "El sistema debe soportar partidas multijugador en tiempo real con mínima latencia y sincronización correcta entre clientes.",
+    "Las transacciones de \"Fuegos\" deben reflejarse correctamente en el historial y estados de usuarios sin pérdidas ni inconsistencias.",
+    "Debe haber validación y autorización adecuadas para operaciones de administración y transferencia de fuegos.",
+    "La UI debe ser responsiva y compatible con dispositivos móviles y escritorio dentro de Telegram WebApp.",
+    "Las APIs REST deben responder con los datos correctos y permitir consultas paginadas y filtradas donde aplique.",
+    "El sistema debe sobrevivir a la salida del host garantizando transferencia correcta y continuidad de la sala.",
+    "Los juegos deben poder realizarse múltiples partidas (revancha) sin necesidad de recargar o salir de la sala.",
+    "La plataforma debe registrar logs operativos y errores para monitoreo y troubleshooting efectivo."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "JavaScript (Node.js 16+)",
+      "Express 4",
+      "Socket.io 4",
+      "Redis (ioredis)",
+      "Winston",
+      "Telegram Bot API"
+    ],
+    "features": [
+      {
+        "name": "Economy API",
+        "description": "Economía: supply, patrocinadores, transferencias, historial y SSE.",
+        "files": [
+          "backend/routes/economy.js",
+          "backend/middleware/adminAuth.js",
+          "backend/services/redisService.js"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "info": {
+            "title": "Economy API",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "http://localhost:3000"
+            }
+          ],
+          "paths": {
+            "/api/economy/supply": {
+              "get": {
+                "summary": "Get supply summary",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/supply/txs": {
+              "get": {
+                "summary": "List supply txs",
+                "parameters": [
+                  {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {
+                      "type": "integer"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/supply/stream": {
+              "get": {
+                "summary": "Supply SSE stream",
+                "responses": {
+                  "200": {
+                    "description": "SSE stream"
+                  }
+                }
+              }
+            },
+            "/api/economy/users": {
+              "get": {
+                "summary": "List users with fires",
+                "parameters": [
+                  {
+                    "name": "cursor",
+                    "in": "query",
+                    "schema": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {
+                      "type": "integer"
+                    }
+                  },
+                  {
+                    "name": "search",
+                    "in": "query",
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/history/{userId}": {
+              "get": {
+                "summary": "User fires history",
+                "parameters": [
+                  {
+                    "name": "userId",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {
+                      "type": "integer"
+                    }
+                  },
+                  {
+                    "name": "offset",
+                    "in": "query",
+                    "schema": {
+                      "type": "integer"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/sponsors": {
+              "get": {
+                "summary": "List sponsors",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/sponsors/add": {
+              "post": {
+                "summary": "Add sponsor (admin)",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "initialAmount": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/sponsors/remove": {
+              "post": {
+                "summary": "Remove sponsor (admin)",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "userId"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/sponsors/set-meta": {
+              "post": {
+                "summary": "Set sponsor meta (admin)",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "userId"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/sponsors/set-key": {
+              "post": {
+                "summary": "Set sponsor key (admin)",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "key"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/sponsors/remove-key": {
+              "post": {
+                "summary": "Remove sponsor key (admin)",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "userId"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/transfer": {
+              "post": {
+                "summary": "Transfer fires (sponsor)",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "fromUserId": {
+                            "type": "string"
+                          },
+                          "toUserId": {
+                            "type": "string"
+                          },
+                          "amount": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "sponsorKey": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "fromUserId",
+                          "toUserId",
+                          "amount"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/economy/grant-from-supply": {
+              "post": {
+                "summary": "Grant fires from reserve (admin)",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "toUserId": {
+                            "type": "string"
+                          },
+                          "amount": {
+                            "type": "integer"
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "toUserId",
+                          "amount"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "XP API",
+        "description": "Gestión de umbrales de XP.",
+        "files": [
+          "backend/routes/xp.js"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "info": {
+            "title": "XP API",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "http://localhost:3000"
+            }
+          ],
+          "paths": {
+            "/api/xp/config": {
+              "get": {
+                "summary": "Get XP thresholds",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              },
+              "post": {
+                "summary": "Set XP thresholds",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "thresholds": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Profile API",
+        "description": "Perfil de usuario: lectura/actualización y solicitud de cambio de clave.",
+        "files": [
+          "backend/routes/profile.js"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "info": {
+            "title": "Profile API",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "http://localhost:3000"
+            }
+          ],
+          "paths": {
+            "/api/profile/{userId}": {
+              "get": {
+                "summary": "Get profile",
+                "parameters": [
+                  {
+                    "name": "userId",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              },
+              "post": {
+                "summary": "Update profile",
+                "parameters": [
+                  {
+                    "name": "userId",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "firstName": {
+                            "type": "string"
+                          },
+                          "lastName": {
+                            "type": "string"
+                          },
+                          "phone": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/profile/{userId}/request-key-change": {
+              "post": {
+                "summary": "Request key change",
+                "parameters": [
+                  {
+                    "name": "userId",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "newKey": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Store API",
+        "description": "Catálogo y canje de artículos usando fuegos.",
+        "files": [
+          "backend/routes/store.js",
+          "backend/services/redisService.js"
+        ],
+        "api_doc": {
+          "openapi": "3.0.0",
+          "info": {
+            "title": "Store API",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "http://localhost:3000"
+            }
+          ],
+          "paths": {
+            "/api/store/catalog": {
+              "get": {
+                "summary": "Get catalog",
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            },
+            "/api/store/redeem": {
+              "post": {
+                "summary": "Redeem item",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "itemId": {
+                            "type": "string"
+                          },
+                          "requestId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "itemId"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OK"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

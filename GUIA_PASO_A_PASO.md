@@ -27,7 +27,7 @@ BotFather te enviará un mensaje como este:
 ```
 Done! Congratulations on your new bot. You will find it at t.me/mi_sala_juegos_bot
 Use this token to access the HTTP API:
-7734154282:AAHuk7rYVV2RI9HmfEPoVVv3E7aM6Jvma0w
+YOUR_TELEGRAM_BOT_TOKEN
 ```
 
 **⚠️ IMPORTANTE:** Copia y guarda este token, lo necesitarás en el siguiente paso.
@@ -53,12 +53,12 @@ Abre el archivo `.env` con tu editor de texto y modifica estas líneas:
 # ============================================
 # TELEGRAM BOT API
 # ============================================
-TELEGRAM_BOT_TOKEN=7734154282:AAHuk7rYVV2RI9HmfEPoVVv3E7aM6Jvma0w
+TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN
 TELEGRAM_BOT_USERNAME=mi_sala_juegos_bot
 ```
 
 **Reemplaza:**
-- `7734154282:AAHuk7rYVV2RI9HmfEPoVVv3E7aM6Jvma0w` con tu token real
+- `YOUR_TELEGRAM_BOT_TOKEN` con tu token real
 - `mi_sala_juegos_bot` con el username de tu bot (sin @)
 
 ### 2.3 Verificar otras configuraciones

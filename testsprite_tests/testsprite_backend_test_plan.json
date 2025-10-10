@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "get_supply_summary",
+    "description": "Verify that the GET /api/economy/supply endpoint returns the correct supply summary with status 200."
+  },
+  {
+    "id": "TC002",
+    "title": "list_supply_transactions_with_limit",
+    "description": "Test the GET /api/economy/supply/txs endpoint with a limit query parameter to ensure it returns a paginated list of supply transactions."
+  },
+  {
+    "id": "TC003",
+    "title": "supply_sse_stream_connection",
+    "description": "Validate that the GET /api/economy/supply/stream endpoint establishes a Server-Sent Events (SSE) stream and sends supply updates correctly."
+  },
+  {
+    "id": "TC004",
+    "title": "list_users_with_fires_pagination_and_search",
+    "description": "Test the GET /api/economy/users endpoint with cursor, limit, and search query parameters to verify correct pagination and filtering of users with fires."
+  },
+  {
+    "id": "TC005",
+    "title": "get_user_fires_history_with_pagination",
+    "description": "Verify the GET /api/economy/history/{userId} endpoint returns the correct fires transaction history for a user with support for limit and offset pagination."
+  },
+  {
+    "id": "TC006",
+    "title": "list_sponsors",
+    "description": "Test the GET /api/economy/sponsors endpoint to ensure it returns the list of sponsors with status 200."
+  },
+  {
+    "id": "TC007",
+    "title": "add_sponsor_with_valid_data",
+    "description": "Verify that the POST /api/economy/sponsors/add endpoint allows an admin to add a sponsor with valid userId, key, description, and initialAmount, returning status 200."
+  },
+  {
+    "id": "TC008",
+    "title": "remove_sponsor_by_userid",
+    "description": "Test the POST /api/economy/sponsors/remove endpoint to remove a sponsor by userId and verify the response status is 200."
+  },
+  {
+    "id": "TC009",
+    "title": "transfer_fires_between_users_with_sponsor_key",
+    "description": "Validate the POST /api/economy/transfer endpoint to transfer fires from one user to another with required fields and optional sponsorKey, ensuring the transfer is successful."
+  },
+  {
+    "id": "TC010",
+    "title": "redeem_item_from_store",
+    "description": "Test the POST /api/store/redeem endpoint to redeem an item from the store using userId and itemId, verifying the response status is 200 and the item is correctly redeemed."
+  }
+]

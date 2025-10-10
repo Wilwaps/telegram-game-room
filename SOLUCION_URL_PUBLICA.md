@@ -58,7 +58,7 @@ git commit -m "Initial commit - Telegram Game Room"
    - Ve a "Variables"
    - Agrega:
      ```
-     TELEGRAM_BOT_TOKEN=7734154282:AAHuk7rYVV2RI9HmfEPoVVv3E7aM6Jvma0w
+     TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN
      TELEGRAM_BOT_USERNAME=wilprueba1n8nbot
      NODE_ENV=production
      ```
