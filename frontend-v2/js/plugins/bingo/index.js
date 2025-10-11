@@ -43,7 +43,7 @@ const BingoV2 = {
 
   mount(root, ctx){
     const { UI:ui = UI } = ctx || {};
-    const state = { drawn: new Set(), recent: [], card: generateCard(), last: null, room: null, isHost: false, userId: (ctx && ctx.user && ctx.user.userId) || null, missingUserIds: [], ecoMode: 'friendly' };
+    const state = { drawn: new Set(), recent: [], card: generateCard(), cards: [], activeCardId: null, last: null, room: null, isHost: false, userId: (ctx && ctx.user && ctx.user.userId) || null, missingUserIds: [], ecoMode: 'friendly' };
     const disposers = [];
 
     const wrap = document.createElement('div');
@@ -56,7 +56,6 @@ const BingoV2 = {
       <div class="bn-row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
         <button id="bn-create" class="btn btn-primary">Crear sala (privada)</button>
         <button id="bn-make-public" class="btn" style="display:none">Hacer pública</button>
-        <button id="bn-start" class="btn" style="display:none">Iniciar</button>
         <div id="bn-mode" class="bn-mode" style="display:flex; gap:6px; align-items:center; margin-left:10px;">
           <label><input type="radio" name="bnEcoMode" value="friendly" checked> Amistoso</label>
           <label><input type="radio" name="bnEcoMode" value="fire"> 🔥 Fuego</label>
@@ -87,7 +86,7 @@ const BingoV2 = {
     // Lobby de espera
     const lobbyPanel = document.createElement('div');
     lobbyPanel.className = 'bn-panel';
-    lobbyPanel.innerHTML = `<h3 class="bn-title">Sala de Espera</h3><div id="bn-lobby" class="bn-lobby"></div>`;
+    lobbyPanel.innerHTML = `<div class="bn-titlebar" style="display:flex; align-items:center; justify-content:space-between"><h3 class="bn-title">Sala de Espera</h3><button id="bn-start" class="btn" style="display:none; background:#16a34a; color:#fff">Iniciar</button></div><div id="bn-lobby" class="bn-lobby"></div>`;
     const lobbyRoot = lobbyPanel.querySelector('#bn-lobby');
     wrap.appendChild(lobbyPanel);
 
@@ -128,6 +127,10 @@ const BingoV2 = {
         drawGrid.appendChild(d);
       }
       recentEl.innerHTML = state.recent.map(n=>`<div class="bn-ball">${n}</div>`).join('');
+      // Ajustar grid de números para adaptarse al contenedor
+      drawGrid.style.display = 'grid';
+      drawGrid.style.gridTemplateColumns = 'repeat(15, minmax(18px, 1fr))';
+      drawGrid.style.gap = '4px';
     };
 
     const renderLobby = ()=>{
@@ -141,10 +144,10 @@ const BingoV2 = {
       const playersCount = total;
       const maxPlayers = room.maxPlayers || 30;
       el.innerHTML = `
-        <div class="bn-lobby-head">
+        <div class="bn-lobby-head" style="display:flex; align-items:center; gap:10px; justify-content:space-between">
           <div><strong>Jugadores:</strong> ${playersCount}/${maxPlayers} · Listos ${readyCount}/${total}</div>
-          ${room.ecoMode === 'fire' ? `<div class="warn">Modo 🔥 activo. Tickets: ${room.ticketPrice||1}. ${missingTickets.length? `Faltan tickets: ${missingTickets.length}`: ''}</div>`: '<div class="muted">Modo amistoso</div>'}
         </div>
+        ${room.ecoMode === 'fire' ? `<div class="warn">Modo 🔥 activo. Tickets: ${room.ticketPrice||1}. ${missingTickets.length? `Faltan tickets: ${missingTickets.length}`: ''}</div>`: '<div class="muted">Modo amistoso</div>'}
         <div class="bn-lobby-list">
           ${players.map(p=>`
             <div class="bn-player ${p.ready?'ready':''}">
@@ -169,66 +172,73 @@ const BingoV2 = {
           }
         };
       });
-      // Start button enablement
-      const startBtn = menuPanel.querySelector('#bn-start');
+      const startBtn = lobbyPanel.querySelector('#bn-start');
       if (startBtn) {
+        startBtn.style.display = state.isHost ? '' : 'none';
         const allReady = total>0 && readyCount===total;
         let allow = allReady;
-        if (room.ecoMode==='fire') {
-          allow = allow && (missingTickets.length===0);
-        }
+        if (room.ecoMode==='fire') { allow = allow && (missingTickets.length===0); }
         startBtn.disabled = !state.isHost || !allow;
+        startBtn.onclick = ()=>{ if (!state.room) return; try { Socket.socket.emit('start_bingo', { roomCode: state.room.code }); } catch(e){ ui.showToast('No se pudo iniciar','error'); } };
       }
+      if (cardsPanel) cardsPanel.style.display = room.started ? '' : 'none';
+      if (claimOverlay) claimOverlay.style.display = room.started ? '' : 'none';
+      if (fab) fab.style.display = (state.isHost && room.started) ? '' : 'none';
     };
 
     const renderCard = ()=>{
       cardsRoot.innerHTML = '';
-      const c = state.card;
-      const cardEl = document.createElement('div');
-      cardEl.className = 'bn-card';
-      cardEl.innerHTML = `<div class="hdr"><span>Cartón</span></div>`;
-      const grid = document.createElement('div');
-      grid.className = 'bn-grid';
-      for (let r=0;r<5;r++){
-        for (let col=0; col<5; col++){
-          const num = c.numbers[col][r];
-          const cell = document.createElement('div');
-          cell.className = 'bn-cell';
-          if (num === 0) cell.classList.add('free');
-          cell.textContent = num === 0 ? 'FREE' : String(num);
-          if (c.marked.has(num)) cell.classList.add('marked');
-          if (state.last && num === state.last) cell.classList.add('last-drawn');
-          // Mantener en rojo (pending) hasta que el usuario marque el número
-          if (num !== 0 && state.drawn.has(num) && !c.marked.has(num)) {
-            cell.classList.add('pending');
+      cardsRoot.style.display = 'grid';
+      cardsRoot.style.gridTemplateColumns = 'repeat(2, minmax(220px, 1fr))';
+      cardsRoot.style.gap = '12px';
+      const arr = (state.cards && state.cards.length) ? state.cards : [state.card];
+      const show = arr.slice(0,2);
+      show.forEach((c)=>{
+        const cardEl = document.createElement('div');
+        cardEl.className = 'bn-card';
+        cardEl.setAttribute('data-id', c.id || '');
+        cardEl.innerHTML = `<div class="hdr"><span>Cartón</span></div>`;
+        const grid = document.createElement('div');
+        grid.className = 'bn-grid';
+        for (let r=0;r<5;r++){
+          for (let col=0; col<5; col++){
+            const num = c.numbers[col][r];
+            const cell = document.createElement('div');
+            cell.className = 'bn-cell';
+            if (num === 0) cell.classList.add('free');
+            cell.textContent = num === 0 ? 'FREE' : String(num);
+            if (c.marked instanceof Set && c.marked.has(num)) cell.classList.add('marked');
+            if (state.last && num === state.last) cell.classList.add('last-drawn');
+            if (num !== 0 && state.drawn.has(num) && !(c.marked instanceof Set && c.marked.has(num))) {
+              cell.classList.add('pending');
+            }
+            cell.addEventListener('click', (e)=>{
+              e.stopPropagation();
+              state.activeCardId = c.id || state.activeCardId;
+              if (num === 0) return;
+              if (!state.drawn.has(num)) { ui.showToast('Ese número aún no ha sido cantado', 'warning'); return; }
+              if (cell.classList.contains('marked')){
+                c.marked.delete(num);
+                cell.classList.remove('marked');
+                if (state.drawn.has(num)) cell.classList.add('pending');
+              } else {
+                c.marked.add(num);
+                cell.classList.add('marked');
+                cell.classList.remove('pending');
+              }
+              updateClaim(c);
+            });
+            grid.appendChild(cell);
           }
-          cell.addEventListener('click', (e)=>{
-            e.stopPropagation();
-            if (num === 0) return;
-            if (!state.drawn.has(num)) { ui.showToast('Ese número aún no ha sido cantado', 'warning'); return; }
-            if (cell.classList.contains('marked')){
-              c.marked.delete(num);
-              cell.classList.remove('marked');
-              // Si el número ya fue cantado, vuelve a estado pendiente (rojo)
-              if (state.drawn.has(num)) cell.classList.add('pending');
-            }
-            else {
-              c.marked.add(num);
-              cell.classList.add('marked');
-              // Al marcar, quitar el estado pendiente (rojo)
-              cell.classList.remove('pending');
-            }
-            updateClaim();
-          });
-          grid.appendChild(cell);
         }
-      }
-      cardEl.appendChild(grid);
-      cardsRoot.appendChild(cardEl);
+        cardEl.appendChild(grid);
+        cardsRoot.appendChild(cardEl);
+      });
     };
 
-    const updateClaim = ()=>{
-      if (validateLine(state.card)) {
+    const updateClaim = (c=null)=>{
+      const cardX = c || state.card;
+      if (validateLine(cardX)) {
         claimOverlay.classList.add('active');
       } else {
         claimOverlay.classList.remove('active');
@@ -262,9 +272,9 @@ const BingoV2 = {
 
     claimOverlay.querySelector('.bn-claim-btn').addEventListener('click', ()=>{
       const s = Socket.socket;
-      const c = state.card;
-      if (s && state.room && c && c.id){
-        try { s.emit('claim_bingo', { roomCode: state.room.code, cardId: c.id }); } catch(_){}
+      const cid = state.activeCardId || (state.cards && state.cards[0] && state.cards[0].id) || (state.card && state.card.id);
+      if (s && state.room && cid){
+        try { s.emit('claim_bingo', { roomCode: state.room.code, cardId: cid }); } catch(_){ }
       } else {
         claimOverlay.classList.remove('active');
         ui.showToast('¡Bingo (demo)!', 'success');
@@ -285,13 +295,14 @@ const BingoV2 = {
             const ticketEl = menuPanel.querySelector('#bn-ticket');
             const ecoRadios = menuPanel.querySelectorAll('input[name="bnEcoMode"]');
             makePublicBtn.style.display = (state.isHost && !room.isPublic) ? '' : 'none';
-            startBtn.style.display = state.isHost ? '' : 'none';
+            startBtn.style.display = 'none';
             readyBtn.style.display = '';
             readyBtn.disabled = false;
             // Sync eco UI
             ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); });
             ticketEl.style.display = (state.isHost && (room.ecoMode==='fire'))? '' : 'none';
             if (typeof room.ticketPrice==='number') ticketEl.value = String(room.ticketPrice);
+            ui.log(`bingo:room_created ${room.code}`, 'info', 'bingo-v2');
             // Sync avanzadas
             const gameModeEl = menuPanel.querySelector('#bn-game-mode');
             const maxPlayersEl = menuPanel.querySelector('#bn-max-players');
@@ -320,6 +331,7 @@ const BingoV2 = {
             ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); });
             ticketEl.style.display = (state.isHost && (room.ecoMode==='fire'))? '' : 'none';
             if (typeof room.ticketPrice==='number') ticketEl.value = String(room.ticketPrice);
+            ui.log(`bingo:room_updated status=${room.status} players=${(room.players||[]).length}`, 'info', 'bingo-v2');
             // Sync avanzadas
             const gameModeEl = menuPanel.querySelector('#bn-game-mode');
             const maxPlayersEl = menuPanel.querySelector('#bn-max-players');
@@ -340,10 +352,8 @@ const BingoV2 = {
             state.room = room; state.isHost = String(room.hostId||'') === String(state.userId||'');
             state.ecoMode = room.ecoMode || 'friendly';
             // tomar primer cartón para UI simple
-            if (cards && cards.length){
-              const k = cards[0];
-              state.card = { id: k.id, numbers: k.numbers, marked: new Set(k.marked||[]) };
-            }
+            state.cards = Array.isArray(cards) ? cards.map(k=>({ id:k.id, numbers:k.numbers, marked: new Set(k.marked||[]) })) : [];
+            if (state.cards && state.cards.length){ state.card = state.cards[0]; state.activeCardId = state.card.id; }
             state.drawn = new Set((room && room.drawnSet) || []);
             renderDraw(); renderCard();
             // enable ready UI
@@ -360,12 +370,12 @@ const BingoV2 = {
             ui.showToast(`Unido a sala ${room.code}`, 'success');
           } catch(e){}
         };
-        const onStarted = ({ room })=>{ try { state.room = room; renderDraw(); renderCard(); ui.showToast('Bingo iniciado','success'); }catch(_){} };
+        const onStarted = ({ room })=>{ try { state.room = room; renderDraw(); renderCard(); renderLobby(); ui.showToast('Bingo iniciado','success'); ui.log('bingo:started', 'info', 'bingo-v2'); }catch(_){ } };
         const onNumber = ({ number })=> handleNumberDrawn(parseInt(number,10));
         const onWinner = ({ userName })=>{ try { ui.showToast(`Ganador: ${userName||'Jugador'}`,'success'); setTimeout(()=>{ try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){} }, 1200); }catch(_){} };
         const onFinished = ({ room })=>{ try { ui.showToast('Fin de partida. Volviendo al lobby…','info'); setTimeout(()=>{ try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){} }, 800); }catch(_){} };
-        const onPlayerJoined = ({ room })=>{ try { state.room = room; }catch(_){} };
-        const onReadyUpdated = ({ room, allReady })=>{ try { state.room = room; renderLobby(); }catch(_){} };
+        const onPlayerJoined = ({ room, userId, userName, cardsCount })=>{ try { state.room = room; renderLobby(); ui.log(`bingo:player_joined ${userName||userId||''} +${cardsCount||1}`, 'info', 'bingo-v2'); }catch(_){} };
+        const onReadyUpdated = ({ room, allReady })=>{ try { state.room = room; renderLobby(); ui.log(`bingo:ready_updated allReady=${!!allReady}`, 'info', 'bingo-v2'); }catch(_){} };
         const onModeUpdated = ({ room, missingUserIds })=>{ try { state.room = room; state.missingUserIds = missingUserIds||[]; const ecoRadios = menuPanel.querySelectorAll('input[name="bnEcoMode"]'); ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); }); const ticketEl = menuPanel.querySelector('#bn-ticket'); ticketEl.style.display = (state.isHost && (room.ecoMode==='fire'))? '' : 'none'; if (typeof room.ticketPrice==='number') ticketEl.value = String(room.ticketPrice); renderLobby(); }catch(_){} };
 
         s.on('bingo_room_created', onRoomCreated);
