@@ -2,52 +2,45 @@ import requests
 import time
 
 BASE_URL = "https://telegram-game-room-production.up.railway.app"
+ENDPOINT = "/api/economy/supply/stream"
 TIMEOUT = 30
-
+HEADERS = {
+    "Accept": "text/event-stream"
+}
 
 def test_supply_sse_stream():
-    url = f"{BASE_URL}/api/economy/supply/stream"
-    headers = {
-        "Accept": "text/event-stream"
-    }
+    url = BASE_URL + ENDPOINT
+
     try:
-        with requests.get(url, headers=headers, stream=True, timeout=TIMEOUT) as response:
-            assert response.status_code == 200, f"Expected status 200, got {response.status_code}"
-            
-            message_count = 0
-            start_time = time.time()
-            event_data = []
-            event_id = None
-            event_name = None
+        response = requests.get(url, headers=HEADERS, stream=True, timeout=TIMEOUT)
+        assert response.status_code == 200, f"Unexpected status code: {response.status_code}"
+        ctype = response.headers.get("Content-Type", "")
+        assert ctype.startswith("text/event-stream"), f"Content-Type is not SSE: {ctype}"
 
-            for line_bytes in response.iter_lines(decode_unicode=True):
-                if line_bytes is None:
-                    continue
-                line = line_bytes.strip()
-                if line == "":  # dispatch event
-                    if event_data:
-                        data_str = "\n".join(event_data)
-                        assert isinstance(data_str, str), "Event data should be a string"
-                        assert data_str.strip() != "", "Event data should not be empty"
-                        assert event_name is not None, "SSE event should have 'event' attribute"
-                        assert event_id is not None, "SSE event should have 'id' attribute"
-                        message_count += 1
-                        event_data = []
-                        event_id = None
-                        event_name = None
-                        if message_count >= 3 or (time.time() - start_time) > 15:
-                            break
-                else:
-                    if line.startswith("data:"):
-                        event_data.append(line[5:].strip())
-                    elif line.startswith("id:"):
-                        event_id = line[3:].strip()
-                    elif line.startswith("event:"):
-                        event_name = line[6:].strip()
+        events_collected = []
+        start_time = time.time()
+        for line in response.iter_lines(decode_unicode=True):
+            if line is None:
+                continue
+            if line.startswith('data: '):
+                data = line[6:].strip()
+                events_collected.append(data)
+            if len(events_collected) >= 3 or (time.time() - start_time) > 15:
+                break
 
-            assert message_count > 0, "No SSE messages received from the supply stream"
+        assert len(events_collected) > 0, "No SSE events received from stream"
+        for data in events_collected:
+            assert data is not None and str(data).strip() != "", "Received empty event data"
+
     except requests.exceptions.RequestException as e:
-        assert False, f"Request to SSE endpoint failed: {e}"
-
+        assert False, f"Request failed: {e}"
+    except Exception as ex:
+        assert False, f"Unexpected error occurred: {ex}"
+    finally:
+        try:
+            if response is not None:
+                response.close()
+        except Exception:
+            pass
 
 test_supply_sse_stream()

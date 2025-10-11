@@ -2,43 +2,43 @@ import requests
 
 BASE_URL = "https://telegram-game-room-production.up.railway.app"
 TIMEOUT = 30
-HEADERS = {
-    "Accept": "application/json"
-}
 
 def test_get_user_fires_history_with_pagination():
-    # Step 1: Get a userId from the users list endpoint to use for the test
+    # Step 1: Obtain a userId by listing users (to have a valid userId to test)
     users_url = f"{BASE_URL}/api/economy/users"
     try:
-        resp_users = requests.get(users_url, params={"limit": 1}, headers=HEADERS, timeout=TIMEOUT)
-        resp_users.raise_for_status()
-        users_data = resp_users.json()
-        assert isinstance(users_data, list) and len(users_data) > 0, "Users data format unexpected"
-        user_id = users_data[0].get("userId") or users_data[0].get("id")
-        assert user_id, "User ID not found in users data"
-    except (requests.RequestException, AssertionError) as e:
-        raise RuntimeError(f"Failed to retrieve userId for testing: {e}")
+        users_resp = requests.get(users_url, params={"limit": 1}, timeout=TIMEOUT)
+        users_resp.raise_for_status()
+        users_data = users_resp.json()
+        # API devuelve { cursor, items }
+        if not users_data or not isinstance(users_data, dict):
+            raise AssertionError("Users response is empty or invalid")
+        items = users_data.get("items") or []
+        if not items:
+            raise AssertionError("Users list is empty")
+        user = items[0]
+        user_id = user.get("userId") or user.get("id")
+        if not user_id or not isinstance(user_id, str):
+            raise AssertionError("userId missing or invalid in user object")
+    except Exception as e:
+        raise AssertionError(f"Failed to obtain userId for test: {e}")
 
     limit = 5
     offset = 0
-    url = f"{BASE_URL}/api/economy/history/{user_id}"
-    params = {
-        "limit": limit,
-        "offset": offset
-    }
+    history_url = f"{BASE_URL}/api/economy/history/{user_id}"
     try:
-        response = requests.get(url, params=params, headers=HEADERS, timeout=TIMEOUT)
-        response.raise_for_status()
-        data = response.json()
-        # Validate response structure and types
-        assert isinstance(data, dict) or isinstance(data, list), "Response data should be list or dict"
-        if isinstance(data, dict):
-            # no exact schema specified, so just checking dict is not empty
-            assert len(data) >= 0
-        elif isinstance(data, list):
-            for item in data:
-                assert isinstance(item, dict), "Each transaction should be a dict"
-    except (requests.RequestException, AssertionError) as e:
-        raise AssertionError(f"Test failed for get_user_fires_history_with_pagination: {e}")
+        resp = requests.get(history_url, params={"limit": limit, "offset": offset}, timeout=TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        # API devuelve { success, items, limit, offset }
+        assert isinstance(data, dict), "Response should be an object"
+        items = data.get("items") or []
+        assert len(items) <= limit, f"Returned more than {limit} entries"
+        for item in items:
+            assert isinstance(item, dict), "Each item should be a dict"
+            assert any(k in item for k in ["amount", "value", "fires", "transactionId", "txId", "id", "reason"]), "No expected transaction keys found"
+    except Exception as e:
+        raise AssertionError(f"Failed to get user fires history with pagination: {e}")
+
 
 test_get_user_fires_history_with_pagination()

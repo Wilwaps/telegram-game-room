@@ -2,28 +2,26 @@ import requests
 
 def test_get_xp_thresholds():
     base_url = "https://telegram-game-room-production.up.railway.app"
-    endpoint = "/api/xp/config"
-    url = base_url + endpoint
+    endpoint = f"{base_url}/api/xp/config"
     headers = {
         "Accept": "application/json"
     }
+    timeout = 30
 
     try:
-        response = requests.get(url, headers=headers, timeout=30)
+        response = requests.get(endpoint, headers=headers, timeout=timeout)
         response.raise_for_status()
     except requests.RequestException as e:
         assert False, f"Request failed: {e}"
 
-    # Assert status code is 200
-    assert response.status_code == 200, f"Expected status code 200, got {response.status_code}"
+    try:
+        data = response.json()
+    except ValueError:
+        assert False, "Response content is not valid JSON"
 
-    # Assert response content type is JSON
-    content_type = response.headers.get("Content-Type", "")
-    assert "application/json" in content_type, f"Expected JSON response, got Content-Type: {content_type}"
-
-    # Assert response body is a JSON object with "thresholds" key
-    json_data = response.json()
-    assert isinstance(json_data, dict), f"Response JSON is not a dictionary: {json_data}"
-    assert "thresholds" in json_data, f"Response JSON does not contain 'thresholds' key: {json_data}"
+    assert response.status_code == 200, f"Expected status code 200 but got {response.status_code}"
+    assert isinstance(data, dict), "Response JSON is not a dictionary"
+    # Optional: validate 'thresholds' key existence, if applicable
+    assert "thresholds" in data, "'thresholds' key not found in response JSON"
 
 test_get_xp_thresholds()

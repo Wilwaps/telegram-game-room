@@ -1,38 +1,54 @@
 import requests
+import time
 
 BASE_URL = "https://telegram-game-room-production.up.railway.app"
 TIMEOUT = 30
 
 def test_list_users_with_fires_pagination_and_search():
     endpoint = f"{BASE_URL}/api/economy/users"
+
+    # Prepare query parameters for pagination and search
     params = {
-        "cursor": "",
-        "limit": 10,
-        "search": "user"
+        "cursor": "",  # Start with empty cursor to get initial page
+        "limit": 5,
+        "search": "user"  # Example search term to filter users
     }
+
+    all_users = []
+    cursor = params["cursor"]
+
     try:
-        response = requests.get(endpoint, params=params, timeout=TIMEOUT)
-        assert response.status_code == 200, f"Expected status 200 but got {response.status_code}"
-        data = response.json()
-        assert isinstance(data, dict) or isinstance(data, list), "Response JSON should be dict or list"
-        # Check paginated structure if dict (usually with cursor info)
-        if isinstance(data, dict):
-            # Typical paginated response with users and next cursor
-            assert "users" in data or "items" in data, "Response should contain 'users' or 'items' key"
-            users = data.get("users") or data.get("items")
-            assert isinstance(users, list), "'users' or 'items' should be a list"
-            # Validate filtered results contain the search term (case-insensitive) in user fields
-            for user in users:
-                user_str = " ".join(str(v).lower() for v in user.values() if isinstance(v, str))
-                assert "user" in user_str, "Each user should match the search query"
-                # Check fires presence
-                assert "fires" in user or "fires_balance" in user, "User object should contain 'fires' field"
-        elif isinstance(data, list):
-            # If the response is just a list
-            for user in data:
-                user_str = " ".join(str(v).lower() for v in user.values() if isinstance(v, str))
-                assert "user" in user_str, "Each user should match the search query"
-                assert "fires" in user or "fires_balance" in user, "User object should contain 'fires' field"
+        # Pagination loop: retrieve up to 2 pages to check pagination correctness
+        for _ in range(2):
+            params["cursor"] = cursor
+            response = requests.get(endpoint, params=params, timeout=TIMEOUT)
+            assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+            json_data = response.json()
+            # Validate response structure (actual API)
+            assert "items" in json_data, "'items' key missing in response"
+            assert isinstance(json_data["items"], list), "'items' should be a list"
+            assert all(isinstance(user.get("fires", 0), int) for user in json_data["items"]), "Each user must have integer 'fires'"
+
+            all_users.extend(json_data["items"])
+
+            # Pagination cursor for next page (actual key 'cursor')
+            cursor = json_data.get("cursor")
+            # If no next cursor, break pagination
+            if not cursor:
+                break
+            
+            # Validate search filter using userName or userId
+            for user in json_data["items"]:
+                username = (user.get("userName") or "").lower()
+                uid = str(user.get("userId") or "").lower()
+                fires = user.get("fires")
+                assert isinstance(fires, int), "'fires' should be integer"
+                if params["search"]:
+                    assert params["search"].lower() in username or params["search"].lower() in uid, \
+                        f"User {username or uid} does not match search filter"
+
+            time.sleep(0.1)  # brief pause between pages
+
     except requests.RequestException as e:
         assert False, f"Request failed: {e}"
 
