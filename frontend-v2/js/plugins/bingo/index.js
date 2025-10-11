@@ -43,7 +43,7 @@ const BingoV2 = {
 
   mount(root, ctx){
     const { UI:ui = UI } = ctx || {};
-    const state = { drawn: new Set(), recent: [], card: generateCard(), cards: [], activeCardId: null, last: null, room: null, isHost: false, userId: (ctx && ctx.user && ctx.user.userId) || null, missingUserIds: [], ecoMode: 'friendly' };
+    const state = { drawn: new Set(), recent: [], card: generateCard(), cards: [], activeCardId: null, last: null, room: null, isHost: false, userId: (ctx && ctx.user && ctx.user.userId) || null, missingUserIds: [], ecoMode: 'friendly', finishing: false, claimAction: 'claim' };
     const disposers = [];
 
     const wrap = document.createElement('div');
@@ -121,17 +121,18 @@ const BingoV2 = {
     const fab = document.createElement('button');
     fab.className = 'bn-fab';
     fab.textContent = 'Cantar número';
+    fab.style.display = 'none'; // oculto por defecto
     document.body.appendChild(fab);
 
     const statePublic = { rooms: new Map() };
     // Ocultar paneles de juego por defecto (fuera de sala)
-    try { drawPanel.style.display = 'none'; cardsPanel.style.display = 'none'; claimOverlay.style.display = 'none'; } catch(_){ }
+    try { drawPanel.style.display = 'none'; cardsPanel.style.display = 'none'; claimOverlay.style.display = 'none'; fab.style.display = 'none'; } catch(_){ }
 
     const renderPublicRooms = ()=>{
       if (state.room) { publicPanel.style.display = 'none'; return; }
       publicPanel.style.display = '';
       // Asegurar ocultar paneles de juego fuera de sala
-      try { drawPanel.style.display = 'none'; cardsPanel.style.display = 'none'; claimOverlay.style.display = 'none'; } catch(_){ }
+      try { drawPanel.style.display = 'none'; cardsPanel.style.display = 'none'; claimOverlay.style.display = 'none'; fab.style.display = 'none'; } catch(_){ }
       // Mostrar de nuevo controles de creación fuera de sala
       try {
         const createBtn = menuPanel.querySelector('#bn-create'); if (createBtn) createBtn.style.display = '';
@@ -324,7 +325,7 @@ const BingoV2 = {
     const renderCard = ()=>{
       cardsRoot.innerHTML = '';
       cardsRoot.style.display = 'grid';
-      cardsRoot.style.gridTemplateColumns = 'repeat(2, minmax(220px, 1fr))';
+      cardsRoot.style.gridTemplateColumns = 'repeat(auto-fit, minmax(220px, 1fr))';
       cardsRoot.style.gap = '12px';
       const arr = (state.cards && state.cards.length) ? state.cards : [state.card];
       const show = arr.slice(0,2);
@@ -332,14 +333,26 @@ const BingoV2 = {
         const cardEl = document.createElement('div');
         cardEl.className = 'bn-card';
         cardEl.setAttribute('data-id', c.id || '');
+        cardEl.style.width = '100%';
         cardEl.innerHTML = `<div class="hdr"><span>Cartón</span></div>`;
         const grid = document.createElement('div');
         grid.className = 'bn-grid';
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = 'repeat(5, 1fr)';
+        grid.style.gap = '4px';
         for (let r=0;r<5;r++){
           for (let col=0; col<5; col++){
             const num = c.numbers[col][r];
             const cell = document.createElement('div');
             cell.className = 'bn-cell';
+            cell.style.display = 'flex';
+            cell.style.alignItems = 'center';
+            cell.style.justifyContent = 'center';
+            cell.style.aspectRatio = '1';
+            cell.style.overflow = 'hidden';
+            cell.style.textOverflow = 'ellipsis';
+            cell.style.whiteSpace = 'nowrap';
+            cell.style.fontSize = 'var(--bn-cell-font, 14px)';
             if (num === 0) cell.classList.add('free');
             cell.textContent = num === 0 ? 'FREE' : String(num);
             if (c.marked instanceof Set && c.marked.has(num)) cell.classList.add('marked');
@@ -368,6 +381,13 @@ const BingoV2 = {
         }
         cardEl.appendChild(grid);
         cardsRoot.appendChild(cardEl);
+        try {
+          const rect = cardEl.getBoundingClientRect();
+          const cw = rect && rect.width ? rect.width : 220;
+          const cellSize = cw / 5;
+          const fontPx = Math.max(10, Math.min(18, Math.floor(cellSize * 0.45)));
+          grid.style.setProperty('--bn-cell-font', fontPx + 'px');
+        } catch(_){ }
       });
     };
 
@@ -419,13 +439,19 @@ const BingoV2 = {
     });
 
     claimBtn.addEventListener('click', ()=>{
+      if (state.claimAction === 'exit') {
+        try { Socket.socket && Socket.socket.emit && Socket.socket.emit('leave_bingo', { roomCode: state.room && state.room.code }); } catch(_){ }
+        try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
+        return;
+      }
       const s = Socket.socket;
       const cid = state.activeCardId || (state.cards && state.cards[0] && state.cards[0].id) || null;
       if (s && state.room && cid){
         try { s.emit('claim_bingo', { roomCode: state.room.code, cardId: cid }); } catch(_){ }
       } else {
-        claimOverlay.classList.remove('active');
-        ui.showToast('¡Bingo (demo)!', 'success');
+        // Sin cartón del servidor disponible: usar botón como 'Salir'
+        try { Socket.socket && Socket.socket.emit && Socket.socket.emit('leave_bingo', { roomCode: state.room && state.room.code }); } catch(_){ }
+        try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
       }
     });
 
@@ -489,7 +515,17 @@ const BingoV2 = {
             // Alternar paneles
             renderPublicRooms();
             renderLobby();
-            ui.showToast(`Sala ${room.code} creada`, 'success');
+            try {
+              const code = String(room.code||'');
+              const text = `Únete a mi sala de Bingo: código ${code}`;
+              try { navigator.clipboard && navigator.clipboard.writeText && navigator.clipboard.writeText(text).catch(()=>{}); } catch(_){ }
+              const shareBtn = lobbyPanel.querySelector('#bn-share');
+              if (shareBtn) {
+                const prev = shareBtn.getAttribute('style')||'';
+                shareBtn.setAttribute('style', `${prev}; box-shadow: 0 0 0 4px rgba(34,197,94,.45); transform: scale(1.02); transition: box-shadow .2s, transform .2s;`);
+                setTimeout(()=>{ try { shareBtn.setAttribute('style', prev); } catch(_){ } }, 1800);
+              }
+            } catch(_){ }
           } catch(e) { try { ui.log('bingo:onRoomCreated error','error','bingo-v2'); } catch(_){} }
         };
         const onRoomUpdated = ({ room })=>{
@@ -548,6 +584,10 @@ const BingoV2 = {
             if (state.cards && state.cards.length){ state.card = state.cards[0]; state.activeCardId = state.card.id; }
             state.drawn = new Set((room && room.drawnSet) || []);
             renderDraw(); renderCard();
+            // reset claim state
+            state.claimAction = 'claim';
+            try { claimOverlay.classList.remove('active'); } catch(_){ }
+            try { claimBtn.textContent = '¡Bingo!'; } catch(_){ }
             // enable ready UI
             const readyBtn = menuPanel.querySelector('#bn-ready');
             readyBtn.style.display = '';
@@ -587,56 +627,66 @@ const BingoV2 = {
           // Forzar ocultar panels de lobby/menú tras iniciar
           try { if (menuPanel) menuPanel.style.display = 'none'; } catch(_){ }
           try { if (lobbyPanel) lobbyPanel.style.display = 'none'; } catch(_){ }
+          // reset claim state
+          state.claimAction = 'claim';
+          try { claimOverlay.classList.remove('active'); } catch(_){ }
+          try { claimBtn.textContent = '¡Bingo!'; } catch(_){ }
           renderLobby();
           ui.showToast('Bingo iniciado','success');
           ui.log('bingo:started', 'info', 'bingo-v2');
         }catch(_){ } };
         const onNumber = ({ number })=> handleNumberDrawn(parseInt(number,10));
+        const onInvalidClaim = ({ reason })=>{ try {
+          ui.showToast(reason || 'Cartón inválido', 'warning');
+          // Convertir botón en 'Salir' usando bandera de estado
+          try {
+            state.claimAction = 'exit';
+            claimOverlay.classList.add('active');
+            claimBtn.textContent = 'Salir';
+          } catch(_){ }
+        } catch(_){ } };
         const onWinner = ({ userId, userName, distribution })=>{ try {
           const isMe = String(userId||'') === String(state.userId||'');
           const eco = (state.room && state.room.ecoMode) || 'friendly';
-          // Mostrar overlay como CTA de cierre/claim
-          if (eco === 'fire') {
-            const amount = (distribution && distribution.winner) || 0;
-            if (isMe) {
-              claimOverlay.classList.add('active');
-              claimBtn.textContent = `Reclamar ${amount} 🔥`;
-              claimBtn.onclick = ()=>{
-                try { ui.showToast(`Recompensa acreditada: ${amount} 🔥`, 'success'); } catch(_){ }
-                try { Socket.socket.emit('leave_bingo', { roomCode: state.room.code }); } catch(_){ }
-                try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
-              };
+          const winnerName = userName || 'Jugador';
+          const cons = [
+            '¡Casi! La próxima será.',
+            'Buen intento, sigue la racha.',
+            'Estuvo reñido, no te rindas.',
+            '¡Qué cerca! A por la siguiente.',
+            'Gran partida, vamos por más.'
+          ];
+          const msg = cons[Math.floor(Math.random()*cons.length)];
+          if (isMe) {
+            if (eco === 'fire') {
+              const amount = (distribution && distribution.winner) || 0;
+              ui.showToast(`¡Ganaste! +${amount} 🔥`, 'success');
             } else {
-              ui.showToast(`Ganador: ${userName||'Jugador'}`, 'info');
+              ui.showToast('¡Ganaste! 🎉', 'success');
             }
           } else {
-            // Amistoso
-            if (isMe) {
-              claimOverlay.classList.add('active');
-              claimBtn.textContent = '¡Felicidades! Gracias por participar';
-              claimBtn.onclick = ()=>{
-                try { Socket.socket.emit('leave_bingo', { roomCode: state.room.code }); } catch(_){ }
-                try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
-              };
-            } else {
-              ui.showToast(`Ganador: ${userName||'Jugador'}`, 'info');
-            }
+            ui.showToast(`${msg} Ganó ${winnerName}.`, 'info');
           }
+          // Auto salida para todos tras notificación
+          setTimeout(()=>{
+            if (state.finishing) return;
+            state.finishing = true;
+            try { Socket.socket && Socket.socket.emit && Socket.socket.emit('leave_bingo', { roomCode: state.room && state.room.code }); } catch(_){ }
+            try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
+          }, 1200);
         }catch(_){} };
         const onFinished = ({ room })=>{ try {
           state.room = room; renderLobby(); ui.log('bingo:finished','info','bingo-v2');
-          // Si no se mostró CTA de ganador, ofrecer 'Salir'
-          if (!claimOverlay.classList.contains('active')) {
-            claimBtn.textContent = 'Salir';
-            claimOverlay.classList.add('active');
-            claimBtn.onclick = ()=>{
-              try { Socket.socket.emit('leave_bingo', { roomCode: state.room.code }); } catch(_){ }
-              try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
-            };
+          // Auto salida inmediata para asegurar cierre de sala en todos
+          if (!state.finishing) {
+            state.finishing = true;
+            try { Socket.socket && Socket.socket.emit && Socket.socket.emit('leave_bingo', { roomCode: state.room && state.room.code }); } catch(_){ }
+            try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
           }
-          // Restaurar paneles al finalizar
+          // Restaurar paneles por si permanecieran visibles
           try { if (menuPanel) menuPanel.style.display = ''; } catch(_){ }
           try { if (lobbyPanel) lobbyPanel.style.display = ''; } catch(_){ }
+          try { claimOverlay.classList.remove('active'); } catch(_){ }
         }catch(_){} };
         const onPlayerJoined = ({ room, userId, userName, cardsCount })=>{ try { state.room = room; renderLobby(); ui.log(`bingo:player_joined ${userName||userId||''} +${cardsCount||1}`, 'info', 'bingo-v2'); }catch(_){} };
         const onReadyUpdated = ({ room, allReady })=>{ try { state.room = room; renderLobby(); ui.log(`bingo:ready_updated allReady=${!!allReady}`, 'info', 'bingo-v2'); }catch(_){} };
@@ -674,6 +724,7 @@ const BingoV2 = {
         s.on('bingo_joined', onJoined);
         s.on('bingo_started', onStarted);
         s.on('number_drawn', onNumber);
+        s.on('bingo_invalid', onInvalidClaim);
         s.on('bingo_winner', onWinner);
         s.on('bingo_finished', onFinished);
         s.on('player_joined_bingo', onPlayerJoined);

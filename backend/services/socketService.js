@@ -727,6 +727,10 @@ class SocketService {
           await redisService.setBingoRoom(code, room);
           this.io.to(code).emit(constants.SOCKET_EVENTS.BINGO_WINNER, { userId: socket.userId, userName: socket.userName, cardId, distribution: dist });
           this.io.to(code).emit(constants.SOCKET_EVENTS.BINGO_FINISHED, { room: room.toJSON() });
+          try {
+            await redisService.deleteBingoRoom(code);
+            this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, code);
+          } catch(_) {}
         } catch (err) {
           logger.error('Error CLAIM_BINGO:', err);
           this.emitError(socket, 'No se pudo validar Bingo');
