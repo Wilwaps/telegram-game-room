@@ -158,6 +158,11 @@ const BingoV2 = {
     };
 
     const renderDraw = ()=>{
+      // Ocultar si el juego no ha iniciado
+      if (!state.room || !state.room.started) {
+        try { drawPanel.style.display = 'none'; } catch(_){}
+        return;
+      }
       drawGrid.innerHTML = '';
       for (let n=1;n<=75;n++){
         const d = document.createElement('div');
@@ -192,6 +197,7 @@ const BingoV2 = {
           <div style="display:flex; gap:8px; align-items:center">
             <button id="bn-share" class="btn btn-sm">Compartir</button>
             <button id="bn-leave" class="btn btn-secondary btn-sm">Salir</button>
+            ${state.isHost ? `<button id="bn-start" class="btn" style="background:#22c55e; color:#fff">Iniciar</button>` : ''}
           </div>
         </div>
         <div class="bn-lobby-head" style="display:flex; align-items:center; gap:10px; justify-content:space-between">
@@ -311,6 +317,21 @@ const BingoV2 = {
         myCardsEl.onchange = syncCards;
         myCardsEl.oninput = syncCards;
       }
+      // Sync botón global #bn-ready (verde cuando estoy listo)
+      try {
+        const readyBtnTop = menuPanel.querySelector('#bn-ready');
+        if (readyBtnTop) {
+          const meNow = (room.players||[]).find(p=>String(p.userId)===String(state.userId));
+          const isReady = !!(meNow && meNow.ready);
+          readyBtnTop.textContent = isReady ? 'No listo' : 'Estoy listo';
+          if (isReady) { readyBtnTop.style.background = '#22c55e'; readyBtnTop.style.color = '#fff'; readyBtnTop.classList.remove('btn-secondary'); }
+          else { readyBtnTop.style.background = ''; readyBtnTop.style.color = ''; if (!readyBtnTop.classList.contains('btn-secondary')) readyBtnTop.classList.add('btn-secondary'); }
+          readyBtnTop.onclick = ()=>{
+            const s = Socket.socket; const code = room.code;
+            try { s && s.emit && s.emit('bingo_set_ready', { roomCode: code, ready: !isReady }); } catch(_){ }
+          };
+        }
+      } catch(_){ }
       const leaveBtn = lobbyPanel.querySelector('#bn-leave');
       if (leaveBtn) {
         leaveBtn.onclick = ()=>{
@@ -349,7 +370,10 @@ const BingoV2 = {
       cardsRoot.style.display = 'grid';
       cardsRoot.style.gridTemplateColumns = 'repeat(auto-fit, minmax(220px, 1fr))';
       cardsRoot.style.gap = '12px';
-      const arr = (state.cards && state.cards.length) ? state.cards : [state.card];
+      // Mostrar sólo cartones enviados por el servidor; sin fallback local
+      if (!state.room || !state.room.started) { try { cardsPanel.style.display = 'none'; } catch(_){} return; }
+      const arr = (state.cards && state.cards.length) ? state.cards : [];
+      if (!arr.length) { cardsRoot.innerHTML = ''; return; }
       const show = arr;
       show.forEach((c)=>{
         const cardEl = document.createElement('div');
