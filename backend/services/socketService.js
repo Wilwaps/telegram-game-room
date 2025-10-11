@@ -677,6 +677,18 @@ class SocketService {
         }
       });
 
+      // Sincronizar cartones del usuario bajo demanda
+      socket.on('get_bingo_cards', async ({ roomCode } = {}) => {
+        try {
+          const code = roomCode || socket.currentBingoRoom;
+          if (!code) return;
+          const cards = await redisService.getBingoCards(code, socket.userId) || [];
+          socket.emit('bingo_cards', { roomCode: code, cards });
+        } catch (err) {
+          logger.warn('Error GET_BINGO_CARDS:', err?.message);
+        }
+      });
+
       socket.on(constants.SOCKET_EVENTS.DRAW_NEXT, async ({ roomCode } = {}) => {
         try {
           const code = roomCode || socket.currentBingoRoom;

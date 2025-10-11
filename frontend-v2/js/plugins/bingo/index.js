@@ -277,7 +277,7 @@ const BingoV2 = {
               ecoMode,
               mode: gmEl ? gmEl.value : (room.mode||'line'),
               maxPlayers: mpEl ? parseInt(mpEl.value,10)||30 : (room.maxPlayers||30),
-              maxCardsPerUser: mcEl ? parseInt(mcEl.value,10)||10 : (room.maxCardsPerUser||10),
+              maxCardsPerUser: mcEl ? (parseInt(mcEl.value,10)||1) : (room.maxCardsPerUser||1),
               autoDraw: adEl ? !!adEl.checked : !!room.autoDraw,
               drawIntervalMs: ((itEl ? parseInt(itEl.value,10)||5 : Math.round((room.drawIntervalMs||5000)/1000)) * 1000)
             };
@@ -624,14 +624,9 @@ const BingoV2 = {
           state.room = room;
           renderDraw();
           renderCard();
-          // Forzar ocultar panels de lobby/menú tras iniciar
-          try { if (menuPanel) menuPanel.style.display = 'none'; } catch(_){ }
-          try { if (lobbyPanel) lobbyPanel.style.display = 'none'; } catch(_){ }
-          // reset claim state
-          state.claimAction = 'claim';
-          try { claimOverlay.classList.remove('active'); } catch(_){ }
-          try { claimBtn.textContent = '¡Bingo!'; } catch(_){ }
-          renderLobby();
+          try { Socket.socket && Socket.socket.emit && Socket.socket.emit('get_bingo_cards', { roomCode: state.room && state.room.code }); } catch(_){ }
+          if (menuPanel) menuPanel.style.display = room.started ? 'none' : '';
+          if (lobbyPanel) lobbyPanel.style.display = room.started ? 'none' : '';
           ui.showToast('Bingo iniciado','success');
           ui.log('bingo:started', 'info', 'bingo-v2');
         }catch(_){ } };
