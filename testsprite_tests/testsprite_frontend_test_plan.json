@@ -1,522 +1,441 @@
 [
   {
     "id": "TC001",
-    "title": "Create Public Game Room",
-    "description": "Verify that a user can successfully create a public game room and it is listed correctly for other users to join.",
+    "title": "Real-time multiplayer Tic Tac Toe game play",
+    "description": "Verify that two or more users can create or join a Tic Tac Toe room and play a synchronized game in real time using Socket.io with minimal latency and correct state synchronization.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Open the MiniApp via Telegram bot"
+        "description": "User A opens the Telegram MiniApp and creates a new Tic Tac Toe game room"
       },
       {
         "type": "action",
-        "description": "Navigate to create room section"
+        "description": "User B joins the created game room via invitation code"
       },
       {
         "type": "action",
-        "description": "Select option to create a public room"
-      },
-      {
-        "type": "action",
-        "description": "Submit creation with valid room details"
+        "description": "Users take turns making valid moves on the Tic Tac Toe board"
       },
       {
         "type": "assertion",
-        "description": "Room is created successfully with generated room code"
+        "description": "Verify moves are propagated instantly to all players' clients and displayed correctly"
+      },
+      {
+        "type": "action",
+        "description": "User A wins or the game ends in a draw"
       },
       {
         "type": "assertion",
-        "description": "Room appears in the list of public rooms available for joining"
+        "description": "Verify the game result is correctly shown to all players simultaneously"
       }
     ]
   },
   {
     "id": "TC002",
-    "title": "Create Private Game Room with Invitation Code",
-    "description": "Ensure that a user can create a private room and invitation code is generated for sharing.",
+    "title": "Room creation and joining flow",
+    "description": "Test that users can create public and private game rooms, and other users can join rooms using invitation codes or Telegram invitations.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Open MiniApp and access create room page"
-      },
-      {
-        "type": "action",
-        "description": "Choose private room creation"
-      },
-      {
-        "type": "action",
-        "description": "Submit room details and confirm creation"
+        "description": "User creates a public game room"
       },
       {
         "type": "assertion",
-        "description": "Room is created and marked private"
+        "description": "Verify the room is listed in the public rooms list for other users"
+      },
+      {
+        "type": "action",
+        "description": "User creates a private game room"
       },
       {
         "type": "assertion",
-        "description": "Valid invitation code is generated and displayed"
+        "description": "Verify the room is not visible in the public listing but has a sharable invitation code"
+      },
+      {
+        "type": "action",
+        "description": "Another user joins the private room via the invitation code"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user joins the room successfully"
+      },
+      {
+        "type": "action",
+        "description": "Another user attempts to join private room without an invitation code"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user is denied access"
       }
     ]
   },
   {
     "id": "TC003",
-    "title": "Join Existing Room Using Room Code",
-    "description": "Verify that users can join existing public or private rooms via valid room code or invitation.",
+    "title": "Fuegos virtual currency transactions consistency",
+    "description": "Validate that transaction of virtual currency 'Fuegos' are reflected correctly in user balances and transaction histories without inconsistencies or losses.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Open the MiniApp and navigate to join room screen"
-      },
-      {
-        "type": "action",
-        "description": "Enter a valid existing room code"
-      },
-      {
-        "type": "action",
-        "description": "Submit join request"
+        "description": "User A earns Fuegos by winning a game"
       },
       {
         "type": "assertion",
-        "description": "User is successfully connected to the specified room"
+        "description": "Verify User A's Fuegos balance increases accordingly"
+      },
+      {
+        "type": "action",
+        "description": "User A transfers Fuegos to User B through Economy API"
       },
       {
         "type": "assertion",
-        "description": "If room is private, join only succeeds with valid invitation"
+        "description": "Verify User A's balance decreases and User B's balance increases by the transferred amount"
+      },
+      {
+        "type": "action",
+        "description": "Query transaction history for User A and User B"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify transactions appear with correct details and timestamps"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to transfer more Fuegos than available in User A's balance"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify transfer is rejected with appropriate error"
       }
     ]
   },
   {
     "id": "TC004",
-    "title": "Start and Synchronize Tic Tac Toe Game Session",
-    "description": "Validate real-time gameplay using Socket.io where moves by players update instantly and correctly on all participants.",
+    "title": "Store catalog retrieval and item redemption",
+    "description": "Ensure users can retrieve the items catalog from the Store API and redeem items using their available Fuegos balance properly.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Create or join Tic Tac Toe game room with two players"
-      },
-      {
-        "type": "action",
-        "description": "Start the game session"
-      },
-      {
-        "type": "action",
-        "description": "Player 1 makes a move"
+        "description": "User requests the catalog from /api/store/catalog"
       },
       {
         "type": "assertion",
-        "description": "Move appears instantly and correctly on Player 2's UI"
+        "description": "Verify the catalog is returned successfully with valid item details"
       },
       {
         "type": "action",
-        "description": "Player 2 makes a move"
+        "description": "User redeems an item with sufficient Fuegos balance"
       },
       {
         "type": "assertion",
-        "description": "Move appears instantly and correctly on Player 1's UI"
+        "description": "Verify the redemption request succeeds and user's Fuegos balance decreases accordingly"
       },
       {
         "type": "action",
-        "description": "Play through a full game to test game flow and completion"
+        "description": "User attempts to redeem an item without sufficient Fuegos"
       },
       {
         "type": "assertion",
-        "description": "Game win/draw is detected and displayed correctly for both players"
+        "description": "Verify redemption is rejected due to insufficient balance"
+      },
+      {
+        "type": "action",
+        "description": "User attempts to redeem an invalid or non-existent item"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify redemption request is rejected with appropriate error"
       }
     ]
   },
   {
     "id": "TC005",
-    "title": "Handle Host Leaving Game Room Gracefully",
-    "description": "Confirm the system transfers host role correctly and the room continues without interruption if the host leaves.",
+    "title": "User profile view, update, and key change request",
+    "description": "Validate the profile API endpoints for retrieving user profiles, updating profile data, and submitting key change requests.",
     "category": "functional",
-    "priority": "High",
+    "priority": "Medium",
     "steps": [
       {
         "type": "action",
-        "description": "Create a game room and start a game with multiple players"
+        "description": "Request profile data for a valid userId via GET /api/profile/{userId}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the correct user profile data is returned"
       },
       {
         "type": "action",
-        "description": "Host leaves the game mid-session"
+        "description": "Update profile data (e.g. firstName, lastName, phone, email) via POST /api/profile/{userId}"
       },
       {
         "type": "assertion",
-        "description": "A new host is assigned successfully"
+        "description": "Verify the profile update is persisted correctly by subsequent GET"
+      },
+      {
+        "type": "action",
+        "description": "Request a key change via POST /api/profile/{userId}/request-key-change with newKey"
       },
       {
         "type": "assertion",
-        "description": "Game session continues uninterrupted for other players"
+        "description": "Verify the key change request is accepted and logged"
+      },
+      {
+        "type": "action",
+        "description": "Request profile for invalid or non-existing userId"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify API returns a 404 or appropriate error"
       }
     ]
   },
   {
     "id": "TC006",
-    "title": "Revancha Feature - Play Multiple Matches Without Reload",
-    "description": "Test the 'revancha' functionality allowing players to start new matches instantly after finishing one without leaving the room.",
-    "category": "functional",
-    "priority": "Medium",
-    "steps": [
-      {
-        "type": "action",
-        "description": "Complete a Tic Tac Toe game in a room"
-      },
-      {
-        "type": "action",
-        "description": "Initiate a revancha match via UI or prompt"
-      },
-      {
-        "type": "assertion",
-        "description": "New game match starts immediately without page reload"
-      },
-      {
-        "type": "action",
-        "description": "Play several matches back to back"
-      },
-      {
-        "type": "assertion",
-        "description": "All matches are synchronized correctly and no errors occur"
-      }
-    ]
-  },
-  {
-    "id": "TC007",
-    "title": "Economy System - Accumulate and Transfer Fuegos",
-    "description": "Verify accumulation, transfer and history tracking of the virtual currency 'Fuegos' between users and sponsors.",
-    "category": "functional",
-    "priority": "High",
-    "steps": [
-      {
-        "type": "action",
-        "description": "User participates in game and earns fuegos"
-      },
-      {
-        "type": "assertion",
-        "description": "User's fuegos balance increases accordingly"
-      },
-      {
-        "type": "action",
-        "description": "User transfers fuegos to another user"
-      },
-      {
-        "type": "assertion",
-        "description": "Transfer is reflected correctly in both users' balances and the transaction history"
-      },
-      {
-        "type": "action",
-        "description": "Sponsor transfers fuegos to user using sponsor key"
-      },
-      {
-        "type": "assertion",
-        "description": "Sponsor's transfer is validated and user balance updated"
-      }
-    ]
-  },
-  {
-    "id": "TC008",
-    "title": "Economy System - Admin Supply and Reserve Management",
-    "description": "Test administrator capabilities to add fuegos from reserve, configure sponsors and supply thresholds.",
-    "category": "functional",
-    "priority": "High",
-    "steps": [
-      {
-        "type": "action",
-        "description": "Admin logs in with valid authorization"
-      },
-      {
-        "type": "action",
-        "description": "Add a new sponsor with initial fuegos amount"
-      },
-      {
-        "type": "assertion",
-        "description": "Sponsor is listed with correct details after addition"
-      },
-      {
-        "type": "action",
-        "description": "Grant fuegos from supply reserve to user"
-      },
-      {
-        "type": "assertion",
-        "description": "User's fuegos balance increments as expected"
-      },
-      {
-        "type": "action",
-        "description": "Remove sponsor and verify removal"
-      },
-      {
-        "type": "assertion",
-        "description": "Sponsor no longer appears in sponsors list"
-      }
-    ]
-  },
-  {
-    "id": "TC009",
-    "title": "Store API - Redeem Item Using Fuegos",
-    "description": "Validate that users can redeem items from the catalog using their earned fuegos and handle insufficient balance errors.",
-    "category": "functional",
-    "priority": "High",
-    "steps": [
-      {
-        "type": "action",
-        "description": "Retrieve catalog of redeemable items"
-      },
-      {
-        "type": "assertion",
-        "description": "Catalog data is returned with correct item details and costs"
-      },
-      {
-        "type": "action",
-        "description": "User redeems an item with enough fuegos"
-      },
-      {
-        "type": "assertion",
-        "description": "Redeem operation completes successfully and fuegos balance is decremented"
-      },
-      {
-        "type": "action",
-        "description": "User attempts to redeem an item without sufficient fuegos"
-      },
-      {
-        "type": "assertion",
-        "description": "System returns an appropriate error or rejection message"
-      }
-    ]
-  },
-  {
-    "id": "TC010",
-    "title": "Profile Management - View and Update User Profile",
-    "description": "Ensure users can retrieve their profile data and submit updates for fields like name, phone, and email.",
-    "category": "functional",
-    "priority": "Medium",
-    "steps": [
-      {
-        "type": "action",
-        "description": "User requests their profile data by userId"
-      },
-      {
-        "type": "assertion",
-        "description": "Profile data is returned with valid information"
-      },
-      {
-        "type": "action",
-        "description": "User submits changes to profile's firstName, lastName, phone and email"
-      },
-      {
-        "type": "assertion",
-        "description": "Profile update succeeds and changes are persisted"
-      },
-      {
-        "type": "action",
-        "description": "User attempts to update profile with invalid email format"
-      },
-      {
-        "type": "assertion",
-        "description": "System rejects update with validation error"
-      }
-    ]
-  },
-  {
-    "id": "TC011",
-    "title": "Profile Management - Request Key Change",
-    "description": "Verify that users can request a change of their key and system processes the request correctly.",
-    "category": "functional",
-    "priority": "Medium",
-    "steps": [
-      {
-        "type": "action",
-        "description": "User submits a request to change their access key providing a new key and optional note"
-      },
-      {
-        "type": "assertion",
-        "description": "Request is accepted and stored for admin processing"
-      },
-      {
-        "type": "action",
-        "description": "User submits a request with missing newKey field"
-      },
-      {
-        "type": "assertion",
-        "description": "Request is rejected with appropriate validation error"
-      }
-    ]
-  },
-  {
-    "id": "TC012",
-    "title": "XP API - Get and Set XP Thresholds",
-    "description": "Test retrieval and configuration of XP thresholds by authorized users.",
-    "category": "functional",
-    "priority": "Medium",
-    "steps": [
-      {
-        "type": "action",
-        "description": "Make GET request to fetch current XP thresholds"
-      },
-      {
-        "type": "assertion",
-        "description": "XP thresholds are returned with expected values"
-      },
-      {
-        "type": "action",
-        "description": "Make POST request to update XP thresholds with new configuration"
-      },
-      {
-        "type": "assertion",
-        "description": "Configuration is saved and reflected in subsequent GET calls"
-      },
-      {
-        "type": "action",
-        "description": "Attempt to set thresholds with invalid data format"
-      },
-      {
-        "type": "assertion",
-        "description": "API rejects request with proper error response"
-      }
-    ]
-  },
-  {
-    "id": "TC013",
-    "title": "Socket.io Connection - Handle Latency and Disconnection",
-    "description": "Ensure the real-time WebSocket connections via Socket.io handle network latency and unexpected disconnects robustly.",
-    "category": "error handling",
-    "priority": "High",
-    "steps": [
-      {
-        "type": "action",
-        "description": "Establish a Socket.io connection for a game session"
-      },
-      {
-        "type": "action",
-        "description": "Simulate intermittent network latency and delays"
-      },
-      {
-        "type": "assertion",
-        "description": "All game state updates remain synchronized without data loss"
-      },
-      {
-        "type": "action",
-        "description": "Simulate unexpected disconnection of one player"
-      },
-      {
-        "type": "assertion",
-        "description": "System handles disconnect gracefully, allowing rejoin or notifying others"
-      }
-    ]
-  },
-  {
-    "id": "TC014",
-    "title": "API Security - Authorization Validation on Admin Endpoints",
-    "description": "Verify that admin-only APIs require authorization and reject unauthorized access attempts.",
+    "title": "Administration of sponsors and economy management",
+    "description": "Confirm that administrative operations for managing sponsors and Fuegos supply are properly authorized and produce expected results.",
     "category": "security",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Attempt to access admin API endpoints (e.g. sponsor management) without credentials"
+        "description": "Attempt sponsor addition without admin authorization"
       },
       {
         "type": "assertion",
-        "description": "API responds with 401 Unauthorized or similar error"
+        "description": "Verify the request is rejected with authorization error"
       },
       {
         "type": "action",
-        "description": "Attempt APIs with invalid/expired tokens"
+        "description": "Admin adds a sponsor with userId, key, description, and initial amount"
       },
       {
         "type": "assertion",
-        "description": "Access is denied with proper error message"
+        "description": "Verify sponsor is added and listed in sponsors"
       },
       {
         "type": "action",
-        "description": "Use valid admin credentials to access endpoints"
+        "description": "Admin updates sponsor meta data and keys"
       },
       {
         "type": "assertion",
-        "description": "Endpoints respond successfully with expected data or action performed"
+        "description": "Verify updates are reflected correctly"
+      },
+      {
+        "type": "action",
+        "description": "Sponsor transfers Fuegos to users using sponsor key"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify transfer succeeds only with valid sponsor key and updates balances"
+      },
+      {
+        "type": "action",
+        "description": "Admin grants Fuegos from supply reserve to users"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify grant operation updates user balances and supply correctly"
       }
     ]
   },
   {
-    "id": "TC015",
-    "title": "UI Responsiveness on Mobile and Desktop",
-    "description": "Check that the frontend UI renders correctly and is fully functional across mobile and desktop devices within Telegram WebApp SDK.",
-    "category": "ui",
+    "id": "TC007",
+    "title": "XP API threshold configuration",
+    "description": "Ensure XP thresholds can be retrieved and updated correctly via the XP API.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Get current XP thresholds via GET /api/xp/config"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the current thresholds data is returned successfully"
+      },
+      {
+        "type": "action",
+        "description": "Post new XP thresholds data via POST /api/xp/config"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the thresholds are updated and reflected on subsequent GET"
+      },
+      {
+        "type": "action",
+        "description": "Post malformed XP thresholds data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the API rejects the request with validation error"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "System robustness: host removal and game continuity",
+    "description": "Validate that if the host user leaves a game room, the system correctly transfers host privileges and the game continues without interruption.",
+    "category": "error handling",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Open MiniApp in Telegram on mobile device"
-      },
-      {
-        "type": "assertion",
-        "description": "UI elements adapt correctly and all interactive components function"
+        "description": "User A is the host in a multiplayer game room; initiate gameplay"
       },
       {
         "type": "action",
-        "description": "Open MiniApp in Telegram Desktop client"
+        "description": "User A leaves the game room unexpectedly"
       },
       {
         "type": "assertion",
-        "description": "UI scales appropriately, no layout issues and functionality intact"
+        "description": "Verify host role is transferred to another player automatically"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the game state continues synchronized with remaining players without errors"
       }
     ]
   },
   {
-    "id": "TC016",
-    "title": "API Pagination and Filtering Validation",
-    "description": "Validate that list APIs such as users with fuegos or supply transactions support pagination and filtering correctly.",
+    "id": "TC009",
+    "title": "Multiple game rounds (revancha) without reload",
+    "description": "Test the ability to start multiple consecutive game rounds in the same room without requiring page reload or exit, including score reset and synchronization.",
     "category": "functional",
     "priority": "Medium",
     "steps": [
       {
         "type": "action",
-        "description": "Call the GET /api/economy/users with limit and cursor parameters"
-      },
-      {
-        "type": "assertion",
-        "description": "Response returns no more than specified limit and provides next cursor if applicable"
+        "description": "Start a Tic Tac Toe game round and play to completion"
       },
       {
         "type": "action",
-        "description": "Send a search query parameter along with the request"
+        "description": "Initiate revancha (rematch) from within the room"
       },
       {
         "type": "assertion",
-        "description": "Response contains only filtered results matching the search term"
+        "description": "Verify the board resets and players are synchronized for the new round instantly"
+      },
+      {
+        "type": "action",
+        "description": "Play multiple consecutive rounds without leaving the room"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no errors occur, states remain consistent and scores update if applicable"
       }
     ]
   },
   {
-    "id": "TC017",
-    "title": "Logs Generation and Error Monitoring",
-    "description": "Ensure that all operations log relevant information for operational and troubleshooting purposes without exposing sensitive data.",
-    "category": "functional",
+    "id": "TC010",
+    "title": "API pagination, filtering and error handling",
+    "description": "Validate that API endpoints supporting pagination and filtering behave correctly and handle invalid parameters gracefully.",
+    "category": "error handling",
     "priority": "Medium",
     "steps": [
       {
         "type": "action",
-        "description": "Perform gameplay events, economy transactions, and profile updates"
+        "description": "Request users list with pagination parameters limit and cursor from /api/economy/users"
       },
       {
         "type": "assertion",
-        "description": "System generates operational logs with correct event details"
+        "description": "Verify list is paginated and next cursor provided if applicable"
       },
       {
         "type": "action",
-        "description": "Force errors such as invalid inputs or unauthorized requests"
+        "description": "Perform search filtering on users list with valid search query"
       },
       {
         "type": "assertion",
-        "description": "Error logs are captured with error type and stack trace as appropriate"
+        "description": "Verify filtered results match the query"
+      },
+      {
+        "type": "action",
+        "description": "Request user fires history with limit and offset parameters"
       },
       {
         "type": "assertion",
-        "description": "Logs do not leak sensitive information such as keys or passwords"
+        "description": "Verify correct subset of history entries is returned"
+      },
+      {
+        "type": "action",
+        "description": "Send API requests with invalid or malformed parameters"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify APIs return appropriate 4xx error responses with clear messages"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "UI responsiveness and cross-device compatibility",
+    "description": "Confirm that the frontend UI adapts correctly to different screen sizes and resolutions on both desktop and mobile devices within Telegram WebApp SDK.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the MiniApp on desktop with various window sizes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI components adjust layout appropriately without overflow or clipping"
+      },
+      {
+        "type": "action",
+        "description": "Open the MiniApp on mobile devices with different screen resolutions (iOS and Android)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify touch controls are usable, text is readable and interface fits the screen"
+      },
+      {
+        "type": "action",
+        "description": "Verify smooth interaction with realtime gameplay and store features"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no UI glitches or freezes during usage in Telegram WebApp context"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Operational logging and error monitoring",
+    "description": "Validate that the system logs important operations, errors, and warnings for monitoring and troubleshooting.",
+    "category": "functional",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger typical user actions including game plays, economy transactions, profile updates, and admin operations"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that logs capture the events, with timestamps, user IDs, and relevant details"
+      },
+      {
+        "type": "action",
+        "description": "Force error conditions such as invalid API calls and socket disconnections"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify errors are logged with stack traces or error descriptions"
+      },
+      {
+        "type": "action",
+        "description": "Inspect log retention and accessibility on the backend"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify logs are stored securely and searchable for operational use"
       }
     ]
   }

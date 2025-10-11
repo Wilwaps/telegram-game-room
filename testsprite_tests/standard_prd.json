@@ -4,43 +4,38 @@
     "date": "2025-10-04",
     "prepared_by": "Software Development Manager"
   },
-  "product_overview": "Sala de Juegos es una MiniApp de Telegram que ofrece juegos multijugador en tiempo real con un sistema de economía basado en una moneda virtual llamada \"Fuegos\". Inicialmente incluye Tic Tac Toe y una arquitectura escalable para agregar más juegos como Bingo. La aplicación proporciona interacción fluida basada en WebSockets, gestión avanzada de usuarios y salas, además de funcionalidades administrativas para gestionar economía y perfiles.",
+  "product_overview": "Sala de Juegos es una MiniApp para Telegram que permite a los usuarios jugar juegos multijugador en tiempo real, actualmente con Tic Tac Toe implementado y Bingo en desarrollo, integrando un sistema de economía interna llamado \"Fuegos\" que se utiliza para acceder y canjear artículos dentro de la plataforma.",
   "core_goals": [
-    "Permitir a los usuarios jugar juegos multijugador en tiempo real mediante Telegram.",
-    "Implementar un sistema de economía llamado \"Fuegos\" para monetizar la participación y canje de artículos.",
-    "Permitir la creación y gestión de salas públicas y privadas con invitaciones compartibles.",
-    "Garantizar una experiencia de usuario fluida con sincronización instantánea y UI moderna adaptada a Telegram.",
-    "Facilitar la administración de usuarios, perfiles y economía a través de APIs REST seguras y eficientes.",
-    "Escalar la plataforma para añadir nuevos juegos manteniendo la calidad y rendimiento."
+    "Proveer una experiencia de juego multijugador en tiempo real altamente reactiva y sincronizada.",
+    "Implementar un sistema de economía basado en la moneda virtual \"Fuegos\" para incentivar la participación y permitir la compra de artículos.",
+    "Ofrecer un sistema de gestión de salas públicas y privadas con control de invitaciones y transferencia de host.",
+    "Garantizar una experiencia de usuario integrada y fluida con la plataforma de Telegram usando el WebApp SDK.",
+    "Diseñar una arquitectura escalable, modular y segura, capaz de soportar múltiples juegos y crecimiento futuro."
   ],
   "key_features": [
-    "Juego en tiempo real con Socket.io para partidas multijugador como Tic Tac Toe.",
-    "Sistema de economía \"Fuegos\" que permite a los usuarios acumular, transferir y canjear moneda virtual.",
-    "Catálogo de artículos para canjear usando fuegos disponibles a través de la Store API.",
-    "Gestión de perfiles de usuario con opciones para actualización de datos y petición de cambio de clave.",
-    "Sistema de salas con posibilidad de creación pública o privada, invitaciones mediante código o Telegram.",
-    "Administración avanzada para sponsors, transferencia de fuegos y configuración de umbrales de XP.",
-    "Backend robusto con Node.js, Express y Redis para procesamiento rápido y escalable.",
-    "Frontend responsive y adaptado a la interfaz y experiencia de Telegram WebApp SDK."
+    "Juego en tiempo real con Socket.io para Tic Tac Toe y arquitectura preparada para agregar más juegos como Bingo.",
+    "Sistema de economía \"Fuegos\" que gestiona suministro, patrocinios, transferencias y canje de artículos con APIs REST y SSE para actualizaciones en tiempo real.",
+    "Gestión completa de salas: creación, unión, invitaciones, transferencia de host y sistema de revancha.",
+    "Interfaz moderna y responsive adaptada al tema de Telegram, con animaciones y soporte para feedback háptico.",
+    "Integración con Telegram Bot para interacción directa, incluyendo configuración de comandos y botones de menú.",
+    "Backend robusto usando Node.js, Express, Redis y servicios dedicados para manejo de lógica del juego, sesiones, economía y notificaciones.",
+    "Seguridad implementada con validaciones, rate limiting, Helmet, y manejo robusto de errores y timeouts."
   ],
   "user_flow_summary": [
-    "El usuario abre el bot de Telegram y accede a la MiniApp de Sala de Juegos.",
-    "El usuario crea una sala nueva o se une a una existente mediante código o invitación.",
-    "Se inicia una partida multijugador en tiempo real sincronizada vía Socket.io.",
-    "Los usuarios acumulan y gastan \"Fuegos\" para jugar o canjear artículos del catálogo.",
-    "El usuario puede visualizar estadísticas y gestionar su perfil incluyendo solicitudes de cambio de clave.",
-    "Los administradores pueden gestionar sponsors, transferir fuegos y controlar el suministro desde el panel o APIs.",
-    "El sistema monitorea en tiempo real las partidas, actualizaciones de economía, y maneja eventos de host y revancha."
+    "El usuario abre el bot de Telegram y accede a la MiniApp desde el botón de menú o comando.",
+    "Puede crear una sala pública o privada o unirse a una sala existente mediante código.",
+    "En la sala, el usuario invita amigos mediante código o enlace de Telegram para iniciar la partida.",
+    "Durante el juego, la plataforma sincroniza movimientos en tiempo real usando Socket.io, mostrando animaciones y estados.",
+    "Tras terminar la partida, el usuario ve estadísticas, puede solicitar revancha o salir de la sala.",
+    "La economía \"Fuegos\" se actualiza en vivo; los usuarios pueden transferir fuegos, canjear artículos del catálogo y ver su historial mediante llamadas API y eventos SSE."
   ],
   "validation_criteria": [
-    "El sistema debe soportar partidas multijugador en tiempo real con mínima latencia y sincronización correcta entre clientes.",
-    "Las transacciones de \"Fuegos\" deben reflejarse correctamente en el historial y estados de usuarios sin pérdidas ni inconsistencias.",
-    "Debe haber validación y autorización adecuadas para operaciones de administración y transferencia de fuegos.",
-    "La UI debe ser responsiva y compatible con dispositivos móviles y escritorio dentro de Telegram WebApp.",
-    "Las APIs REST deben responder con los datos correctos y permitir consultas paginadas y filtradas donde aplique.",
-    "El sistema debe sobrevivir a la salida del host garantizando transferencia correcta y continuidad de la sala.",
-    "Los juegos deben poder realizarse múltiples partidas (revancha) sin necesidad de recargar o salir de la sala.",
-    "La plataforma debe registrar logs operativos y errores para monitoreo y troubleshooting efectivo."
+    "Pruebas integrales de la comunicación en tiempo real garantizando la sincronización y manejo correcto de partidas.",
+    "Verificación del correcto funcionamiento del sistema de economía con operaciones de suministro, transferencia, patrocinio y canje de artículos.",
+    "Validación de la seguridad, incluyendo rate limiting, sanitización de datos, y manejo adecuado de permisos y roles.",
+    "Pruebas UX para asegurar la responsividad, usabilidad, integración con Telegram WebApp SDK y feedback visual/háptico.",
+    "Test de escalabilidad verificando la correcta gestión de salas múltiples, conexión con Redis y soporte para múltiples instancias.",
+    "Monitoreo de logs y performance para asegurar estabilidad bajo carga y facilitar troubleshooting."
   ],
   "code_summary": {
     "tech_stack": [

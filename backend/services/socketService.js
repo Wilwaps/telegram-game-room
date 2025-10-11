@@ -404,7 +404,7 @@ class SocketService {
       // ==========================================
       // BINGO - SALAS Y JUEGO
       // ==========================================
-      socket.on(constants.SOCKET_EVENTS.CREATE_BINGO_ROOM, async ({ isPublic = true, mode = 'line', autoDraw = false, drawIntervalMs = 5000 } = {}) => {
+      socket.on(constants.SOCKET_EVENTS.CREATE_BINGO_ROOM, async ({ isPublic = true, mode = 'line', autoDraw = false, drawIntervalMs = 5000, ecoMode = 'friendly', maxPlayers = 30, ticketPrice = 1, maxCardsPerUser = 10 } = {}) => {
         try {
           const code = this.generateCode();
           const room = new BingoRoom({
@@ -414,8 +414,18 @@ class SocketService {
             isPublic,
             mode,
             autoDraw,
-            drawIntervalMs
+            drawIntervalMs,
+            ecoMode,
+            maxPlayers,
+            ticketPrice,
+            maxCardsPerUser
           });
+          // Auto-unir al anfitrión con 1 cartón (amistoso por defecto no cobra)
+          try {
+            room.addPlayer(socket.userId, socket.userName, 1);
+            const hostCard = bingoService.generateCard(socket.userId);
+            await redisService.setBingoCards(code, socket.userId, [hostCard]);
+          } catch (e) { logger.warn('Bingo: no se pudo auto-unir anfitrión:', e?.message); }
           await redisService.setBingoRoom(code, room);
           socket.join(code);
           socket.currentBingoRoom = code;
@@ -436,32 +446,40 @@ class SocketService {
           if (room.status !== 'waiting') return this.emitError(socket, 'La sala ya inició');
           if (room.isFull()) return socket.emit(constants.SOCKET_EVENTS.ROOM_FULL);
 
-          const cost = room.ticketPrice * Math.max(1, parseInt(cardsCount, 10));
-          const spendRes = await this.economy.spend(socket.userId, cost, { reason: 'bingo_entry', roomCode });
-          // Notificar saldo y transacción al jugador
-          const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
-          allSockets.filter(s => s.userId === socket.userId).forEach(s => {
-            s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: spendRes.fires });
-            if (spendRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, spendRes.tx);
-          });
+          const count = Math.max(1, parseInt(cardsCount, 10));
+          const isFriendly = (room.ecoMode || 'friendly') === 'friendly';
+          let cost = 0;
+          let spendRes = null;
+          if (!isFriendly) {
+            cost = room.ticketPrice * count;
+            spendRes = await this.economy.spend(socket.userId, cost, { reason: 'bingo_entry', roomCode });
+            // Notificar saldo y transacción al jugador
+            const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+            allSockets.filter(s => s.userId === socket.userId).forEach(s => {
+              s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: spendRes.fires });
+              if (spendRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, spendRes.tx);
+            });
+          }
 
           // Generar cartones y ACUMULAR (no sobrescribir)
           const prevCards = await redisService.getBingoCards(roomCode, socket.userId);
           const newCards = [];
-          for (let i = 0; i < cardsCount; i++) {
+          for (let i = 0; i < count; i++) {
             newCards.push(bingoService.generateCard(socket.userId));
           }
           const combined = [...(prevCards || []), ...newCards];
           await redisService.setBingoCards(roomCode, socket.userId, combined);
 
           // Actualizar sala
-          room.entries[socket.userId] = (room.entries[socket.userId] || 0) + cost;
-          room.pot += cost;
+          if (cost > 0) {
+            room.entries[socket.userId] = (room.entries[socket.userId] || 0) + cost;
+            room.pot += cost;
+          }
           const existing = room.getPlayer(socket.userId);
           if (!existing) {
-            room.addPlayer(socket.userId, socket.userName, cardsCount);
+            room.addPlayer(socket.userId, socket.userName, count);
           } else {
-            existing.cardsCount = (existing.cardsCount || 0) + cardsCount;
+            existing.cardsCount = (existing.cardsCount || 0) + count;
           }
           await redisService.setBingoRoom(roomCode, room);
 
@@ -484,6 +502,63 @@ class SocketService {
         } catch (err) {
           logger.error('Error JOIN_BINGO:', err);
           this.emitError(socket, err.message || 'No se pudo unir a Bingo');
+        }
+      });
+
+      // Cambiar modo/eco/configuración de Bingo (solo host)
+      socket.on(constants.SOCKET_EVENTS.BINGO_SET_MODE, async ({ roomCode, ecoMode, ticketPrice, mode, maxPlayers, maxCardsPerUser, autoDraw, drawIntervalMs } = {}) => {
+        try {
+          const code = roomCode || socket.currentBingoRoom;
+          const room = await redisService.getBingoRoom(code);
+          if (!room) return this.emitError(socket, 'Sala no encontrada');
+          if (room.hostId !== socket.userId) return this.emitError(socket, 'Solo el anfitrión puede configurar');
+
+          // Aplicar cambios con validaciones básicas
+          if (ecoMode && ['friendly','fire'].includes(ecoMode)) room.ecoMode = ecoMode;
+          if (typeof ticketPrice === 'number' && ticketPrice > 0) room.ticketPrice = Math.floor(ticketPrice);
+          if (mode && ['line','double','full'].includes(mode)) room.mode = mode;
+          if (typeof maxPlayers === 'number' && maxPlayers >= 2 && maxPlayers <= 100) room.maxPlayers = Math.floor(maxPlayers);
+          if (typeof maxCardsPerUser === 'number' && maxCardsPerUser >= 1 && maxCardsPerUser <= 50) room.maxCardsPerUser = Math.floor(maxCardsPerUser);
+          if (typeof autoDraw === 'boolean') room.autoDraw = autoDraw;
+          if (typeof drawIntervalMs === 'number' && drawIntervalMs >= 1000 && drawIntervalMs <= 60000) room.drawIntervalMs = Math.floor(drawIntervalMs);
+
+          await redisService.setBingoRoom(code, room);
+
+          // Calcular usuarios con tickets faltantes (en modo fire, requieren al menos 1 compra)
+          const missingUserIds = [];
+          if ((room.ecoMode || 'friendly') === 'fire') {
+            for (const p of room.players || []) {
+              const spent = room.entries[p.userId] || 0;
+              if (!spent || spent <= 0) missingUserIds.push(String(p.userId));
+            }
+          }
+
+          this.io.to(code).emit(constants.SOCKET_EVENTS.BINGO_MODE_UPDATED, { room: room.toJSON(), missingUserIds });
+        } catch (err) {
+          logger.error('Error BINGO_SET_MODE:', err);
+          this.emitError(socket, 'No se pudo actualizar configuración');
+        }
+      });
+
+      // Cambiar estado de listo/no listo de un jugador
+      socket.on(constants.SOCKET_EVENTS.BINGO_SET_READY, async ({ roomCode, ready } = {}) => {
+        try {
+          const code = roomCode || socket.currentBingoRoom;
+          const room = await redisService.getBingoRoom(code);
+          if (!room) return this.emitError(socket, 'Sala no encontrada');
+          // Marcar listo
+          room.setReady(socket.userId, !!ready);
+          await redisService.setBingoRoom(code, room);
+
+          // Determinar si todos listos (y con tickets cuando fire)
+          let allReady = room.players.length > 0 && room.players.every(p => !!p.ready);
+          if ((room.ecoMode || 'friendly') === 'fire') {
+            allReady = allReady && (room.players.every(p => (room.entries[p.userId] || 0) > 0));
+          }
+          this.io.to(code).emit(constants.SOCKET_EVENTS.BINGO_READY_UPDATED, { room: room.toJSON(), allReady });
+        } catch (err) {
+          logger.error('Error BINGO_SET_READY:', err);
+          this.emitError(socket, 'No se pudo actualizar listo');
         }
       });
 

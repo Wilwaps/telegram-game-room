@@ -62,6 +62,20 @@ const BingoV2 = {
           <label><input type="radio" name="bnEcoMode" value="fire"> 🔥 Fuego</label>
           <input id="bn-ticket" class="input" type="number" min="1" value="1" style="width:80px; display:none" title="Precio por cartón (fuego)" />
         </div>
+        <div id="bn-advanced" class="bn-adv" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+          <label>Modo
+            <select id="bn-game-mode" class="input" style="min-width:120px">
+              <option value="line">Línea</option>
+              <option value="double">Doble línea</option>
+              <option value="full">Cartón lleno</option>
+            </select>
+          </label>
+          <label>Max jugadores <input id="bn-max-players" class="input" type="number" min="2" max="100" value="30" style="width:90px" /></label>
+          <label>Max cartones/usuario <input id="bn-max-cards" class="input" type="number" min="1" max="50" value="10" style="width:90px" /></label>
+          <label><input id="bn-autodraw" type="checkbox" /> Auto-cantar</label>
+          <label>Intervalo (ms) <input id="bn-interval" class="input" type="number" min="1000" max="60000" value="5000" style="width:100px" /></label>
+          <button id="bn-apply" class="btn">Aplicar</button>
+        </div>
         <button id="bn-ready" class="btn btn-secondary" style="display:none" disabled>Estoy listo</button>
         <div style="flex:1"></div>
         <input id="bn-code" class="input" placeholder="Código (000000)" maxlength="6" inputmode="numeric" pattern="[0-9]*" style="max-width:140px" />
@@ -124,9 +138,11 @@ const BingoV2 = {
       const readyCount = players.filter(p=>p.ready).length;
       const total = players.length;
       const missingTickets = (state.missingUserIds||[]);
+      const playersCount = total;
+      const maxPlayers = room.maxPlayers || 30;
       el.innerHTML = `
         <div class="bn-lobby-head">
-          <div><strong>Jugadores:</strong> ${readyCount}/${total} listos</div>
+          <div><strong>Jugadores:</strong> ${playersCount}/${maxPlayers} · Listos ${readyCount}/${total}</div>
           ${room.ecoMode === 'fire' ? `<div class="warn">Modo 🔥 activo. Tickets: ${room.ticketPrice||1}. ${missingTickets.length? `Faltan tickets: ${missingTickets.length}`: ''}</div>`: '<div class="muted">Modo amistoso</div>'}
         </div>
         <div class="bn-lobby-list">
@@ -276,6 +292,19 @@ const BingoV2 = {
             ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); });
             ticketEl.style.display = (state.isHost && (room.ecoMode==='fire'))? '' : 'none';
             if (typeof room.ticketPrice==='number') ticketEl.value = String(room.ticketPrice);
+            // Sync avanzadas
+            const gameModeEl = menuPanel.querySelector('#bn-game-mode');
+            const maxPlayersEl = menuPanel.querySelector('#bn-max-players');
+            const maxCardsEl = menuPanel.querySelector('#bn-max-cards');
+            const autoDrawEl = menuPanel.querySelector('#bn-autodraw');
+            const intervalEl = menuPanel.querySelector('#bn-interval');
+            if (gameModeEl) gameModeEl.value = room.mode || 'line';
+            if (maxPlayersEl) maxPlayersEl.value = String(room.maxPlayers||30);
+            if (maxCardsEl) maxCardsEl.value = String(room.maxCardsPerUser||10);
+            if (autoDrawEl) autoDrawEl.checked = !!room.autoDraw;
+            if (intervalEl) intervalEl.value = String(room.drawIntervalMs||5000);
+            // Deshabilitar si no host
+            [gameModeEl,maxPlayersEl,maxCardsEl,autoDrawEl,intervalEl].forEach(el=>{ if (el) el.disabled = !state.isHost; });
             renderLobby();
             ui.showToast(`Sala ${room.code} creada`, 'success');
           } catch(e) { console.error(e); }
@@ -291,6 +320,18 @@ const BingoV2 = {
             ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); });
             ticketEl.style.display = (state.isHost && (room.ecoMode==='fire'))? '' : 'none';
             if (typeof room.ticketPrice==='number') ticketEl.value = String(room.ticketPrice);
+            // Sync avanzadas
+            const gameModeEl = menuPanel.querySelector('#bn-game-mode');
+            const maxPlayersEl = menuPanel.querySelector('#bn-max-players');
+            const maxCardsEl = menuPanel.querySelector('#bn-max-cards');
+            const autoDrawEl = menuPanel.querySelector('#bn-autodraw');
+            const intervalEl = menuPanel.querySelector('#bn-interval');
+            if (gameModeEl) gameModeEl.value = room.mode || 'line';
+            if (maxPlayersEl) maxPlayersEl.value = String(room.maxPlayers||30);
+            if (maxCardsEl) maxCardsEl.value = String(room.maxCardsPerUser||10);
+            if (autoDrawEl) autoDrawEl.checked = !!room.autoDraw;
+            if (intervalEl) intervalEl.value = String(room.drawIntervalMs||5000);
+            [gameModeEl,maxPlayersEl,maxCardsEl,autoDrawEl,intervalEl].forEach(el=>{ if (el) el.disabled = !state.isHost; });
             renderLobby();
           } catch(e){}
         };
@@ -359,10 +400,27 @@ const BingoV2 = {
         const readyBtn = menuPanel.querySelector('#bn-ready');
         const ecoRadios = menuPanel.querySelectorAll('input[name="bnEcoMode"]');
         const ticketEl = menuPanel.querySelector('#bn-ticket');
+        const gameModeEl = menuPanel.querySelector('#bn-game-mode');
+        const maxPlayersEl = menuPanel.querySelector('#bn-max-players');
+        const maxCardsEl = menuPanel.querySelector('#bn-max-cards');
+        const autoDrawEl = menuPanel.querySelector('#bn-autodraw');
+        const intervalEl = menuPanel.querySelector('#bn-interval');
+        const applyBtn = menuPanel.querySelector('#bn-apply');
 
         createBtn && (createBtn.onclick = ()=>{
           if (!Socket.socket) return ui.showToast('Socket no disponible','error');
-          try { Socket.socket.emit('create_bingo_room', { isPublic:false, mode:'line' }); }
+          const ecoMode = Array.from(ecoRadios).find(x=>x.checked)?.value || 'friendly';
+          const payload = {
+            isPublic: false,
+            mode: (gameModeEl && gameModeEl.value) || 'line',
+            autoDraw: !!(autoDrawEl && autoDrawEl.checked),
+            drawIntervalMs: parseInt(intervalEl && intervalEl.value,10) || 5000,
+            ecoMode,
+            maxPlayers: parseInt(maxPlayersEl && maxPlayersEl.value,10) || 30,
+            ticketPrice: parseInt(ticketEl && ticketEl.value,10) || 1,
+            maxCardsPerUser: parseInt(maxCardsEl && maxCardsEl.value,10) || 10
+          };
+          try { Socket.socket.emit('create_bingo_room', payload); }
           catch(e){ ui.showToast('No se pudo crear','error'); }
         });
         if (codeEl) { codeEl.addEventListener('input', ()=>{ codeEl.value = (codeEl.value||'').replace(/\D/g,'').slice(0,6); }); }
@@ -399,6 +457,22 @@ const BingoV2 = {
             if (ecoMode==='fire') { payload.ticketPrice = parseInt(ticketEl.value||'1',10)||1; }
             try { Socket.socket.emit('bingo_set_mode', payload); } catch(e){ ui.showToast('No se pudo cambiar modo','error'); }
           };
+        });
+        applyBtn && (applyBtn.onclick = ()=>{
+          if (!state.room) return;
+          if (!state.isHost) return;
+          const payload = {
+            roomCode: state.room.code,
+            ecoMode: Array.from(ecoRadios).find(x=>x.checked)?.value || 'friendly',
+            ticketPrice: parseInt(ticketEl.value||'1',10)||1,
+            mode: (gameModeEl && gameModeEl.value) || 'line',
+            maxPlayers: parseInt(maxPlayersEl && maxPlayersEl.value,10) || 30,
+            maxCardsPerUser: parseInt(maxCardsEl && maxCardsEl.value,10) || 10,
+            autoDraw: !!(autoDrawEl && autoDrawEl.checked),
+            drawIntervalMs: parseInt(intervalEl && intervalEl.value,10) || 5000
+          };
+          try { Socket.socket.emit('bingo_set_mode', payload); }
+          catch(e){ ui.showToast('No se pudo aplicar configuración','error'); }
         });
         ticketEl && (ticketEl.onchange = ()=>{
           if (!state.room) return;
