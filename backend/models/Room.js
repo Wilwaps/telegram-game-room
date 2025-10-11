@@ -40,8 +40,9 @@ class Room {
     this.lastActivity = data.lastActivity || Date.now();
     
     // Configuración
+    const envTurn = parseInt(process.env.TURN_TIMEOUT, 10) || 10;
     this.config = {
-      turnTimeout: data.config?.turnTimeout || 30,
+      turnTimeout: data.config?.turnTimeout || envTurn,
       allowSpectators: data.config?.allowSpectators || false,
       enableChat: data.config?.enableChat || true,
       ...data.config

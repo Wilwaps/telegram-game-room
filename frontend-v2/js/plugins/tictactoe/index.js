@@ -71,6 +71,10 @@ const TTT = {
     const viewGame = document.createElement('div');
     viewGame.className = 'ttt-card';
 
+    // Vista de finalización / revancha
+    const viewFinished = document.createElement('div');
+    viewFinished.className = 'ttt-card';
+
     // Listado de salas públicas
     const viewPublic = document.createElement('div');
     viewPublic.className = 'ttt-card';
@@ -86,11 +90,13 @@ const TTT = {
     function render(){
       viewMenu.style.display = state.phase==='menu' ? '' : 'none';
       viewWaiting.style.display = state.phase==='waiting' ? '' : 'none';
-      viewGame.style.display = state.phase==='playing' || state.phase==='finished' ? '' : 'none';
+      viewGame.style.display = state.phase==='playing' ? '' : 'none';
+      viewFinished.style.display = state.phase==='finished' ? '' : 'none';
       if (viewPublic) viewPublic.style.display = state.phase==='menu' ? '' : 'none';
 
       if (state.phase==='waiting') renderWaiting();
-      if (state.phase==='playing' || state.phase==='finished') renderGame();
+      if (state.phase==='playing') renderGame();
+      if (state.phase==='finished') renderFinished();
     }
 
     function renderWaiting(){
@@ -193,12 +199,13 @@ const TTT = {
       `;
       const grid = viewGame.querySelector('#ttt-grid');
       grid.innerHTML = '';
-      // Turn timer (20s fallback si backend no envía tiempo)
+      // Turn timer (usar room.config.turnTimeout y turnStartTime; fallback 10s)
       try {
         clearTurnTimer();
         const timerEl = viewGame.querySelector('#ttt-timer');
-        const timeoutMs = (typeof r.turnTimeoutMs === 'number' && r.turnTimeoutMs>0) ? r.turnTimeoutMs : 20000;
-        let endsAt = Date.now() + timeoutMs;
+        const cfgSec = parseInt(r?.config?.turnTimeout, 10) || 10;
+        const startedAt = typeof r?.turnStartTime === 'number' ? r.turnStartTime : Date.now();
+        let endsAt = startedAt + (cfgSec*1000);
         const tick = ()=>{
           const rem = Math.max(0, endsAt - Date.now());
           const s = Math.ceil(rem/1000);
@@ -278,13 +285,14 @@ const TTT = {
         if (!state.room) return;
         if (Array.isArray(data?.board)) state.room.board = data.board;
         if (data?.currentTurn) state.room.currentTurn = data.currentTurn;
+        if (typeof data?.turnStartTime === 'number') state.room.turnStartTime = data.turnStartTime;
         render();
       }catch(e){ }
     };
 
     const onGameDraw = ({ room })=>{
       try{
-        setRoom(room); state.phase='finished'; render();
+        setRoom(room); state.phase='finished'; if (!wrap.contains(viewFinished)) wrap.appendChild(viewFinished); render();
         UI.showToast('Empate','warning');
       }catch(e){ }
     };
@@ -292,10 +300,24 @@ const TTT = {
     const onGameOver = ({ winner, winnerName, room })=>{
       try{
         if (room) setRoom(room);
-        state.phase='finished'; render();
+        state.result = { winner, winnerName };
+        state.phase='finished'; if (!wrap.contains(viewFinished)) wrap.appendChild(viewFinished); render();
         const msg = winner ? `Ganador: ${winnerName||winner}` : 'Partida finalizada';
         UI.showToast(msg,'success');
       }catch(e){ }
+    };
+
+    const onRematchRequested = ({ ready, total, userId })=>{
+      try{
+        state.rematch = { ready, total, lastUserId: userId };
+        if (state.phase==='finished') renderFinished();
+      }catch(_){ }
+    };
+
+    const onGameRestart = ({ room })=>{
+      try{
+        setRoom(room); state.phase='playing'; if (!wrap.contains(viewGame)) wrap.appendChild(viewGame); render(); UI.showToast('¡Nueva partida comenzando!','success');
+      }catch(_){ }
     };
 
     const onError = ({ message })=>{ UI.showToast(message||'Error','error'); };
@@ -308,14 +330,18 @@ const TTT = {
     s.on && s.on('move_made', onMoveMade);
     s.on && s.on('game_draw', onGameDraw);
     s.on && s.on('game_over', onGameOver);
+    s.on && s.on('rematch_requested', onRematchRequested);
+    s.on && s.on('game_restart', onGameRestart);
     s.on && s.on('error', onError);
     disposers.push(()=>{ try{ s.off && s.off('room_created', onRoomCreated);}catch(_){}});
     disposers.push(()=>{ try{ s.off && s.off('room_updated', onRoomUpdated);}catch(_){}});
     disposers.push(()=>{ try{ s.off && s.off('room_mode_updated', onModeUpdated);}catch(_){}});
     disposers.push(()=>{ try{ s.off && s.off('game_start', onGameStart);}catch(_){}});
     disposers.push(()=>{ try{ s.off && s.off('move_made', onMoveMade);}catch(_){}});
-    disposers.push(()=>{ try{ s.off && s.off('game_draw', onGameDraw);}catch(_){}});
-    disposers.push(()=>{ try{ s.off && s.off('game_over', onGameOver);}catch(_){}});
+    disposers.push(()=>{ try{ s.off && s.off('game_draw', onGameDraw);}catch(_){ }});
+    disposers.push(()=>{ try{ s.off && s.off('game_over', onGameOver);}catch(_){ }});
+    disposers.push(()=>{ try{ s.off && s.off('rematch_requested', onRematchRequested);}catch(_){ }});
+    disposers.push(()=>{ try{ s.off && s.off('game_restart', onGameRestart);}catch(_){ }});
     disposers.push(()=>{ try{ s.off && s.off('error', onError);}catch(_){}});
 
     function renderPublic(){
@@ -371,6 +397,33 @@ const TTT = {
     // inicial
     render();
     renderPublic();
+
+    function renderFinished(){
+      const r = state.room || {};
+      const res = state.result || {};
+      const winnerTxt = res.winner ? `Ganador: ${Utils.escapeHtml(res.winnerName||res.winner)}` : 'Partida finalizada';
+      const ready = state.rematch?.ready || 0; const total = state.rematch?.total || (Array.isArray(r.players)? r.players.length : 2);
+      viewFinished.innerHTML = `
+        <div class="ttt-row" style="justify-content:space-between">
+          <div><div class="muted">Resultado</div><div class="ttt-badge">${winnerTxt}</div></div>
+          <div class="muted">Sala ${String(r.code||'').replace(/\D/g,'').slice(0,6)}</div>
+        </div>
+        <div class="ttt-row" style="justify-content:space-between">
+          <div class="muted">Revancha</div>
+          <div class="ttt-badge">Listos ${ready}/${total}</div>
+        </div>
+        <div class="ttt-row" style="justify-content:flex-end">
+          <button id="ttt-rematch" class="btn btn-primary">Revancha</button>
+        </div>
+      `;
+      const btn = viewFinished.querySelector('#ttt-rematch');
+      if (btn){
+        btn.onclick = ()=>{
+          try{ btn.disabled = true; s.emit('play_again', { roomCode: r.code }); UI.showToast('Revancha solicitada','info'); }
+          catch(_){ btn.disabled = false; UI.showToast('No se pudo solicitar revancha','error'); }
+        };
+      }
+    }
 
     // retorno de plugin
     const plugin = {

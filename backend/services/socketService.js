@@ -201,6 +201,8 @@ class SocketService {
 
           // Iniciar juego
           room.startGame();
+          // Forzar tiempo de turno a 10s
+          try { room.config = { ...(room.config||{}), turnTimeout: 10 }; } catch(_){}
           room.currentTurn = Math.random() < 0.5 ? constants.PLAYER_SYMBOLS.X : constants.PLAYER_SYMBOLS.O;
           room.turnStartTime = Date.now();
           room.lastActivity = Date.now();
@@ -998,7 +1000,8 @@ class SocketService {
           // Recompensa de fuegos solo si es PvP (2 jugadores) y Tic Tac Toe
           const isPvp = Array.isArray(room.players) && room.players.length === 2;
           const isTicTacToe = room.gameType === 'tic-tac-toe';
-          if (isPvp && isTicTacToe) {
+          const isFireMode = room.mode === 'fire';
+          if (isPvp && isTicTacToe && isFireMode) {
             try {
               const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
               for (const p of room.players) {
@@ -1033,7 +1036,8 @@ class SocketService {
           // Recompensa de fuegos solo si es PvP (2 jugadores) y Tic Tac Toe
           const isPvp = Array.isArray(room.players) && room.players.length === 2;
           const isTicTacToe = room.gameType === 'tic-tac-toe';
-          if (isPvp && isTicTacToe) {
+          const isFireMode = room.mode === 'fire';
+          if (isPvp && isTicTacToe && isFireMode) {
             try {
               const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
               for (const p of room.players) {
@@ -1074,7 +1078,8 @@ class SocketService {
           cellIndex,
           symbol: player.symbol,
           currentTurn: room.currentTurn,
-          board: room.board
+          board: room.board,
+          turnStartTime: room.turnStartTime
         });
       }
 
@@ -1315,7 +1320,7 @@ class SocketService {
         // Recompensa PVP por partida finalizada por abandono
         try {
           const isPvp = Array.isArray(room.players) && room.players.length === 2;
-          if (isPvp) {
+          if (isPvp && room.mode === 'fire') {
             const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
             for (const p of room.players) {
               const res = await this.economy.earn(p.userId, 1, { reason: 'opponent_left_finish', roomCode });
@@ -1467,7 +1472,7 @@ class SocketService {
 
           // Recompensa PVP
           const isPvp = Array.isArray(room.players) && room.players.length === 2;
-          if (isPvp) {
+          if (isPvp && room.mode === 'fire') {
             try {
               const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
               for (const p of room.players) {
@@ -1495,9 +1500,10 @@ class SocketService {
             moves: room.moves?.length || 0
           });
 
-          await redisService.deleteRoom(room.code);
+          // Conservar la sala en estado FINISHED para permitir revancha
+          await redisService.setRoom(room.code, room, 7200);
           if (room.isPublic) {
-            this.io.emit(constants.SOCKET_EVENTS.ROOM_REMOVED, room.code);
+            this.io.emit(constants.SOCKET_EVENTS.ROOM_UPDATED, room.toJSON());
           }
         }
       } catch (error) {
