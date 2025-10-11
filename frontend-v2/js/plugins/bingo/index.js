@@ -197,6 +197,23 @@ const BingoV2 = {
           <div><strong>Jugadores:</strong> ${playersCount}/${maxPlayers} · Listos ${readyCount}/${total}</div>
         </div>
         ${room.ecoMode === 'fire' ? `<div class="warn">Modo 🔥 activo. Tickets: ${room.ticketPrice||1}. ${missingTickets.length? `Faltan tickets: ${missingTickets.length}`: ''}</div>`: '<div class="muted">Modo amistoso</div>'}
+        ${state.isHost ? `
+        <div class="bn-config" id="bnw-config" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0;">
+          <label>Modo
+            <select id="bnw-game-mode" class="input" style="min-width:120px">
+              <option value="line">Línea</option>
+              <option value="double">Doble línea</option>
+              <option value="full">Cartón lleno</option>
+            </select>
+          </label>
+          <label>Max jugadores <input id="bnw-max-players" class="input" type="number" min="2" max="100" value="30" style="width:90px"></label>
+          <label>Max cartones/usuario <input id="bnw-max-cards" class="input" type="number" min="1" max="50" value="10" style="width:90px"></label>
+          <label><input id="bnw-autodraw" type="checkbox"> Auto-cantar</label>
+          <label>Intervalo (s) <input id="bnw-interval" class="input" type="number" min="1" max="60" value="5" style="width:100px"></label>
+          <label id="bnw-ticket-wrap" style="${room.ecoMode==='fire' ? '' : 'display:none'}">Ticket <input id="bnw-ticket" class="input" type="number" min="1" value="${room.ticketPrice||1}" style="width:80px"></label>
+          <button id="bnw-apply" class="btn">Aplicar</button>
+        </div>
+        ` : ''}
         <div class="bn-lobby-list">
           ${players.map(p=>`
             <div class="bn-player ${p.ready?'ready':''}">
@@ -230,6 +247,47 @@ const BingoV2 = {
         if (room.ecoMode==='fire') { allow = allow && (missingTickets.length===0); }
         startBtn.disabled = !state.isHost || !allow;
         startBtn.onclick = ()=>{ if (!state.room) return; try { Socket.socket.emit('start_bingo', { roomCode: state.room.code }); } catch(e){ ui.showToast('No se pudo iniciar','error'); } };
+      }
+      // Bind configuración dentro de Sala de Espera (host)
+      if (state.isHost) {
+        const gmEl = el.querySelector('#bnw-game-mode');
+        const mpEl = el.querySelector('#bnw-max-players');
+        const mcEl = el.querySelector('#bnw-max-cards');
+        const adEl = el.querySelector('#bnw-autodraw');
+        const itEl = el.querySelector('#bnw-interval');
+        const tkWrap = el.querySelector('#bnw-ticket-wrap');
+        const tkEl = el.querySelector('#bnw-ticket');
+        const apEl = el.querySelector('#bnw-apply');
+        try {
+          if (gmEl) gmEl.value = room.mode || 'line';
+          if (mpEl) mpEl.value = String(room.maxPlayers||30);
+          if (mcEl) mcEl.value = String(room.maxCardsPerUser||10);
+          if (adEl) adEl.checked = !!room.autoDraw;
+          if (itEl) itEl.value = String(Math.max(1, Math.round((room.drawIntervalMs||5000)/1000)));
+          if (tkWrap) tkWrap.style.display = (room.ecoMode==='fire') ? '' : 'none';
+          if (tkEl && typeof room.ticketPrice==='number') tkEl.value = String(room.ticketPrice);
+        } catch(_){}
+        if (apEl) {
+          apEl.onclick = ()=>{
+            if (!state.room) return;
+            const payload = {
+              roomCode: state.room.code,
+              mode: gmEl ? gmEl.value : (room.mode||'line'),
+              maxPlayers: mpEl ? parseInt(mpEl.value,10)||30 : (room.maxPlayers||30),
+              maxCardsPerUser: mcEl ? parseInt(mcEl.value,10)||10 : (room.maxCardsPerUser||10),
+              autoDraw: adEl ? !!adEl.checked : !!room.autoDraw,
+              drawIntervalMs: ((itEl ? parseInt(itEl.value,10)||5 : Math.round((room.drawIntervalMs||5000)/1000)) * 1000)
+            };
+            try { Socket.socket.emit('bingo_set_mode', payload); ui.showToast('Configuración aplicada','success'); } catch(e){ ui.showToast('No se pudo aplicar configuración','error'); }
+          };
+        }
+        if (tkEl && room.ecoMode==='fire') {
+          tkEl.onchange = ()=>{
+            if (!state.room) return;
+            const p2 = { roomCode: state.room.code, ecoMode: 'fire', ticketPrice: parseInt(tkEl.value||'1',10)||1 };
+            try { Socket.socket.emit('bingo_set_mode', p2); } catch(e){ ui.showToast('No se pudo actualizar ticket','error'); }
+          };
+        }
       }
       const startBottom = lobbyPanel.querySelector('#bn-start-bottom');
       if (startBottom) {
@@ -368,12 +426,12 @@ const BingoV2 = {
             state.room = room; state.isHost = String(room.hostId||'') === String(state.userId||'');
             state.ecoMode = room.ecoMode || 'friendly';
             const makePublicBtn = menuPanel.querySelector('#bn-make-public');
-            const startBtn = menuPanel.querySelector('#bn-start');
+            const startBtn = lobbyPanel.querySelector('#bn-start');
             const readyBtn = menuPanel.querySelector('#bn-ready');
             const ticketEl = menuPanel.querySelector('#bn-ticket');
-            const ecoRadios = menuPanel.querySelectorAll('input[name=\"bnEcoMode\"]');
+            const ecoRadios = menuPanel.querySelectorAll('input[name="bnEcoMode"]');
             makePublicBtn.style.display = (state.isHost && !room.isPublic) ? '' : 'none';
-            startBtn.style.display = 'none';
+            if (startBtn) startBtn.style.display = 'none';
             readyBtn.style.display = '';
             readyBtn.disabled = false;
             // Sync eco UI
