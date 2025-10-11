@@ -446,19 +446,18 @@ class SocketService {
           if (room.status !== 'waiting') return this.emitError(socket, 'La sala ya inició');
           if (room.isFull()) return socket.emit(constants.SOCKET_EVENTS.ROOM_FULL);
 
-          const count = Math.max(1, parseInt(cardsCount, 10));
-          const maxAllowed = Math.max(1, parseInt(room.maxCardsPerUser || 1, 10));
-
-          // Generar cartones y ACUMULAR (no sobrescribir)
-          const prevCards = await redisService.getBingoCards(roomCode, socket.userId);
-          const existingCount = (prevCards?.length) || 0;
-          const canAdd = Math.max(0, maxAllowed - existingCount);
-          const toAdd = Math.min(count, canAdd);
-          const newCards = [];
-          for (let i = 0; i < toAdd; i++) {
-            newCards.push(bingoService.generateCard(socket.userId));
+          const raw = parseInt(cardsCount, 10);
+          const desired = Math.max(1, Math.min(10, isNaN(raw) ? 1 : raw));
+          const prevCards = await redisService.getBingoCards(roomCode, socket.userId) || [];
+          let combined = prevCards;
+          if (prevCards.length > desired) {
+            combined = prevCards.slice(0, desired);
+          } else if (prevCards.length < desired) {
+            const missing = desired - prevCards.length;
+            const add = [];
+            for (let i = 0; i < missing; i++) add.push(bingoService.generateCard(socket.userId));
+            combined = [...prevCards, ...add];
           }
-          const combined = [...(prevCards || []), ...newCards];
           await redisService.setBingoCards(roomCode, socket.userId, combined);
 
           // Actualizar sala
@@ -485,10 +484,58 @@ class SocketService {
             room: room.toJSON(),
             cards: cardsNormalized
           });
-          this.io.to(roomCode).emit(constants.SOCKET_EVENTS.PLAYER_JOINED_BINGO, { room: room.toJSON(), userId: socket.userId, userName: socket.userName, cardsCount });
+          this.io.to(roomCode).emit(constants.SOCKET_EVENTS.PLAYER_JOINED_BINGO, { room: room.toJSON(), userId: socket.userId, userName: socket.userName, cardsCount: combined.length });
         } catch (err) {
           logger.error('Error JOIN_BINGO:', err);
           this.emitError(socket, err.message || 'No se pudo unir a Bingo');
+        }
+      });
+
+      // Ajustar cantidad de cartones por jugador (1..10) antes de iniciar
+      socket.on(constants.SOCKET_EVENTS.BINGO_SET_CARDS, async ({ roomCode, count } = {}) => {
+        try {
+          const code = roomCode || socket.currentBingoRoom;
+          const room = await redisService.getBingoRoom(code);
+          if (!room) return this.emitError(socket, 'Sala no encontrada');
+          if (room.status !== 'waiting') return this.emitError(socket, 'La sala ya inició');
+          const me = room.getPlayer(socket.userId);
+          if (!me) return this.emitError(socket, 'No estás en la sala');
+          const raw = parseInt(count, 10);
+          const desired = Math.max(1, Math.min(10, isNaN(raw) ? 1 : raw));
+          const prev = await redisService.getBingoCards(code, socket.userId) || [];
+          let combined = prev;
+          if (prev.length > desired) {
+            combined = prev.slice(0, desired);
+          } else if (prev.length < desired) {
+            const missing = desired - prev.length;
+            const add = [];
+            for (let i = 0; i < missing; i++) add.push(bingoService.generateCard(socket.userId));
+            combined = [...prev, ...add];
+          }
+          await redisService.setBingoCards(code, socket.userId, combined);
+          me.cardsCount = combined.length;
+          await redisService.setBingoRoom(code, room);
+          // Emitir al propio jugador sus cartones
+          socket.emit('bingo_cards', { roomCode: code, cards: combined });
+          // Recalcular bloqueo por economía en modo fuego y actualizar lobby
+          if ((room.ecoMode || 'friendly') === 'fire') {
+            const insufficientUserIds = [];
+            for (const p of room.players || []) {
+              const uid = String(p.userId);
+              const userCards = await redisService.getBingoCards(code, uid) || [];
+              const c = Math.max(0, userCards.length);
+              const cost = c;
+              if (c <= 0 || cost <= 0) { insufficientUserIds.push(uid); continue; }
+              const bal = await this.economy.getFires(p.userId);
+              const ok = parseInt(bal?.fires || 0, 10) >= cost;
+              if (!ok) insufficientUserIds.push(uid);
+            }
+            this.io.to(code).emit(constants.SOCKET_EVENTS.BINGO_MODE_UPDATED, { room: room.toJSON(), missingUserIds: insufficientUserIds });
+          }
+          this.io.to(code).emit(constants.SOCKET_EVENTS.BINGO_ROOM_UPDATED, { room: room.toJSON() });
+        } catch (err) {
+          logger.error('Error BINGO_SET_CARDS:', err);
+          this.emitError(socket, err.message || 'No se pudo ajustar cartones');
         }
       });
 
@@ -598,12 +645,12 @@ class SocketService {
           if (room.hostId !== socket.userId) return this.emitError(socket, 'Solo el anfitrión puede iniciar');
           if (room.started) return this.emitError(socket, 'La partida ya inició');
 
-          // Asegurar que cada jugador tenga exactamente maxCardsPerUser cartones
-          const desired = Math.max(1, parseInt(room.maxCardsPerUser || 1, 10));
+          // Asegurar cartones por jugador según su selección previa (clamp 1..10)
           const perUserCards = new Map();
           for (const p of room.players || []) {
             const uid = String(p.userId);
             let prev = await redisService.getBingoCards(code, uid) || [];
+            const desired = Math.max(1, Math.min(10, prev.length || parseInt(p.cardsCount || 0, 10) || 1));
             if (prev.length > desired) {
               prev = prev.slice(0, desired);
               await redisService.setBingoCards(code, uid, prev);
@@ -628,7 +675,7 @@ class SocketService {
             const playerCosts = [];
             for (const p of room.players || []) {
               const cnt = Math.max(0, parseInt(p.cardsCount || 0, 10));
-              const cost = Math.max(0, parseInt(room.ticketPrice || 1, 10)) * cnt;
+              const cost = cnt;
               if (cnt <= 0 || cost <= 0) { insufficientUserIds.push(String(p.userId)); continue; }
               const bal = await this.economy.getFires(p.userId);
               const ok = parseInt(bal?.fires || 0, 10) >= cost;

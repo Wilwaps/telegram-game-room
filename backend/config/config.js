@@ -262,6 +262,8 @@ const constants = {
     BINGO_MODE_UPDATED: 'bingo_mode_updated',
     BINGO_SET_READY: 'bingo_set_ready',
     BINGO_READY_UPDATED: 'bingo_ready_updated',
+    // bingo - selección de cartones por jugador
+    BINGO_SET_CARDS: 'bingo_set_cards',
     
     // Errores
     ERROR: 'error'

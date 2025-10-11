@@ -184,6 +184,8 @@ const BingoV2 = {
       const missingTickets = (state.missingUserIds||[]);
       const playersCount = total;
       const maxPlayers = room.maxPlayers || 30;
+      const me = players.find(p=>String(p.userId)===String(state.userId));
+      const myCardsCount = (me && typeof me.cardsCount==='number') ? me.cardsCount : Math.max(1, (state.cards && state.cards.length) || 1);
       el.innerHTML = `
         <div class="bn-lobby-top" style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
           <div style="display:flex; gap:8px; align-items:center"><strong>Sala #${room.code}</strong></div>
@@ -195,7 +197,8 @@ const BingoV2 = {
         <div class="bn-lobby-head" style="display:flex; align-items:center; gap:10px; justify-content:space-between">
           <div><strong>Jugadores:</strong> ${playersCount}/${maxPlayers} · Listos ${readyCount}/${total}</div>
         </div>
-        ${room.ecoMode === 'fire' ? `<div class="warn">Modo 🔥 activo. Tickets: ${room.ticketPrice||1}. ${missingTickets.length? `Faltan tickets: ${missingTickets.length}`: ''}</div>`: '<div class="muted">Modo amistoso</div>'}
+        ${!room.started ? `<div class="bn-my-cards" style="display:flex; align-items:center; gap:8px; margin:8px 0;"><label>Mis cartones <input id="bn-my-cards" class="input" type="number" min="1" max="10" value="${myCardsCount}" style="width:80px" /></label></div>` : ''}
+        ${room.ecoMode === 'fire' ? `<div class="warn">Modo 🔥 activo. Cada cartón cuesta 1 🔥. ${missingTickets.length? `Faltan tickets: ${missingTickets.length}`: ''}</div>`: '<div class="muted">Modo amistoso</div>'}
         <div class="bn-lobby-list">
           ${players.map(p=>`
             <div class="bn-player ${p.ready?'ready':''}">
@@ -287,6 +290,15 @@ const BingoV2 = {
             state.pendingStart = true;
             Socket.socket.emit('bingo_set_mode', payload);
           } catch(e){ ui.showToast('No se pudo iniciar','error'); }
+        };
+      }
+      const myCardsEl = lobbyPanel.querySelector('#bn-my-cards');
+      if (myCardsEl) {
+        myCardsEl.onchange = ()=>{
+          const raw = parseInt(myCardsEl.value,10);
+          const v = Math.max(1, Math.min(10, isNaN(raw)?1:raw));
+          myCardsEl.value = String(v);
+          try { Socket.socket && Socket.socket.emit && Socket.socket.emit('bingo_set_cards', { roomCode: room.code, count: v }); } catch(_){ ui.showToast('No se pudo ajustar cartones','error'); }
         };
       }
       const leaveBtn = lobbyPanel.querySelector('#bn-leave');
