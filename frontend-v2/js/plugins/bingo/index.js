@@ -300,6 +300,9 @@ const BingoV2 = {
       if (drawPanel) drawPanel.style.display = room.started ? '' : 'none';
       if (claimOverlay) claimOverlay.style.display = room.started ? '' : 'none';
       if (fab) fab.style.display = (state.isHost && room.started) ? '' : 'none';
+      // Ocultar paneles de menú y lobby cuando inicia el juego
+      if (menuPanel) menuPanel.style.display = room.started ? 'none' : '';
+      if (lobbyPanel) lobbyPanel.style.display = room.started ? 'none' : '';
     };
 
     const renderCard = ()=>{
@@ -353,7 +356,9 @@ const BingoV2 = {
     };
 
     const updateClaim = (c=null)=>{
-      const cardX = c || state.card;
+      // Usar sólo cartones del servidor para evitar errores de 'Cartón inválido'
+      const cardX = c || (state.cards && state.cards[0]);
+      if (!cardX) { try{ claimOverlay.classList.remove('active'); }catch(_){} return; }
       const valid = validateLine(cardX);
       if (valid) {
         const eco = (state.room && state.room.ecoMode) || 'friendly';
@@ -399,7 +404,7 @@ const BingoV2 = {
 
     claimBtn.addEventListener('click', ()=>{
       const s = Socket.socket;
-      const cid = state.activeCardId || (state.cards && state.cards[0] && state.cards[0].id) || (state.card && state.card.id);
+      const cid = state.activeCardId || (state.cards && state.cards[0] && state.cards[0].id) || null;
       if (s && state.room && cid){
         try { s.emit('claim_bingo', { roomCode: state.room.code, cardId: cid }); } catch(_){ }
       } else {
@@ -603,6 +608,9 @@ const BingoV2 = {
               try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
             };
           }
+          // Restaurar paneles al finalizar
+          try { if (menuPanel) menuPanel.style.display = ''; } catch(_){ }
+          try { if (lobbyPanel) lobbyPanel.style.display = ''; } catch(_){ }
         }catch(_){} };
         const onPlayerJoined = ({ room, userId, userName, cardsCount })=>{ try { state.room = room; renderLobby(); ui.log(`bingo:player_joined ${userName||userId||''} +${cardsCount||1}`, 'info', 'bingo-v2'); }catch(_){} };
         const onReadyUpdated = ({ room, allReady })=>{ try { state.room = room; renderLobby(); ui.log(`bingo:ready_updated allReady=${!!allReady}`, 'info', 'bingo-v2'); }catch(_){} };

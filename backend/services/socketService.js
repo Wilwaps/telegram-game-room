@@ -447,19 +447,6 @@ class SocketService {
           if (room.isFull()) return socket.emit(constants.SOCKET_EVENTS.ROOM_FULL);
 
           const count = Math.max(1, parseInt(cardsCount, 10));
-          const isFriendly = (room.ecoMode || 'friendly') === 'friendly';
-          let cost = 0;
-          let spendRes = null;
-          if (!isFriendly) {
-            cost = room.ticketPrice * count;
-            spendRes = await this.economy.spend(socket.userId, cost, { reason: 'bingo_entry', roomCode });
-            // Notificar saldo y transacción al jugador
-            const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
-            allSockets.filter(s => s.userId === socket.userId).forEach(s => {
-              s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: spendRes.fires });
-              if (spendRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, spendRes.tx);
-            });
-          }
 
           // Generar cartones y ACUMULAR (no sobrescribir)
           const prevCards = await redisService.getBingoCards(roomCode, socket.userId);
@@ -471,10 +458,6 @@ class SocketService {
           await redisService.setBingoCards(roomCode, socket.userId, combined);
 
           // Actualizar sala
-          if (cost > 0) {
-            room.entries[socket.userId] = (room.entries[socket.userId] || 0) + cost;
-            room.pot += cost;
-          }
           const existing = room.getPlayer(socket.userId);
           if (!existing) {
             room.addPlayer(socket.userId, socket.userName, count);
@@ -524,12 +507,12 @@ class SocketService {
 
           await redisService.setBingoRoom(code, room);
 
-          // Calcular usuarios con tickets faltantes (en modo fire, requieren al menos 1 compra)
+          // Calcular usuarios con tickets faltantes (en modo fire, requieren al menos 1 cartón)
           const missingUserIds = [];
           if ((room.ecoMode || 'friendly') === 'fire') {
             for (const p of room.players || []) {
-              const spent = room.entries[p.userId] || 0;
-              if (!spent || spent <= 0) missingUserIds.push(String(p.userId));
+              const pc = (p.cardsCount || 0);
+              if (pc <= 0) missingUserIds.push(String(p.userId));
             }
           }
 
@@ -553,7 +536,7 @@ class SocketService {
           // Determinar si todos listos (y con tickets cuando fire)
           let allReady = room.players.length > 0 && room.players.every(p => !!p.ready);
           if ((room.ecoMode || 'friendly') === 'fire') {
-            allReady = allReady && (room.players.every(p => (room.entries[p.userId] || 0) > 0));
+            allReady = allReady && (room.players.every(p => (p.cardsCount || 0) > 0));
           }
           this.io.to(code).emit(constants.SOCKET_EVENTS.BINGO_READY_UPDATED, { room: room.toJSON(), allReady });
         } catch (err) {
@@ -610,6 +593,37 @@ class SocketService {
           if (!room) return this.emitError(socket, 'Sala no encontrada');
           if (room.hostId !== socket.userId) return this.emitError(socket, 'Solo el anfitrión puede iniciar');
           if (room.started) return this.emitError(socket, 'La partida ya inició');
+
+          // Validar y descontar fuegos al iniciar (modo 🔥)
+          if ((room.ecoMode || 'friendly') === 'fire') {
+            const insufficientUserIds = [];
+            const playerCosts = [];
+            for (const p of room.players || []) {
+              const cnt = Math.max(0, parseInt(p.cardsCount || 0, 10));
+              const cost = Math.max(0, parseInt(room.ticketPrice || 1, 10)) * cnt;
+              if (cnt <= 0 || cost <= 0) { insufficientUserIds.push(String(p.userId)); continue; }
+              const bal = await this.economy.getFires(p.userId);
+              const ok = parseInt(bal?.fires || 0, 10) >= cost;
+              if (!ok) insufficientUserIds.push(String(p.userId));
+              playerCosts.push({ userId: p.userId, cost });
+            }
+            if (insufficientUserIds.length > 0) {
+              this.io.to(code).emit(constants.SOCKET_EVENTS.BINGO_MODE_UPDATED, { room: room.toJSON(), missingUserIds: insufficientUserIds });
+              return this.emitError(socket, 'Jugadores sin fuegos suficientes o sin cartones');
+            }
+            // Descontar
+            const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+            for (const pc of playerCosts) {
+              const res = await this.economy.spend(pc.userId, pc.cost, { reason: 'bingo_entry', roomCode: code });
+              room.entries[pc.userId] = (room.entries[pc.userId] || 0) + pc.cost;
+              room.pot += pc.cost;
+              // Notificar saldo al jugador
+              allSockets.filter(s => s.userId === pc.userId).forEach(s => {
+                s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: res.fires });
+                if (res.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx);
+              });
+            }
+          }
 
           const { drawOrder, seed } = bingoService.generateDrawOrder();
           room.drawOrder = drawOrder;
