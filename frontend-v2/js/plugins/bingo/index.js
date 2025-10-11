@@ -564,7 +564,17 @@ const BingoV2 = {
             ui.showToast(`Unido a sala ${room.code}`, 'success');
           } catch(e){}
         };
-        const onStarted = ({ room })=>{ try { state.room = room; renderDraw(); renderCard(); renderLobby(); ui.showToast('Bingo iniciado','success'); ui.log('bingo:started', 'info', 'bingo-v2'); }catch(_){ } };
+        const onStarted = ({ room })=>{ try {
+          state.room = room;
+          renderDraw();
+          renderCard();
+          // Forzar ocultar panels de lobby/menú tras iniciar
+          try { if (menuPanel) menuPanel.style.display = 'none'; } catch(_){ }
+          try { if (lobbyPanel) lobbyPanel.style.display = 'none'; } catch(_){ }
+          renderLobby();
+          ui.showToast('Bingo iniciado','success');
+          ui.log('bingo:started', 'info', 'bingo-v2');
+        }catch(_){ } };
         const onNumber = ({ number })=> handleNumberDrawn(parseInt(number,10));
         const onWinner = ({ userId, userName, distribution })=>{ try {
           const isMe = String(userId||'') === String(state.userId||'');
