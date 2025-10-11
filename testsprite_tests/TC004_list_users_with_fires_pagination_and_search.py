@@ -2,54 +2,76 @@ import requests
 import time
 
 BASE_URL = "https://telegram-game-room-production.up.railway.app"
-TIMEOUT = 30
+HEADERS = {
+    "X-Test-Runner": "testsprite",
+    "User-Agent": "PythonTestClient TestSprite",
+}
 
 def test_list_users_with_fires_pagination_and_search():
-    endpoint = f"{BASE_URL}/api/economy/users"
+    url = f"{BASE_URL}/api/economy/users"
 
-    # Prepare query parameters for pagination and search
-    params = {
-        "cursor": "",  # Start with empty cursor to get initial page
-        "limit": 5,
-        "search": "user"  # Example search term to filter users
-    }
+    # Use search string from existing user name substring if possible, otherwise fallback to empty
+    # Pagination: test limit=2 and cursor from previous response to test pagination
 
-    all_users = []
-    cursor = params["cursor"]
+    params = {"limit": 2}
 
+    # First request: get first page
     try:
-        # Pagination loop: retrieve up to 2 pages to check pagination correctness
-        for _ in range(2):
-            params["cursor"] = cursor
-            response = requests.get(endpoint, params=params, timeout=TIMEOUT)
-            assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-            json_data = response.json()
-            # Validate response structure (actual API)
-            assert "items" in json_data, "'items' key missing in response"
-            assert isinstance(json_data["items"], list), "'items' should be a list"
-            assert all(isinstance(user.get("fires", 0), int) for user in json_data["items"]), "Each user must have integer 'fires'"
+        resp = requests.get(url, headers=HEADERS, params=params, timeout=30)
+        assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
+        data = resp.json()
+        assert "success" in data and data["success"] is True, "'success' field missing or false in response"
+        assert "items" in data and isinstance(data["items"], list), "'items' missing or not a list"
+        assert isinstance(data.get("cursor", None), (str, type(None))), "'cursor' field missing or not string or None"
 
-            all_users.extend(json_data["items"])
+        # Validate items structure and fires integer
+        for item in data["items"]:
+            assert isinstance(item, dict), "Item is not a dict"
+            assert "userId" in item and isinstance(item["userId"], str), "Missing or invalid userId"
+            if "username" in item:
+                assert isinstance(item["username"], str), "Invalid username"
+            assert "fires" in item and isinstance(item["fires"], int), "Missing or invalid fires"
 
-            # Pagination cursor for next page (actual key 'cursor')
-            cursor = json_data.get("cursor")
-            # If no next cursor, break pagination
-            if not cursor:
-                break
-            
-            # Validate search filter using userName or userId
-            for user in json_data["items"]:
-                username = (user.get("userName") or "").lower()
-                uid = str(user.get("userId") or "").lower()
-                fires = user.get("fires")
-                assert isinstance(fires, int), "'fires' should be integer"
-                if params["search"]:
-                    assert params["search"].lower() in username or params["search"].lower() in uid, \
-                        f"User {username or uid} does not match search filter"
+        cursor = data.get("cursor", None)
+        if cursor:
+            # Use cursor to get second page and verify pagination works
+            params2 = {"limit": 2, "cursor": cursor}
+            resp2 = requests.get(url, headers=HEADERS, params=params2, timeout=30)
+            assert resp2.status_code == 200, f"Expected 200 OK for second page, got {resp2.status_code}"
+            data2 = resp2.json()
+            assert data2.get("success", False) is True, "Second page success field false"
+            assert isinstance(data2.get("items"), list), "Second page items not a list"
+            # Validate second page items structure
+            for item in data2["items"]:
+                assert isinstance(item, dict), "Second page item is not a dict"
+                assert "userId" in item and isinstance(item["userId"], str), "Second page missing or invalid userId"
+                if "username" in item:
+                    assert isinstance(item["username"], str), "Second page invalid username"
+                assert "fires" in item and isinstance(item["fires"], int), "Second page missing or invalid fires"
 
-            time.sleep(0.1)  # brief pause between pages
+        # Search test: use username from first item substring if exists
+        if data["items"] and "username" in data["items"][0]:
+            search_str = data["items"][0]["username"][:3]
+        else:
+            search_str = "a"
 
-    except requests.RequestException as e:
+        params_search = {"search": search_str, "limit": 5}
+        resp_search = requests.get(url, headers=HEADERS, params=params_search, timeout=30)
+        assert resp_search.status_code == 200, f"Expected 200 OK for search, got {resp_search.status_code}"
+        data_search = resp_search.json()
+        assert data_search.get("success", False) is True, "Search response success false"
+        items_search = data_search.get("items", [])
+        assert isinstance(items_search, list), "Search items not a list"
+        for item in items_search:
+            assert isinstance(item, dict), "Search item not dict"
+            assert "userId" in item and isinstance(item["userId"], str)
+            if "username" in item:
+                assert isinstance(item["username"], str)
+                # Validate search filter applied (username contains search_str case-insensitive)
+                assert search_str.lower() in item["username"].lower()
+            assert "fires" in item and isinstance(item["fires"], int)
+
+    except requests.exceptions.RequestException as e:
         assert False, f"Request failed: {e}"
 
 test_list_users_with_fires_pagination_and_search()

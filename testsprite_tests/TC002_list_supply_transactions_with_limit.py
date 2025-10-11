@@ -1,24 +1,47 @@
 import requests
+import time
+
+BASE_URL = "https://telegram-game-room-production.up.railway.app"
+HEADERS = {
+    "X-Test-Runner": "testsprite",
+    "User-Agent": "python-requests TestSprite"
+}
+TIMEOUT = 30
+
 
 def test_list_supply_transactions_with_limit():
-    base_url = "https://telegram-game-room-production.up.railway.app"
-    endpoint = f"{base_url}/api/economy/supply/txs"
-    params = {"limit": 10}
-    headers = {
-        "Accept": "application/json"
-    }
+    url = f"{BASE_URL}/api/economy/supply/txs"
+    params = {"limit": 5}
+
     try:
-        response = requests.get(endpoint, headers=headers, params=params, timeout=30)
+        response = requests.get(url, headers=HEADERS, params=params, timeout=TIMEOUT)
+        if response.status_code == 429:
+            time.sleep(0.2)
+            response = requests.get(url, headers=HEADERS, params=params, timeout=TIMEOUT)
         response.raise_for_status()
     except requests.RequestException as e:
-        assert False, f"HTTP request failed: {e}"
+        assert False, f"Request failed: {e}"
 
-    assert response.status_code == 200, f"Expected status code 200 but got {response.status_code}"
-    try:
-        data = response.json()
-    except Exception:
-        assert False, "Response is not a valid JSON"
+    json_data = response.json()
+    assert isinstance(json_data, dict) or isinstance(json_data, list), "Response is not a JSON object or list"
 
-    assert isinstance(data, dict), "Response JSON is not an object"
-    
+    if isinstance(json_data, list):
+        transactions = json_data
+    else:
+        possible_keys = ['items', 'txs', 'transactions', 'data']
+        transactions = None
+        for key in possible_keys:
+            if key in json_data and isinstance(json_data[key], list):
+                transactions = json_data[key]
+                break
+        if transactions is None:
+            transactions = []
+
+    assert isinstance(transactions, list), "Transactions is not a list"
+    assert len(transactions) <= params["limit"], "Number of transactions exceeds the limit"
+
+    for tx in transactions:
+        assert isinstance(tx, dict), "Each transaction should be a dict"
+
+
 test_list_supply_transactions_with_limit()

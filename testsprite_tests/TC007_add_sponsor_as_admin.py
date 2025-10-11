@@ -3,48 +3,52 @@ import uuid
 
 BASE_URL = "https://telegram-game-room-production.up.railway.app"
 TIMEOUT = 30
-ADMIN_AUTH_TOKEN = "Bearer admin-token-placeholder"  # Replace with valid admin token
+
+HEADERS_ADMIN = {
+    "X-Test-Runner": "testsprite",
+    "User-Agent": "python-requests TestSprite",
+    "x-admin-username": "wilcnct",
+    "x-admin-code": "658072974",
+    "Content-Type": "application/json",
+}
+
 
 def test_add_sponsor_as_admin():
-    url_add = f"{BASE_URL}/api/economy/sponsors/add"
-    url_remove = f"{BASE_URL}/api/economy/sponsors/remove"
-
-    # Generate unique sponsor userId and key for test
-    sponsor_user_id = f"test-sponsor-{uuid.uuid4()}"
-    sponsor_key = f"key-{uuid.uuid4()}"
-    sponsor_description = "Automated test sponsor"
-    sponsor_initial_amount = 1000
-
-    headers = {
-        "Authorization": ADMIN_AUTH_TOKEN,
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "userId": sponsor_user_id,
-        "key": sponsor_key,
-        "description": sponsor_description,
-        "initialAmount": sponsor_initial_amount
+    # Prepare test sponsor data
+    test_user_id = f"testsprite-{uuid.uuid4()}"
+    sponsor_data = {
+        "userId": test_user_id,
+        "key": "testkey123",
+        "description": "Test Sponsor added by admin",
+        "initialAmount": 1000
     }
 
     try:
-        response = requests.post(url_add, json=payload, headers=headers, timeout=TIMEOUT)
-        assert response.status_code == 200, f"Expected status 200, got {response.status_code}"
-        json_resp = response.json()
-        # Validate response content as needed (assuming it returns the created sponsor info or success flag)
-        assert json_resp is not None, "Response JSON is None"
-        # Optionally check keys in response, example if returned
-        # Could check if 'userId' or 'key' are in response JSON if API defines this
-    except (requests.RequestException, AssertionError) as e:
-        raise AssertionError(f"Failed to add sponsor as admin: {e}")
+        # POST /api/economy/sponsors/add as admin
+        resp = requests.post(
+            f"{BASE_URL}/api/economy/sponsors/add",
+            json=sponsor_data,
+            headers=HEADERS_ADMIN,
+            timeout=TIMEOUT,
+        )
+        assert resp.status_code == 200, f"Expected status 200, got {resp.status_code}"
+        resp_json = resp.json()
+        assert "success" in resp_json, "'success' field missing from response"
+        assert resp_json["success"] is True, "Response success is not True"
+        assert "sponsors" in resp_json, "'sponsors' field missing from response"
+        assert isinstance(resp_json["sponsors"], list), "'sponsors' is not a list"
+        # Validate added sponsor is in returned sponsors list by userId
+        assert any(s.get("userId") == test_user_id for s in resp_json["sponsors"]), (
+            f"Sponsor with userId {test_user_id} not found in response sponsors"
+        )
     finally:
-        # Clean up: remove the created sponsor to avoid side effects
-        try:
-            remove_payload = {"userId": sponsor_user_id}
-            remove_response = requests.post(url_remove, json=remove_payload, headers=headers, timeout=TIMEOUT)
-            assert remove_response.status_code == 200, f"Failed to remove sponsor, status {remove_response.status_code}"
-        except Exception as cleanup_err:
-            # Log cleanup failure but do not override test failure if exists
-            print(f"Cleanup error removing sponsor {sponsor_user_id}: {cleanup_err}")
+        # Cleanup: remove the test sponsor by admin
+        requests.post(
+            f"{BASE_URL}/api/economy/sponsors/remove",
+            json={"userId": test_user_id},
+            headers=HEADERS_ADMIN,
+            timeout=TIMEOUT,
+        )
+
 
 test_add_sponsor_as_admin()

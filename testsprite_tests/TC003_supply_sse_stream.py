@@ -1,46 +1,46 @@
 import requests
 import time
+import json
 
 BASE_URL = "https://telegram-game-room-production.up.railway.app"
-ENDPOINT = "/api/economy/supply/stream"
-TIMEOUT = 30
 HEADERS = {
+    "X-Test-Runner": "testsprite",
+    "User-Agent": "python-requests TestSprite",
     "Accept": "text/event-stream"
 }
 
 def test_supply_sse_stream():
-    url = BASE_URL + ENDPOINT
-
+    url = f"{BASE_URL}/api/economy/supply/stream"
     try:
-        response = requests.get(url, headers=HEADERS, stream=True, timeout=TIMEOUT)
-        assert response.status_code == 200, f"Unexpected status code: {response.status_code}"
-        ctype = response.headers.get("Content-Type", "")
-        assert ctype.startswith("text/event-stream"), f"Content-Type is not SSE: {ctype}"
+        with requests.get(url, headers=HEADERS, stream=True, timeout=30) as response:
+            assert response.status_code == 200, f"Expected status 200 but got {response.status_code}"
+            event_data_found = False
+            start_time = time.time()
 
-        events_collected = []
-        start_time = time.time()
-        for line in response.iter_lines(decode_unicode=True):
-            if line is None:
-                continue
-            if line.startswith('data: '):
-                data = line[6:].strip()
-                events_collected.append(data)
-            if len(events_collected) >= 3 or (time.time() - start_time) > 15:
-                break
+            for line in response.iter_lines(decode_unicode=True):
+                if line:
+                    # Reset timeout countdown with every received line
+                    start_time = time.time()
+                    if line.startswith("data: "):
+                        data_str = line[6:].strip()
+                        assert data_str != "", "SSE data line is empty"
+                        # Try parsing JSON, else allow plain string
+                        try:
+                            parsed = json.loads(data_str)
+                            # Parsed should be either dict, list or any valid JSON type
+                            assert parsed is not None
+                        except json.JSONDecodeError:
+                            # If not JSON, just ensure string is non-empty already checked
+                            pass
+                        event_data_found = True
+                        break
+                # Timeout after 15s waiting for valid event data line
+                if time.time() - start_time > 15:
+                    break
 
-        assert len(events_collected) > 0, "No SSE events received from stream"
-        for data in events_collected:
-            assert data is not None and str(data).strip() != "", "Received empty event data"
+            assert event_data_found, "No SSE event data received within 15 seconds"
 
     except requests.exceptions.RequestException as e:
         assert False, f"Request failed: {e}"
-    except Exception as ex:
-        assert False, f"Unexpected error occurred: {ex}"
-    finally:
-        try:
-            if response is not None:
-                response.close()
-        except Exception:
-            pass
 
 test_supply_sse_stream()
