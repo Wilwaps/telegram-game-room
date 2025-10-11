@@ -116,7 +116,10 @@ class Room {
       isReady: false,
       stats: {
         movesCount: 0,
-        averageMoveTime: 0
+        averageMoveTime: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0
       }
     });
 
@@ -248,6 +251,28 @@ class Room {
     this.winningLine = winningLine;
     this.endTime = Date.now();
     this.lastActivity = Date.now();
+
+    // Actualizar estadísticas por sala (victorias/derrotas/empates)
+    try {
+      if (winnerId) {
+        const winner = this.players.find(p => p.userId === winnerId);
+        const loser = this.players.find(p => p.userId !== winnerId);
+        if (winner) {
+          winner.stats = winner.stats || {};
+          winner.stats.wins = (winner.stats.wins || 0) + 1;
+        }
+        if (loser) {
+          loser.stats = loser.stats || {};
+          loser.stats.losses = (loser.stats.losses || 0) + 1;
+        }
+      } else {
+        // Empate
+        this.players.forEach(p => {
+          p.stats = p.stats || {};
+          p.stats.draws = (p.stats.draws || 0) + 1;
+        });
+      }
+    } catch (_) { /* no-op */ }
   }
 
   /**

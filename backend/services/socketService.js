@@ -995,7 +995,8 @@ class SocketService {
             board: room.board,
             message: '¡Empate!',
             duration: room.getGameDuration(),
-            moves: room.moves?.length || 0
+            moves: room.moves?.length || 0,
+            room: room.toJSON()
           });
           // Recompensa de fuegos solo si es PvP (2 jugadores) y Tic Tac Toe
           const isPvp = Array.isArray(room.players) && room.players.length === 2;
@@ -1031,7 +1032,8 @@ class SocketService {
             board: room.board,
             message: `¡${player.userName} ha ganado!`,
             duration: room.getGameDuration(),
-            moves: room.moves?.length || 0
+            moves: room.moves?.length || 0,
+            room: room.toJSON()
           });
           // Recompensa de fuegos solo si es PvP (2 jugadores) y Tic Tac Toe
           const isPvp = Array.isArray(room.players) && room.players.length === 2;
@@ -1344,7 +1346,8 @@ class SocketService {
           message: 'Tu oponente abandonó la partida',
           board: room.board,
           duration: room.getGameDuration(),
-          moves: room.moves?.length || 0
+          moves: room.moves?.length || 0,
+          room: room.toJSON()
         });
       }
     }
@@ -1497,7 +1500,8 @@ class SocketService {
             reason: 'timeout',
             board: room.board,
             duration: room.getGameDuration(),
-            moves: room.moves?.length || 0
+            moves: room.moves?.length || 0,
+            room: room.toJSON()
           });
 
           // Conservar la sala en estado FINISHED para permitir revancha

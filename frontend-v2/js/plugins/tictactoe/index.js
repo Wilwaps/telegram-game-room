@@ -292,7 +292,10 @@ const TTT = {
 
     const onGameDraw = ({ room })=>{
       try{
-        setRoom(room); state.phase='finished'; if (!wrap.contains(viewFinished)) wrap.appendChild(viewFinished); render();
+        setRoom(room);
+        state.rematch = { ready: 0, total: (Array.isArray(room?.players)? room.players.length : 2) };
+        state.result = { winner: null, winnerName: null };
+        state.phase='finished'; if (!wrap.contains(viewFinished)) wrap.appendChild(viewFinished); render();
         UI.showToast('Empate','warning');
       }catch(e){ }
     };
@@ -301,6 +304,7 @@ const TTT = {
       try{
         if (room) setRoom(room);
         state.result = { winner, winnerName };
+        state.rematch = { ready: 0, total: (Array.isArray((room||state.room)?.players)? (room||state.room).players.length : 2) };
         state.phase='finished'; if (!wrap.contains(viewFinished)) wrap.appendChild(viewFinished); render();
         const msg = winner ? `Ganador: ${winnerName||winner}` : 'Partida finalizada';
         UI.showToast(msg,'success');
@@ -401,17 +405,30 @@ const TTT = {
     function renderFinished(){
       const r = state.room || {};
       const res = state.result || {};
-      const winnerTxt = res.winner ? `Ganador: ${Utils.escapeHtml(res.winnerName||res.winner)}` : 'Partida finalizada';
+      const me = String(state.userId||'');
+      const isWin = res.winner && String(res.winner)===me;
+      const isLose = res.winner && String(res.winner)!==me;
+      const titleTxt = res.winner ? `Ganador: ${Utils.escapeHtml(res.winnerName||res.winner)}` : 'Empate';
+      const msgTxt = res.winner ? (isWin ? '¡Felicitaciones! Has ganado.' : 'Ánimo, la próxima va mejor.') : 'Partida empatada.';
       const ready = state.rematch?.ready || 0; const total = state.rematch?.total || (Array.isArray(r.players)? r.players.length : 2);
+      const statsHtml = (Array.isArray(r.players)? r.players : []).map(p=>{
+        const w = p?.stats?.wins||0, l = p?.stats?.losses||0, d = p?.stats?.draws||0;
+        return `<div class="ttt-player"><strong>${Utils.escapeHtml(p.userName||p.userId)}</strong> <span class="ttt-badge">W ${w} · L ${l} · D ${d}</span></div>`;
+      }).join('');
       viewFinished.innerHTML = `
         <div class="ttt-row" style="justify-content:space-between">
-          <div><div class="muted">Resultado</div><div class="ttt-badge">${winnerTxt}</div></div>
+          <div><div class="muted">Resultado</div><div class="ttt-badge">${titleTxt}</div></div>
           <div class="muted">Sala ${String(r.code||'').replace(/\D/g,'').slice(0,6)}</div>
+        </div>
+        <div class="ttt-row" style="justify-content:space-between">
+          <div class="muted">Mensaje</div>
+          <div class="ttt-badge">${msgTxt}</div>
         </div>
         <div class="ttt-row" style="justify-content:space-between">
           <div class="muted">Revancha</div>
           <div class="ttt-badge">Listos ${ready}/${total}</div>
         </div>
+        <div class="ttt-col" style="margin-top:8px">${statsHtml||''}</div>
         <div class="ttt-row" style="justify-content:flex-end">
           <button id="ttt-rematch" class="btn btn-primary">Revancha</button>
         </div>
