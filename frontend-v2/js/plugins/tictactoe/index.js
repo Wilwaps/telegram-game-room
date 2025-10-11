@@ -38,12 +38,17 @@ const TTT = {
     .ttt-badge{padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
     .ttt-mode{display:flex;gap:10px;align-items:center}
     .ttt-timer{font-weight:700;color:#fff;background:rgba(153,0,255,.22);border:1px solid rgba(255,255,255,.12);padding:6px 10px;border-radius:10px}
+    .ttt-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+    .ttt-room{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px}
     `;
     document.head.appendChild(style);
     disposers.push(()=>{ try{ document.head.removeChild(style); }catch(_){} });
 
     const wrap = document.createElement('div');
     wrap.className = 'ttt-wrap';
+
+    // Eliminar overlays de Bingo si quedaron montados (evita bloqueos de click)
+    try{ document.querySelectorAll('.bn-claim-overlay,.bn-fab').forEach(el=>el.remove()); }catch(_){ }
 
     // Views
     const viewMenu = document.createElement('div');
@@ -66,15 +71,23 @@ const TTT = {
     const viewGame = document.createElement('div');
     viewGame.className = 'ttt-card';
 
+    // Listado de salas públicas
+    const viewPublic = document.createElement('div');
+    viewPublic.className = 'ttt-card';
+    viewPublic.innerHTML = `<h4 style="margin:0 0 8px">Salas públicas</h4><div id="ttt-public" class="ttt-list"></div>`;
+
     wrap.appendChild(viewMenu);
+    wrap.appendChild(viewPublic);
     root.appendChild(wrap);
 
     const s = Socket.socket;
+    state.publicRooms = new Map(); // code -> room
 
     function render(){
       viewMenu.style.display = state.phase==='menu' ? '' : 'none';
       viewWaiting.style.display = state.phase==='waiting' ? '' : 'none';
       viewGame.style.display = state.phase==='playing' || state.phase==='finished' ? '' : 'none';
+      if (viewPublic) viewPublic.style.display = state.phase==='menu' ? '' : 'none';
 
       if (state.phase==='waiting') renderWaiting();
       if (state.phase==='playing' || state.phase==='finished') renderGame();
@@ -111,7 +124,7 @@ const TTT = {
         <div class="ttt-players">${pHtml}</div>
         <div class="ttt-row" style="justify-content:flex-end">
           ${isHost?`<button id="ttt-start" class="btn btn-primary" ${players.length<2?'disabled':''}>Iniciar</button>`:''}
-{{ ... }}
+        </div>
       `;
 
       // Bind mode apply
@@ -260,8 +273,13 @@ const TTT = {
       }catch(e){ console.error(e); }
     };
 
-    const onMoveMade = ({ room })=>{
-      try{ setRoom(room); render(); }catch(e){ }
+    const onMoveMade = (data)=>{
+      try{
+        if (!state.room) return;
+        if (Array.isArray(data?.board)) state.room.board = data.board;
+        if (data?.currentTurn) state.room.currentTurn = data.currentTurn;
+        render();
+      }catch(e){ }
     };
 
     const onGameDraw = ({ room })=>{
@@ -300,6 +318,28 @@ const TTT = {
     disposers.push(()=>{ try{ s.off && s.off('game_over', onGameOver);}catch(_){}});
     disposers.push(()=>{ try{ s.off && s.off('error', onError);}catch(_){}});
 
+    function renderPublic(){
+      try{
+        const listEl = viewPublic.querySelector('#ttt-public');
+        if (!listEl) return;
+        const rooms = Array.from(state.publicRooms.values()).filter(r=> (r?.gameType||'')==='tic-tac-toe');
+        if (!rooms.length){ listEl.innerHTML = '<div class="muted">Sin salas públicas</div>'; return; }
+        listEl.innerHTML = rooms.map(r=>{
+          const code = String(r.code||'').replace(/\D/g,'').slice(0,6);
+          const ply = (Array.isArray(r.players)? r.players.length : 0);
+          return `<div class="ttt-room"><div><strong>${code}</strong> · ${ply}/2</div><div><button class="btn btn-outline" data-join="${code}">Unirse</button></div></div>`;
+        }).join('');
+        listEl.querySelectorAll('button[data-join]').forEach(btn=>{
+          btn.onclick = ()=>{
+            const code = btn.getAttribute('data-join');
+            const input = viewMenu.querySelector('#ttt-code');
+            if (input) input.value = code;
+            try{ s.emit('join_room', code); }catch(e){ UI.showToast('No se pudo unir','error'); }
+          };
+        });
+      }catch(_){ }
+    }
+
     // Bind menú
     viewMenu.querySelector('#ttt-create').addEventListener('click', ()=>{
       try{ s.emit('create_room', { isPublic:false, gameType:'tic-tac-toe' }); }catch(e){ UI.showToast('No se pudo crear','error'); }
@@ -312,8 +352,25 @@ const TTT = {
       try{ s.emit('join_room', v); }catch(e){ UI.showToast('No se pudo unir','error'); }
     });
 
+    // Eventos de salas públicas
+    const seedRooms = (list)=>{ try{ (Array.isArray(list)?list:[]).forEach(r=>{ if (r?.gameType==='tic-tac-toe' && r.isPublic) state.publicRooms.set(r.code, r); }); renderPublic(); }catch(_){ } };
+    Socket.on && Socket.on('rooms_list', (list)=> seedRooms(list));
+    const onRoomAdded = (room)=>{ try{ if (room?.gameType==='tic-tac-toe'){ state.publicRooms.set(room.code, room); renderPublic(); } }catch(_){ } };
+    const onRoomUpdList = (room)=>{ try{ if (!room) return; if (room?.gameType!=='tic-tac-toe') return; if (!room.isPublic || room.status==='finished'){ state.publicRooms.delete(room.code); } else { state.publicRooms.set(room.code, room); } renderPublic(); }catch(_){ } };
+    const onRoomRemoved = (code)=>{ try{ state.publicRooms.delete(code); renderPublic(); }catch(_){ } };
+    s.on && s.on('room_added', onRoomAdded);
+    s.on && s.on('room_updated', onRoomUpdList);
+    s.on && s.on('room_removed', onRoomRemoved);
+    disposers.push(()=>{ try{ s.off && s.off('room_added', onRoomAdded); }catch(_){} });
+    disposers.push(()=>{ try{ s.off && s.off('room_updated', onRoomUpdList); }catch(_){} });
+    disposers.push(()=>{ try{ s.off && s.off('room_removed', onRoomRemoved); }catch(_){} });
+
+    // Sembrar con lista inicial si ya llegó antes de montar
+    try{ const initial = (window.AppV2 && window.AppV2._roomsList) ? window.AppV2._roomsList : null; if (initial) seedRooms(initial); }catch(_){ }
+
     // inicial
     render();
+    renderPublic();
 
     // retorno de plugin
     const plugin = {

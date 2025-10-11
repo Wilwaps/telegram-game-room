@@ -183,6 +183,14 @@ App.setupSocket = async function(){
         UI.showToast(`🔥 ${sign}${tx.amount} ${tx.reason?'- '+tx.reason:''}`,'success');
       }
     });
+    // Lista inicial de salas (backend la envía al autenticar)
+    s.on('rooms_list', (list)=>{
+      try{
+        App._roomsList = Array.isArray(list) ? list : [];
+        // Notificar por bus local para que los plugins montados tarden puedan recibirla
+        Socket.emitLocal('rooms_list', App._roomsList);
+      }catch(_){ }
+    });
     // bingo: fallback para asegurar HUD tras reembolsos inmediatos
     try{ s.on('player_left_bingo', ()=>{ try{ s.emit('get_fires'); }catch(_){ } }); }catch(_){ }
     try{ s.on('host_left_bingo', ()=>{ try{ s.emit('get_fires'); }catch(_){ } }); }catch(_){ }
