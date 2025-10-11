@@ -194,6 +194,18 @@ App.setupSocket = async function(){
     // bingo: fallback para asegurar HUD tras reembolsos inmediatos
     try{ s.on('player_left_bingo', ()=>{ try{ s.emit('get_fires'); }catch(_){ } }); }catch(_){ }
     try{ s.on('host_left_bingo', ()=>{ try{ s.emit('get_fires'); }catch(_){ } }); }catch(_){ }
+
+    // Manejo global de errores emitidos por el servidor
+    // El backend emite 'error' (constants.SOCKET_EVENTS.ERROR)
+    try{
+      s.on('error', (err)=>{
+        try {
+          const msg = (err && (err.message || err.error || err.msg)) || 'Error';
+          UI.showToast(msg, 'error');
+          UI.log(`srv:error ${typeof err==='object'? JSON.stringify(err): String(err)}`, 'error', 'v2');
+        } catch(_){ }
+      });
+    }catch(_){ }
   }catch(e){ console.warn('socket setup failed', e); }
 };
 
