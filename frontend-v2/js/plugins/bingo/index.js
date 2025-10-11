@@ -43,7 +43,7 @@ const BingoV2 = {
 
   mount(root, ctx){
     const { UI:ui = UI } = ctx || {};
-    const state = { drawn: new Set(), recent: [], card: generateCard(), cards: [], activeCardId: null, last: null, room: null, isHost: false, userId: (ctx && ctx.user && ctx.user.userId) || null, missingUserIds: [], ecoMode: 'friendly', finishing: false, claimAction: 'claim' };
+    const state = { drawn: new Set(), recent: [], card: generateCard(), cards: [], activeCardId: null, last: null, room: null, isHost: false, userId: (ctx && ctx.user && ctx.user.userId) || null, missingUserIds: [], ecoMode: 'friendly', finishing: false, claimAction: 'claim', pendingStart: false };
     const disposers = [];
 
     const wrap = document.createElement('div');
@@ -251,8 +251,8 @@ const BingoV2 = {
             if (ecoMode === 'fire' && ticketInput && ticketInput.style.display !== 'none') {
               payload.ticketPrice = parseInt(ticketInput.value||'1',10)||1;
             }
+            state.pendingStart = true;
             Socket.socket.emit('bingo_set_mode', payload);
-            Socket.socket.emit('start_bingo', { roomCode: state.room.code });
           } catch(e){ ui.showToast('No se pudo iniciar','error'); }
         };
       }
@@ -284,8 +284,8 @@ const BingoV2 = {
             if (ecoMode === 'fire' && ticketInput && ticketInput.style.display !== 'none') {
               payload.ticketPrice = parseInt(ticketInput.value||'1',10)||1;
             }
+            state.pendingStart = true;
             Socket.socket.emit('bingo_set_mode', payload);
-            Socket.socket.emit('start_bingo', { roomCode: state.room.code });
           } catch(e){ ui.showToast('No se pudo iniciar','error'); }
         };
       }
@@ -622,11 +622,11 @@ const BingoV2 = {
         };
         const onStarted = ({ room })=>{ try {
           state.room = room;
+          // Aplicar toggles de paneles mediante lobby render
+          renderLobby();
           renderDraw();
           renderCard();
           try { Socket.socket && Socket.socket.emit && Socket.socket.emit('get_bingo_cards', { roomCode: state.room && state.room.code }); } catch(_){ }
-          if (menuPanel) menuPanel.style.display = room.started ? 'none' : '';
-          if (lobbyPanel) lobbyPanel.style.display = room.started ? 'none' : '';
           ui.showToast('Bingo iniciado','success');
           ui.log('bingo:started', 'info', 'bingo-v2');
         }catch(_){ } };
@@ -730,6 +730,11 @@ const BingoV2 = {
           const intervalWrap = menuPanel.querySelector('#bn-interval-wrap');
           if (intervalWrap) intervalWrap.style.display = (autoDrawEl && autoDrawEl.checked) ? '' : 'none';
           renderLobby();
+          // Si estamos en flujo de inicio, arrancar cuando el modo haya sido aplicado
+          if (state.isHost && state.pendingStart) {
+            state.pendingStart = false;
+            try { Socket.socket.emit('start_bingo', { roomCode: state.room.code }); } catch(e){ ui.showToast('No se pudo iniciar','error'); }
+          }
         }catch(_){}};
 
         s.on('bingo_room_created', onRoomCreated);

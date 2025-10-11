@@ -602,21 +602,22 @@ class SocketService {
           const desired = Math.max(1, parseInt(room.maxCardsPerUser || 1, 10));
           const perUserCards = new Map();
           for (const p of room.players || []) {
-            let prev = await redisService.getBingoCards(code, p.userId) || [];
+            const uid = String(p.userId);
+            let prev = await redisService.getBingoCards(code, uid) || [];
             if (prev.length > desired) {
               prev = prev.slice(0, desired);
-              await redisService.setBingoCards(code, p.userId, prev);
+              await redisService.setBingoCards(code, uid, prev);
             }
             const missing = Math.max(0, desired - prev.length);
             if (missing > 0) {
               const add = [];
-              for (let i = 0; i < missing; i++) add.push(bingoService.generateCard(p.userId));
+              for (let i = 0; i < missing; i++) add.push(bingoService.generateCard(uid));
               const combined = [...prev, ...add];
-              await redisService.setBingoCards(code, p.userId, combined);
-              perUserCards.set(String(p.userId), combined);
+              await redisService.setBingoCards(code, uid, combined);
+              perUserCards.set(uid, combined);
               p.cardsCount = combined.length;
             } else {
-              perUserCards.set(String(p.userId), prev);
+              perUserCards.set(uid, prev);
               p.cardsCount = prev.length;
             }
           }
@@ -656,8 +657,9 @@ class SocketService {
           try {
             const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
             for (const p of room.players || []) {
-              const cards = perUserCards.get(String(p.userId)) || (await redisService.getBingoCards(code, p.userId) || []);
-              allSockets.filter(s => s.userId === p.userId).forEach(s => {
+              const uid = String(p.userId);
+              const cards = perUserCards.get(uid) || (await redisService.getBingoCards(code, uid) || []);
+              allSockets.filter(s => String(s.userId) === uid).forEach(s => {
                 s.emit('bingo_cards', { roomCode: code, cards });
               });
             }
