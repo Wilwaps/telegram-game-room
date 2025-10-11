@@ -224,14 +224,14 @@ class BingoService {
   }
 
   /**
-   * Calcular distribución del pot (50% ganador, 30% host, 20% global)
+   * Calcular distribución del pot (70% ganador, 20% host, 10% sponsor)
    */
   calculateDistribution(pot) {
-    const winner = Math.floor(pot * 0.5);
-    const host = Math.floor(pot * 0.3);
-    const global = pot - winner - host; // resto al global para suma exacta
+    const winner = Math.floor(pot * 0.7);
+    const host = Math.floor(pot * 0.2);
+    const sponsor = pot - winner - host; // resto al sponsor para suma exacta
 
-    return { winner, host, global };
+    return { winner, host, sponsor };
   }
 
   /**

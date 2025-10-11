@@ -7,22 +7,22 @@
   {
     "id": "TC002",
     "title": "list_supply_transactions_with_limit",
-    "description": "Test the GET /api/economy/supply/txs endpoint with a limit query parameter to ensure it returns a paginated list of supply transactions."
+    "description": "Test the GET /api/economy/supply/txs endpoint with a limit query parameter to ensure it returns a list of supply transactions correctly."
   },
   {
     "id": "TC003",
-    "title": "supply_sse_stream_connection",
-    "description": "Test the GET /api/economy/supply/stream endpoint to verify it establishes a Server-Sent Events (SSE) stream and sends supply updates correctly."
+    "title": "supply_sse_stream",
+    "description": "Test the GET /api/economy/supply/stream endpoint to verify it establishes a Server-Sent Events stream for real-time supply updates."
   },
   {
     "id": "TC004",
     "title": "list_users_with_fires_pagination_and_search",
-    "description": "Test the GET /api/economy/users endpoint with cursor, limit, and search query parameters to verify it returns a filtered and paginated list of users with fires."
+    "description": "Test the GET /api/economy/users endpoint with cursor, limit, and search query parameters to verify it returns a paginated and filtered list of users with their fires."
   },
   {
     "id": "TC005",
     "title": "get_user_fires_history_with_pagination",
-    "description": "Test the GET /api/economy/history/{userId} endpoint with limit and offset query parameters to ensure it returns the correct paginated history of fires transactions for the specified user."
+    "description": "Test the GET /api/economy/history/{userId} endpoint with userId path parameter and limit and offset query parameters to verify it returns the user's fires transaction history."
   },
   {
     "id": "TC006",
@@ -31,22 +31,22 @@
   },
   {
     "id": "TC007",
-    "title": "add_sponsor_with_valid_data",
-    "description": "Test the POST /api/economy/sponsors/add endpoint with valid sponsor data and admin authorization to verify a sponsor is added successfully."
+    "title": "add_sponsor_as_admin",
+    "description": "Test the POST /api/economy/sponsors/add endpoint with valid sponsor data to verify that an admin can add a new sponsor successfully."
   },
   {
     "id": "TC008",
-    "title": "remove_sponsor_with_valid_userid",
-    "description": "Test the POST /api/economy/sponsors/remove endpoint with a valid userId and admin authorization to verify the sponsor is removed successfully."
+    "title": "transfer_fires_as_sponsor",
+    "description": "Test the POST /api/economy/transfer endpoint with valid fromUserId, toUserId, amount, and optional reason and sponsorKey to verify fires transfer functionality."
   },
   {
     "id": "TC009",
-    "title": "transfer_fires_between_users",
-    "description": "Test the POST /api/economy/transfer endpoint with valid fromUserId, toUserId, amount, and optional sponsorKey to verify fires are transferred correctly and transaction is recorded."
+    "title": "get_xp_thresholds",
+    "description": "Test the GET /api/xp/config endpoint to verify it returns the current XP thresholds configuration."
   },
   {
     "id": "TC010",
-    "title": "redeem_item_from_store",
-    "description": "Test the POST /api/store/redeem endpoint with valid userId and itemId to verify the item redemption process using fires works correctly and returns status 200."
+    "title": "update_xp_thresholds",
+    "description": "Test the POST /api/xp/config endpoint with a valid thresholds object to verify that XP thresholds can be updated successfully."
   }
 ]

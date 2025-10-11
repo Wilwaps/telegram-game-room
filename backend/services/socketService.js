@@ -420,11 +420,10 @@ class SocketService {
             ticketPrice,
             maxCardsPerUser
           });
-          // Auto-unir al anfitrión con 1 cartón (amistoso por defecto no cobra)
+          // Auto-unir al anfitrión sin cartones; elige luego en lobby (Mis cartones)
           try {
-            room.addPlayer(socket.userId, socket.userName, 1);
-            const hostCard = bingoService.generateCard(socket.userId);
-            await redisService.setBingoCards(code, socket.userId, [hostCard]);
+            room.addPlayer(socket.userId, socket.userName, 0);
+            await redisService.setBingoCards(code, socket.userId, []);
           } catch (e) { logger.warn('Bingo: no se pudo auto-unir anfitrión:', e?.message); }
           await redisService.setBingoRoom(code, room);
           socket.join(code);
@@ -459,6 +458,7 @@ class SocketService {
             combined = [...prevCards, ...add];
           }
           await redisService.setBingoCards(roomCode, socket.userId, combined);
+          try { logger.info(`[BINGO] JOIN user=${socket.userId} desired=${desired} prev=${prevCards.length} new=${combined.length}`); } catch(_){}
 
           // Actualizar sala
           const existing = room.getPlayer(socket.userId);
@@ -515,6 +515,7 @@ class SocketService {
           await redisService.setBingoCards(code, socket.userId, combined);
           me.cardsCount = combined.length;
           await redisService.setBingoRoom(code, room);
+          try { logger.info(`[BINGO] SET_CARDS user=${socket.userId} desired=${desired} new=${combined.length}`); } catch(_){}
           // Emitir al propio jugador sus cartones
           socket.emit('bingo_cards', { roomCode: code, cards: combined });
           // Recalcular bloqueo por economía en modo fuego y actualizar lobby
@@ -650,7 +651,7 @@ class SocketService {
           for (const p of room.players || []) {
             const uid = String(p.userId);
             let prev = await redisService.getBingoCards(code, uid) || [];
-            const desired = Math.max(1, Math.min(10, prev.length || parseInt(p.cardsCount || 0, 10) || 1));
+            const desired = Math.max(1, Math.min(10, parseInt(p.cardsCount || 0, 10) || prev.length || 1));
             if (prev.length > desired) {
               prev = prev.slice(0, desired);
               await redisService.setBingoCards(code, uid, prev);
@@ -667,6 +668,7 @@ class SocketService {
               perUserCards.set(uid, prev);
               p.cardsCount = prev.length;
             }
+            try { logger.info(`[BINGO] PREP_START user=${uid} prev=${prev.length} desired=${desired} set=${(perUserCards.get(uid)||prev).length}`); } catch(_){}
           }
 
           // Validar y descontar fuegos al iniciar (modo 🔥)
@@ -681,6 +683,7 @@ class SocketService {
               const ok = parseInt(bal?.fires || 0, 10) >= cost;
               if (!ok) insufficientUserIds.push(String(p.userId));
               playerCosts.push({ userId: p.userId, cost });
+              try { logger.info(`[BINGO] COST_CHECK user=${p.userId} cnt=${cnt} cost=${cost} bal=${bal?.fires}`); } catch(_){}
             }
             if (insufficientUserIds.length > 0) {
               this.io.to(code).emit(constants.SOCKET_EVENTS.BINGO_MODE_UPDATED, { room: room.toJSON(), missingUserIds: insufficientUserIds });
@@ -692,7 +695,12 @@ class SocketService {
               const res = await this.economy.spend(pc.userId, pc.cost, { reason: 'bingo_entry', roomCode: code });
               room.entries[pc.userId] = (room.entries[pc.userId] || 0) + pc.cost;
               room.pot += pc.cost;
+              try { 
+                logger.info(`[BINGO] SPENT user=${pc.userId} amount=${pc.cost} newBal=${res.fires} pot=${room.pot}`);
+                logger.info(`[BINGO] SPENT user=${pc.userId} cards=${JSON.stringify(perUserCards.get(String(pc.userId)))}`);
+              } catch(_){}
               // Notificar saldo al jugador
+              const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
               allSockets.filter(s => s.userId === pc.userId).forEach(s => {
                 s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: res.fires });
                 if (res.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, res.tx);
@@ -804,23 +812,41 @@ class SocketService {
             return socket.emit(constants.SOCKET_EVENTS.BINGO_INVALID, { reason: result.reason });
           }
 
-          // Distribución 50/30/20
+          // Distribución 70/20/10 (ganador/host/sponsorId)
           const dist = bingoService.calculateDistribution(room.pot);
-          const winRes = await this.economy.grantToUser(socket.userId, dist.winner, { reason: 'bingo_winner', roomCode: code });
-          const hostRes = await this.economy.grantToUser(room.hostId, dist.host, { reason: 'bingo_host', roomCode: code });
+          const sponsorUserId = '1417856820';
+          let winRes = null, hostRes = null, sponsorRes = null;
+          if (dist.winner > 0) {
+            winRes = await this.economy.grantToUser(socket.userId, dist.winner, { reason: 'bingo_winner', roomCode: code });
+          }
+          if (dist.host > 0) {
+            hostRes = await this.economy.grantToUser(room.hostId, dist.host, { reason: 'bingo_host', roomCode: code });
+          }
+          if (dist.sponsor > 0) {
+            sponsorRes = await this.economy.grantToUser(sponsorUserId, dist.sponsor, { reason: 'bingo_sponsor', roomCode: code });
+          }
           const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
           // Emitir a ganador
-          allSockets.filter(s => s.userId === socket.userId).forEach(s => {
-            s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: winRes.fires });
-            if (winRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, winRes.tx);
-          });
+          if (winRes) {
+            allSockets.filter(s => s.userId === socket.userId).forEach(s => {
+              s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: winRes.fires });
+              if (winRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, winRes.tx);
+            });
+          }
           // Emitir a host
-          allSockets.filter(s => s.userId === room.hostId).forEach(s => {
-            s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: hostRes.fires });
-            if (hostRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, hostRes.tx);
-          });
-          // Global pool
-          await redisService.client.incrby('global:firePool', dist.global);
+          if (hostRes) {
+            allSockets.filter(s => s.userId === room.hostId).forEach(s => {
+              s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: hostRes.fires });
+              if (hostRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, hostRes.tx);
+            });
+          }
+          // Emitir a sponsor (si está conectado)
+          if (sponsorRes) {
+            allSockets.filter(s => String(s.userId) === sponsorUserId).forEach(s => {
+              s.emit(constants.SOCKET_EVENTS.FIRES_UPDATED, { fires: sponsorRes.fires });
+              if (sponsorRes.tx) s.emit(constants.SOCKET_EVENTS.FIRES_TRANSACTION, sponsorRes.tx);
+            });
+          }
 
           room.finish(socket.userId, cardId);
           await redisService.setBingoRoom(code, room);

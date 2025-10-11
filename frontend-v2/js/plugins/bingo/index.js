@@ -217,6 +217,14 @@ const BingoV2 = {
           const code = room.code;
           const me = (room.players||[]).find(p=>String(p.userId)===String(state.userId));
           const next = !(me&&me.ready);
+          try {
+            const myCardsEl2 = lobbyPanel.querySelector('#bn-my-cards');
+            if (myCardsEl2) {
+              const raw = parseInt(myCardsEl2.value,10);
+              const v = Math.max(1, Math.min(10, isNaN(raw)?1:raw));
+              if (s && s.emit) { s.emit('bingo_set_cards', { roomCode: code, count: v }); }
+            }
+          } catch(_){ }
           if (s && s.emit) { try{ s.emit('bingo_set_ready', { roomCode: code, ready: next }); }catch(_){}}
           else { // fallback offline
             if (me) me.ready = next;
@@ -294,12 +302,14 @@ const BingoV2 = {
       }
       const myCardsEl = lobbyPanel.querySelector('#bn-my-cards');
       if (myCardsEl) {
-        myCardsEl.onchange = ()=>{
+        const syncCards = ()=>{
           const raw = parseInt(myCardsEl.value,10);
           const v = Math.max(1, Math.min(10, isNaN(raw)?1:raw));
           myCardsEl.value = String(v);
           try { Socket.socket && Socket.socket.emit && Socket.socket.emit('bingo_set_cards', { roomCode: room.code, count: v }); } catch(_){ ui.showToast('No se pudo ajustar cartones','error'); }
         };
+        myCardsEl.onchange = syncCards;
+        myCardsEl.oninput = syncCards;
       }
       const leaveBtn = lobbyPanel.querySelector('#bn-leave');
       if (leaveBtn) {
@@ -413,7 +423,7 @@ const BingoV2 = {
         if (claimBtn) {
           if (eco === 'fire') {
             const pot = (state.room && state.room.pot) || 0;
-            const reward = Math.floor(pot * 0.5);
+            const reward = Math.floor(pot * 0.7);
             claimBtn.textContent = `Reclamar ${reward} 🔥`;
           } else {
             claimBtn.textContent = '¡Bingo! 🎉';
