@@ -92,14 +92,7 @@ const BingoV2 = {
     // Lobby de espera (dentro de una sala)
     const lobbyPanel = document.createElement('div');
     lobbyPanel.className = 'bn-panel';
-    lobbyPanel.innerHTML = `<div class="bn-titlebar" style="display:flex; align-items:center; justify-content:space-between">
-      <h3 class="bn-title">Sala de Espera</h3>
-      <div class="bn-actions" style="display:flex; gap:8px; align-items:center">
-        <button id="bn-start" class="btn" style="display:none; background:#16a34a; color:#fff">Iniciar</button>
-        <button id="bn-leave" class="btn btn-secondary">Salir</button>
-      </div>
-    </div>
-    <div id="bn-lobby" class="bn-lobby"></div>`;
+    lobbyPanel.innerHTML = `<div id="bn-lobby" class="bn-lobby"></div>`;
     const lobbyRoot = lobbyPanel.querySelector('#bn-lobby');
     wrap.appendChild(lobbyPanel);
 
@@ -191,6 +184,13 @@ const BingoV2 = {
       const playersCount = total;
       const maxPlayers = room.maxPlayers || 30;
       el.innerHTML = `
+        <div class="bn-lobby-top" style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
+          <div style="display:flex; gap:8px; align-items:center"><strong>Sala #${room.code}</strong></div>
+          <div style="display:flex; gap:8px; align-items:center">
+            <button id="bn-share" class="btn btn-sm">Compartir</button>
+            <button id="bn-leave" class="btn btn-secondary btn-sm">Salir</button>
+          </div>
+        </div>
         <div class="bn-lobby-head" style="display:flex; align-items:center; gap:10px; justify-content:space-between">
           <div><strong>Jugadores:</strong> ${playersCount}/${maxPlayers} · Listos ${readyCount}/${total}</div>
         </div>
@@ -294,6 +294,22 @@ const BingoV2 = {
           if (!state.room) return;
           try { Socket.socket.emit('leave_bingo', { roomCode: state.room.code }); } catch(_){ }
           try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
+        };
+      }
+      const shareBtn = lobbyPanel.querySelector('#bn-share');
+      if (shareBtn) {
+        shareBtn.onclick = async ()=>{
+          try {
+            const code = state?.room?.code || '';
+            const text = `Únete a mi sala de Bingo: código ${code}`;
+            const url = location.origin;
+            try { await navigator.clipboard?.writeText?.(text); ui.showToast('Código copiado', 'success'); } catch(_){ }
+            if (navigator.share) {
+              try { await navigator.share({ title: 'Bingo', text, url }); return; } catch(_){ }
+            }
+            const tg = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+            window.open(tg, '_blank');
+          } catch(_){ ui.showToast('No se pudo compartir','error'); }
         };
       }
       if (cardsPanel) cardsPanel.style.display = room.started ? '' : 'none';
