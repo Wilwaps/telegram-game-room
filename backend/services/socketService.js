@@ -447,11 +447,15 @@ class SocketService {
           if (room.isFull()) return socket.emit(constants.SOCKET_EVENTS.ROOM_FULL);
 
           const count = Math.max(1, parseInt(cardsCount, 10));
+          const maxAllowed = Math.max(1, parseInt(room.maxCardsPerUser || 1, 10));
 
           // Generar cartones y ACUMULAR (no sobrescribir)
           const prevCards = await redisService.getBingoCards(roomCode, socket.userId);
+          const existingCount = (prevCards?.length) || 0;
+          const canAdd = Math.max(0, maxAllowed - existingCount);
+          const toAdd = Math.min(count, canAdd);
           const newCards = [];
-          for (let i = 0; i < count; i++) {
+          for (let i = 0; i < toAdd; i++) {
             newCards.push(bingoService.generateCard(socket.userId));
           }
           const combined = [...(prevCards || []), ...newCards];
@@ -460,9 +464,9 @@ class SocketService {
           // Actualizar sala
           const existing = room.getPlayer(socket.userId);
           if (!existing) {
-            room.addPlayer(socket.userId, socket.userName, count);
+            room.addPlayer(socket.userId, socket.userName, combined.length);
           } else {
-            existing.cardsCount = (existing.cardsCount || 0) + count;
+            existing.cardsCount = combined.length;
           }
           await redisService.setBingoRoom(roomCode, room);
 
@@ -594,6 +598,29 @@ class SocketService {
           if (room.hostId !== socket.userId) return this.emitError(socket, 'Solo el anfitrión puede iniciar');
           if (room.started) return this.emitError(socket, 'La partida ya inició');
 
+          // Asegurar que cada jugador tenga exactamente maxCardsPerUser cartones
+          const desired = Math.max(1, parseInt(room.maxCardsPerUser || 1, 10));
+          const perUserCards = new Map();
+          for (const p of room.players || []) {
+            let prev = await redisService.getBingoCards(code, p.userId) || [];
+            if (prev.length > desired) {
+              prev = prev.slice(0, desired);
+              await redisService.setBingoCards(code, p.userId, prev);
+            }
+            const missing = Math.max(0, desired - prev.length);
+            if (missing > 0) {
+              const add = [];
+              for (let i = 0; i < missing; i++) add.push(bingoService.generateCard(p.userId));
+              const combined = [...prev, ...add];
+              await redisService.setBingoCards(code, p.userId, combined);
+              perUserCards.set(String(p.userId), combined);
+              p.cardsCount = combined.length;
+            } else {
+              perUserCards.set(String(p.userId), prev);
+              p.cardsCount = prev.length;
+            }
+          }
+
           // Validar y descontar fuegos al iniciar (modo 🔥)
           if ((room.ecoMode || 'friendly') === 'fire') {
             const insufficientUserIds = [];
@@ -624,6 +651,17 @@ class SocketService {
               });
             }
           }
+
+          // Enviar actualización de cartones a cada jugador
+          try {
+            const allSockets = Array.from(this.io.sockets.sockets?.values?.() || []);
+            for (const p of room.players || []) {
+              const cards = perUserCards.get(String(p.userId)) || (await redisService.getBingoCards(code, p.userId) || []);
+              allSockets.filter(s => s.userId === p.userId).forEach(s => {
+                s.emit('bingo_cards', { roomCode: code, cards });
+              });
+            }
+          } catch(_) {}
 
           const { drawOrder, seed } = bingoService.generateDrawOrder();
           room.drawOrder = drawOrder;

@@ -70,7 +70,7 @@ const BingoV2 = {
             </select>
           </label>
           <label>Max jugadores <input id="bn-max-players" class="input" type="number" min="2" max="100" value="30" style="width:70px" /></label>
-          <label>Max cartones/usuario <input id="bn-max-cards" class="input" type="number" min="1" max="50" value="10" style="width:70px" /></label>
+          <label data-component-name="<label />">Max cartones/usuario <input id="bn-max-cards" class="input" type="number" min="1" max="50" value="1" style="width:70px"></label>
           <label style="display:block; min-width:100%"><input id="bn-autodraw" type="checkbox" /> Auto</label>
           <label id="bn-interval-wrap" style="display:none">Intervalo (s) <input id="bn-interval" class="input" type="number" min="1" max="60" value="5" style="width:100px" /></label>
         </div>
@@ -244,7 +244,7 @@ const BingoV2 = {
               ecoMode,
               mode: gmEl ? gmEl.value : (room.mode||'line'),
               maxPlayers: mpEl ? parseInt(mpEl.value,10)||30 : (room.maxPlayers||30),
-              maxCardsPerUser: mcEl ? parseInt(mcEl.value,10)||10 : (room.maxCardsPerUser||10),
+              maxCardsPerUser: mcEl ? (parseInt(mcEl.value,10)||1) : (room.maxCardsPerUser||1),
               autoDraw: adEl ? !!adEl.checked : !!room.autoDraw,
               drawIntervalMs: ((itEl ? parseInt(itEl.value,10)||5 : Math.round((room.drawIntervalMs||5000)/1000)) * 1000)
             };
@@ -328,7 +328,7 @@ const BingoV2 = {
       cardsRoot.style.gridTemplateColumns = 'repeat(auto-fit, minmax(220px, 1fr))';
       cardsRoot.style.gap = '12px';
       const arr = (state.cards && state.cards.length) ? state.cards : [state.card];
-      const show = arr.slice(0,2);
+      const show = arr;
       show.forEach((c)=>{
         const cardEl = document.createElement('div');
         cardEl.className = 'bn-card';
@@ -645,6 +645,12 @@ const BingoV2 = {
             claimBtn.textContent = 'Salir';
           } catch(_){ }
         } catch(_){ } };
+        const onCardsSync = ({ roomCode, cards })=>{ try {
+          if (!state.room || String(state.room.code) !== String(roomCode)) return;
+          state.cards = Array.isArray(cards) ? cards.map(k=>({ id:k.id, numbers:k.numbers, marked: new Set(k.marked||[]) })) : [];
+          if (state.cards.length){ state.card = state.cards[0]; state.activeCardId = state.card.id; }
+          renderCard();
+        } catch(_){ } };
         const onWinner = ({ userId, userName, distribution })=>{ try {
           const isMe = String(userId||'') === String(state.userId||'');
           const eco = (state.room && state.room.ecoMode) || 'friendly';
@@ -657,23 +663,35 @@ const BingoV2 = {
             'Gran partida, vamos por más.'
           ];
           const msg = cons[Math.floor(Math.random()*cons.length)];
-          if (isMe) {
-            if (eco === 'fire') {
-              const amount = (distribution && distribution.winner) || 0;
-              ui.showToast(`¡Ganaste! +${amount} 🔥`, 'success');
-            } else {
-              ui.showToast('¡Ganaste! 🎉', 'success');
-            }
+          if (isMe && eco === 'fire') {
+            const amount = (distribution && distribution.winner) || 0;
+            // Mostrar CTA de reclamo y luego salir
+            try {
+              state.claimAction = 'exit';
+              claimOverlay.classList.add('active');
+              claimBtn.textContent = `Reclamar ${amount} 🔥`;
+            } catch(_){ }
+            ui.showToast('¡Ganaste! Reclamando premio…', 'success');
+            setTimeout(()=>{
+              if (state.finishing) return;
+              state.finishing = true;
+              try { Socket.socket && Socket.socket.emit && Socket.socket.emit('leave_bingo', { roomCode: state.room && state.room.code }); } catch(_){ }
+              try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
+            }, 2500);
           } else {
-            ui.showToast(`${msg} Ganó ${winnerName}.`, 'info');
+            if (isMe) {
+              ui.showToast('¡Ganaste! 🎉', 'success');
+            } else {
+              ui.showToast(`${msg} Ganó ${winnerName}.`, 'info');
+            }
+            // Auto salida para todos tras notificación
+            setTimeout(()=>{
+              if (state.finishing) return;
+              state.finishing = true;
+              try { Socket.socket && Socket.socket.emit && Socket.socket.emit('leave_bingo', { roomCode: state.room && state.room.code }); } catch(_){ }
+              try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
+            }, 1200);
           }
-          // Auto salida para todos tras notificación
-          setTimeout(()=>{
-            if (state.finishing) return;
-            state.finishing = true;
-            try { Socket.socket && Socket.socket.emit && Socket.socket.emit('leave_bingo', { roomCode: state.room && state.room.code }); } catch(_){ }
-            try { if (ctx && typeof ctx.onExit === 'function') { ctx.onExit(); } else { ui.showScreen && ui.showScreen('lobby-screen'); } } catch(_){ }
-          }, 1200);
         }catch(_){} };
         const onFinished = ({ room })=>{ try {
           state.room = room; renderLobby(); ui.log('bingo:finished','info','bingo-v2');
@@ -725,6 +743,7 @@ const BingoV2 = {
         s.on('bingo_started', onStarted);
         s.on('number_drawn', onNumber);
         s.on('bingo_invalid', onInvalidClaim);
+        s.on('bingo_cards', onCardsSync);
         s.on('bingo_winner', onWinner);
         s.on('bingo_finished', onFinished);
         s.on('player_joined_bingo', onPlayerJoined);
