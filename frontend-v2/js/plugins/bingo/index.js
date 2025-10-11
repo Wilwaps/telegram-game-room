@@ -60,7 +60,6 @@ const BingoV2 = {
         <div id="bn-mode" class="bn-mode" style="display:flex; gap:6px; align-items:center; margin-left:10px;">
           <label><input type="radio" name="bnEcoMode" value="friendly" checked> Amistoso</label>
           <label><input type="radio" name="bnEcoMode" value="fire"> 🔥 Fuego</label>
-          <input id="bn-ticket" class="input" type="number" min="1" value="1" style="width:80px; display:none" title="Precio por cartón (fuego)" />
         </div>
         <div id="bn-advanced" class="bn-adv" style="display:none; gap:8px; align-items:center; flex-wrap:wrap">
           <label>Modo
@@ -70,11 +69,10 @@ const BingoV2 = {
               <option value="full">Cartón lleno</option>
             </select>
           </label>
-          <label>Max jugadores <input id="bn-max-players" class="input" type="number" min="2" max="100" value="30" style="width:90px" /></label>
-          <label>Max cartones/usuario <input id="bn-max-cards" class="input" type="number" min="1" max="50" value="10" style="width:90px" /></label>
-          <label><input id="bn-autodraw" type="checkbox" /> Auto-cantar</label>
-          <label>Intervalo (s) <input id="bn-interval" class="input" type="number" min="1" max="60" value="5" style="width:100px" /></label>
-          <button id="bn-apply" class="btn">Aplicar</button>
+          <label>Max jugadores <input id="bn-max-players" class="input" type="number" min="2" max="100" value="30" style="width:70px" /></label>
+          <label>Max cartones/usuario <input id="bn-max-cards" class="input" type="number" min="1" max="50" value="10" style="width:70px" /></label>
+          <label style="display:block; min-width:100%"><input id="bn-autodraw" type="checkbox" /> Auto</label>
+          <label id="bn-interval-wrap" style="display:none">Intervalo (s) <input id="bn-interval" class="input" type="number" min="1" max="60" value="5" style="width:100px" /></label>
         </div>
         <button id="bn-ready" class="btn btn-secondary" style="display:none" disabled>Estoy listo</button>
         <div style="flex:1"></div>
@@ -197,23 +195,6 @@ const BingoV2 = {
           <div><strong>Jugadores:</strong> ${playersCount}/${maxPlayers} · Listos ${readyCount}/${total}</div>
         </div>
         ${room.ecoMode === 'fire' ? `<div class="warn">Modo 🔥 activo. Tickets: ${room.ticketPrice||1}. ${missingTickets.length? `Faltan tickets: ${missingTickets.length}`: ''}</div>`: '<div class="muted">Modo amistoso</div>'}
-        ${state.isHost ? `
-        <div class="bn-config" id="bnw-config" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0;">
-          <label>Modo
-            <select id="bnw-game-mode" class="input" style="min-width:120px">
-              <option value="line">Línea</option>
-              <option value="double">Doble línea</option>
-              <option value="full">Cartón lleno</option>
-            </select>
-          </label>
-          <label>Max jugadores <input id="bnw-max-players" class="input" type="number" min="2" max="100" value="30" style="width:90px"></label>
-          <label>Max cartones/usuario <input id="bnw-max-cards" class="input" type="number" min="1" max="50" value="10" style="width:90px"></label>
-          <label><input id="bnw-autodraw" type="checkbox"> Auto-cantar</label>
-          <label>Intervalo (s) <input id="bnw-interval" class="input" type="number" min="1" max="60" value="5" style="width:100px"></label>
-          <label id="bnw-ticket-wrap" style="${room.ecoMode==='fire' ? '' : 'display:none'}">Ticket <input id="bnw-ticket" class="input" type="number" min="1" value="${room.ticketPrice||1}" style="width:80px"></label>
-          <button id="bnw-apply" class="btn">Aplicar</button>
-        </div>
-        ` : ''}
         <div class="bn-lobby-list">
           ${players.map(p=>`
             <div class="bn-player ${p.ready?'ready':''}">
@@ -246,48 +227,33 @@ const BingoV2 = {
         let allow = allReady;
         if (room.ecoMode==='fire') { allow = allow && (missingTickets.length===0); }
         startBtn.disabled = !state.isHost || !allow;
-        startBtn.onclick = ()=>{ if (!state.room) return; try { Socket.socket.emit('start_bingo', { roomCode: state.room.code }); } catch(e){ ui.showToast('No se pudo iniciar','error'); } };
-      }
-      // Bind configuración dentro de Sala de Espera (host)
-      if (state.isHost) {
-        const gmEl = el.querySelector('#bnw-game-mode');
-        const mpEl = el.querySelector('#bnw-max-players');
-        const mcEl = el.querySelector('#bnw-max-cards');
-        const adEl = el.querySelector('#bnw-autodraw');
-        const itEl = el.querySelector('#bnw-interval');
-        const tkWrap = el.querySelector('#bnw-ticket-wrap');
-        const tkEl = el.querySelector('#bnw-ticket');
-        const apEl = el.querySelector('#bnw-apply');
-        try {
-          if (gmEl) gmEl.value = room.mode || 'line';
-          if (mpEl) mpEl.value = String(room.maxPlayers||30);
-          if (mcEl) mcEl.value = String(room.maxCardsPerUser||10);
-          if (adEl) adEl.checked = !!room.autoDraw;
-          if (itEl) itEl.value = String(Math.max(1, Math.round((room.drawIntervalMs||5000)/1000)));
-          if (tkWrap) tkWrap.style.display = (room.ecoMode==='fire') ? '' : 'none';
-          if (tkEl && typeof room.ticketPrice==='number') tkEl.value = String(room.ticketPrice);
-        } catch(_){}
-        if (apEl) {
-          apEl.onclick = ()=>{
-            if (!state.room) return;
+        startBtn.onclick = ()=>{
+          if (!state.room) return;
+          try {
+            // Aplicar configuración seleccionada antes de iniciar
+            const ecoMode = Array.from(menuPanel.querySelectorAll('input[name="bnEcoMode"]')).find(x=>x.checked)?.value || 'friendly';
+            const ticketInput = menuPanel.querySelector('#bn-cards');
+            const gmEl = menuPanel.querySelector('#bn-game-mode');
+            const mpEl = menuPanel.querySelector('#bn-max-players');
+            const mcEl = menuPanel.querySelector('#bn-max-cards');
+            const adEl = menuPanel.querySelector('#bn-autodraw');
+            const itEl = menuPanel.querySelector('#bn-interval');
             const payload = {
               roomCode: state.room.code,
+              ecoMode,
               mode: gmEl ? gmEl.value : (room.mode||'line'),
               maxPlayers: mpEl ? parseInt(mpEl.value,10)||30 : (room.maxPlayers||30),
               maxCardsPerUser: mcEl ? parseInt(mcEl.value,10)||10 : (room.maxCardsPerUser||10),
               autoDraw: adEl ? !!adEl.checked : !!room.autoDraw,
               drawIntervalMs: ((itEl ? parseInt(itEl.value,10)||5 : Math.round((room.drawIntervalMs||5000)/1000)) * 1000)
             };
-            try { Socket.socket.emit('bingo_set_mode', payload); ui.showToast('Configuración aplicada','success'); } catch(e){ ui.showToast('No se pudo aplicar configuración','error'); }
-          };
-        }
-        if (tkEl && room.ecoMode==='fire') {
-          tkEl.onchange = ()=>{
-            if (!state.room) return;
-            const p2 = { roomCode: state.room.code, ecoMode: 'fire', ticketPrice: parseInt(tkEl.value||'1',10)||1 };
-            try { Socket.socket.emit('bingo_set_mode', p2); } catch(e){ ui.showToast('No se pudo actualizar ticket','error'); }
-          };
-        }
+            if (ecoMode === 'fire' && ticketInput && ticketInput.style.display !== 'none') {
+              payload.ticketPrice = parseInt(ticketInput.value||'1',10)||1;
+            }
+            Socket.socket.emit('bingo_set_mode', payload);
+            Socket.socket.emit('start_bingo', { roomCode: state.room.code });
+          } catch(e){ ui.showToast('No se pudo iniciar','error'); }
+        };
       }
       const startBottom = lobbyPanel.querySelector('#bn-start-bottom');
       if (startBottom) {
@@ -295,7 +261,32 @@ const BingoV2 = {
         let allow = allReady;
         if (room.ecoMode==='fire') { allow = allow && (missingTickets.length===0); }
         startBottom.disabled = !state.isHost || !allow;
-        startBottom.onclick = ()=>{ if (!state.room) return; try { Socket.socket.emit('start_bingo', { roomCode: state.room.code }); } catch(e){ ui.showToast('No se pudo iniciar','error'); } };
+        startBottom.onclick = ()=>{
+          if (!state.room) return;
+          try {
+            const ecoMode = Array.from(menuPanel.querySelectorAll('input[name="bnEcoMode"]')).find(x=>x.checked)?.value || 'friendly';
+            const ticketInput = menuPanel.querySelector('#bn-cards');
+            const gmEl = menuPanel.querySelector('#bn-game-mode');
+            const mpEl = menuPanel.querySelector('#bn-max-players');
+            const mcEl = menuPanel.querySelector('#bn-max-cards');
+            const adEl = menuPanel.querySelector('#bn-autodraw');
+            const itEl = menuPanel.querySelector('#bn-interval');
+            const payload = {
+              roomCode: state.room.code,
+              ecoMode,
+              mode: gmEl ? gmEl.value : (room.mode||'line'),
+              maxPlayers: mpEl ? parseInt(mpEl.value,10)||30 : (room.maxPlayers||30),
+              maxCardsPerUser: mcEl ? parseInt(mcEl.value,10)||10 : (room.maxCardsPerUser||10),
+              autoDraw: adEl ? !!adEl.checked : !!room.autoDraw,
+              drawIntervalMs: ((itEl ? parseInt(itEl.value,10)||5 : Math.round((room.drawIntervalMs||5000)/1000)) * 1000)
+            };
+            if (ecoMode === 'fire' && ticketInput && ticketInput.style.display !== 'none') {
+              payload.ticketPrice = parseInt(ticketInput.value||'1',10)||1;
+            }
+            Socket.socket.emit('bingo_set_mode', payload);
+            Socket.socket.emit('start_bingo', { roomCode: state.room.code });
+          } catch(e){ ui.showToast('No se pudo iniciar','error'); }
+        };
       }
       const leaveBtn = lobbyPanel.querySelector('#bn-leave');
       if (leaveBtn) {
@@ -428,7 +419,9 @@ const BingoV2 = {
             const makePublicBtn = menuPanel.querySelector('#bn-make-public');
             const startBtn = lobbyPanel.querySelector('#bn-start');
             const readyBtn = menuPanel.querySelector('#bn-ready');
-            const ticketEl = menuPanel.querySelector('#bn-ticket');
+            const codeEl = menuPanel.querySelector('#bn-code');
+            const joinBtn = menuPanel.querySelector('#bn-join');
+            const cardsElTop = menuPanel.querySelector('#bn-cards');
             const ecoRadios = menuPanel.querySelectorAll('input[name="bnEcoMode"]');
             makePublicBtn.style.display = (state.isHost && !room.isPublic) ? '' : 'none';
             if (startBtn) startBtn.style.display = 'none';
@@ -436,8 +429,21 @@ const BingoV2 = {
             readyBtn.disabled = false;
             // Sync eco UI
             ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); });
-            ticketEl.style.display = (state.isHost && (room.ecoMode==='fire'))? '' : 'none';
-            if (typeof room.ticketPrice==='number') ticketEl.value = String(room.ticketPrice);
+            // Top menu context while inside room (host cannot join another room)
+            if (codeEl) codeEl.style.display = state.isHost ? 'none' : '';
+            if (joinBtn) joinBtn.style.display = state.isHost ? 'none' : '';
+            if (cardsElTop){
+              if (state.isHost && room.ecoMode==='fire'){
+                cardsElTop.style.display = '';
+                cardsElTop.placeholder = 'Ticket \uD83D\uDD25';
+                cardsElTop.title = 'Ticket (fuegos)';
+                if (typeof room.ticketPrice==='number') cardsElTop.value = String(room.ticketPrice);
+              } else {
+                cardsElTop.style.display = state.isHost ? 'none' : '';
+                cardsElTop.placeholder = '';
+                cardsElTop.title = '';
+              }
+            }
             ui.log(`bingo:room_created ${room.code}`, 'info', 'bingo-v2');
             // Sync avanzadas
             const gameModeEl = menuPanel.querySelector('#bn-game-mode');
@@ -445,11 +451,13 @@ const BingoV2 = {
             const maxCardsEl = menuPanel.querySelector('#bn-max-cards');
             const autoDrawEl = menuPanel.querySelector('#bn-autodraw');
             const intervalEl = menuPanel.querySelector('#bn-interval');
+            const intervalWrap = menuPanel.querySelector('#bn-interval-wrap');
             if (gameModeEl) gameModeEl.value = room.mode || 'line';
             if (maxPlayersEl) maxPlayersEl.value = String(room.maxPlayers||30);
             if (maxCardsEl) maxCardsEl.value = String(room.maxCardsPerUser||10);
             if (autoDrawEl) autoDrawEl.checked = !!room.autoDraw;
             if (intervalEl) intervalEl.value = String(Math.max(1, Math.round((room.drawIntervalMs||5000)/1000)));
+            if (intervalWrap) intervalWrap.style.display = (autoDrawEl && autoDrawEl.checked) ? '' : 'none';
             // Deshabilitar si no host
             [gameModeEl,maxPlayersEl,maxCardsEl,autoDrawEl,intervalEl].forEach(el=>{ if (el) el.disabled = !state.isHost; });
             // Mostrar avanzado dentro de sala (host)
@@ -469,11 +477,25 @@ const BingoV2 = {
             state.ecoMode = room.ecoMode || 'friendly';
             const makePublicBtn = menuPanel.querySelector('#bn-make-public');
             const ecoRadios = menuPanel.querySelectorAll('input[name=\"bnEcoMode\"]');
-            const ticketEl = menuPanel.querySelector('#bn-ticket');
+            const codeEl = menuPanel.querySelector('#bn-code');
+            const joinBtn = menuPanel.querySelector('#bn-join');
+            const cardsElTop = menuPanel.querySelector('#bn-cards');
             makePublicBtn.style.display = (state.isHost && !room.isPublic) ? '' : 'none';
             ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); });
-            ticketEl.style.display = (state.isHost && (room.ecoMode==='fire'))? '' : 'none';
-            if (typeof room.ticketPrice==='number') ticketEl.value = String(room.ticketPrice);
+            if (codeEl) codeEl.style.display = state.isHost ? 'none' : '';
+            if (joinBtn) joinBtn.style.display = state.isHost ? 'none' : '';
+            if (cardsElTop){
+              if (state.isHost && room.ecoMode==='fire'){
+                cardsElTop.style.display = '';
+                cardsElTop.placeholder = 'Ticket \uD83D\uDD25';
+                cardsElTop.title = 'Ticket (fuegos)';
+                if (typeof room.ticketPrice==='number') cardsElTop.value = String(room.ticketPrice);
+              } else {
+                cardsElTop.style.display = state.isHost ? 'none' : '';
+                cardsElTop.placeholder = '';
+                cardsElTop.title = '';
+              }
+            }
             ui.log(`bingo:room_updated status=${room.status} players=${(room.players||[]).length}`, 'info', 'bingo-v2');
             // Sync avanzadas
             const gameModeEl = menuPanel.querySelector('#bn-game-mode');
@@ -481,11 +503,13 @@ const BingoV2 = {
             const maxCardsEl = menuPanel.querySelector('#bn-max-cards');
             const autoDrawEl = menuPanel.querySelector('#bn-autodraw');
             const intervalEl = menuPanel.querySelector('#bn-interval');
+            const intervalWrap = menuPanel.querySelector('#bn-interval-wrap');
             if (gameModeEl) gameModeEl.value = room.mode || 'line';
             if (maxPlayersEl) maxPlayersEl.value = String(room.maxPlayers||30);
             if (maxCardsEl) maxCardsEl.value = String(room.maxCardsPerUser||10);
             if (autoDrawEl) autoDrawEl.checked = !!room.autoDraw;
             if (intervalEl) intervalEl.value = String(Math.max(1, Math.round((room.drawIntervalMs||5000)/1000)));
+            if (intervalWrap) intervalWrap.style.display = (autoDrawEl && autoDrawEl.checked) ? '' : 'none';
             const adv = menuPanel.querySelector('#bn-advanced'); if (adv) adv.style.display = state.isHost ? '' : 'none';
             const createBtn = menuPanel.querySelector('#bn-create'); if (createBtn) createBtn.style.display = state.room ? 'none' : '';
             const pubEl = menuPanel.querySelector('#bn-public'); if (pubEl && pubEl.closest('label')) pubEl.closest('label').style.display = state.room ? 'none' : '';
@@ -510,9 +534,23 @@ const BingoV2 = {
             // sync eco UI
             const ecoRadios = menuPanel.querySelectorAll('input[name="bnEcoMode"]');
             ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); });
-            const ticketEl = menuPanel.querySelector('#bn-ticket');
-            ticketEl.style.display = (state.isHost && (room.ecoMode==='fire'))? '' : 'none';
-            if (typeof room.ticketPrice==='number') ticketEl.value = String(room.ticketPrice);
+            const codeEl = menuPanel.querySelector('#bn-code');
+            const joinBtn = menuPanel.querySelector('#bn-join');
+            const cardsElTop = menuPanel.querySelector('#bn-cards');
+            if (codeEl) codeEl.style.display = state.isHost ? 'none' : '';
+            if (joinBtn) joinBtn.style.display = state.isHost ? 'none' : '';
+            if (cardsElTop){
+              if (state.isHost && room.ecoMode==='fire'){
+                cardsElTop.style.display = '';
+                cardsElTop.placeholder = 'Ticket ';
+                cardsElTop.title = 'Ticket (fuegos)';
+                if (typeof room.ticketPrice==='number') cardsElTop.value = String(room.ticketPrice);
+              } else {
+                cardsElTop.style.display = state.isHost ? 'none' : '';
+                cardsElTop.placeholder = '';
+                cardsElTop.title = '';
+              }
+            }
             const adv = menuPanel.querySelector('#bn-advanced'); if (adv) adv.style.display = state.isHost ? '' : 'none';
             const createBtn = menuPanel.querySelector('#bn-create'); if (createBtn) createBtn.style.display = 'none';
             const pubEl = menuPanel.querySelector('#bn-public'); if (pubEl && pubEl.closest('label')) pubEl.closest('label').style.display = 'none';
@@ -568,7 +606,34 @@ const BingoV2 = {
         }catch(_){} };
         const onPlayerJoined = ({ room, userId, userName, cardsCount })=>{ try { state.room = room; renderLobby(); ui.log(`bingo:player_joined ${userName||userId||''} +${cardsCount||1}`, 'info', 'bingo-v2'); }catch(_){} };
         const onReadyUpdated = ({ room, allReady })=>{ try { state.room = room; renderLobby(); ui.log(`bingo:ready_updated allReady=${!!allReady}`, 'info', 'bingo-v2'); }catch(_){} };
-        const onModeUpdated = ({ room, missingUserIds })=>{ try { state.room = room; state.missingUserIds = missingUserIds||[]; const ecoRadios = menuPanel.querySelectorAll('input[name="bnEcoMode"]'); ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); }); const ticketEl = menuPanel.querySelector('#bn-ticket'); ticketEl.style.display = (state.isHost && (room.ecoMode==='fire'))? '' : 'none'; if (typeof room.ticketPrice==='number') ticketEl.value = String(room.ticketPrice); renderLobby(); }catch(_){} };
+        const onModeUpdated = ({ room, missingUserIds })=>{ try {
+          state.room = room; state.missingUserIds = missingUserIds||[];
+          const ecoRadios = menuPanel.querySelectorAll('input[name="bnEcoMode"]');
+          ecoRadios.forEach(r=>{ r.checked = r.value === (room.ecoMode||'friendly'); });
+          // Ajustar top inputs según modo/rol
+          const codeEl = menuPanel.querySelector('#bn-code');
+          const joinBtn = menuPanel.querySelector('#bn-join');
+          const cardsElTop = menuPanel.querySelector('#bn-cards');
+          if (codeEl) codeEl.style.display = state.isHost ? 'none' : '';
+          if (joinBtn) joinBtn.style.display = state.isHost ? 'none' : '';
+          if (cardsElTop){
+            if (state.isHost && room.ecoMode==='fire'){
+              cardsElTop.style.display = '';
+              cardsElTop.placeholder = 'Ticket \uD83D\uDD25';
+              cardsElTop.title = 'Ticket (fuegos)';
+              if (typeof room.ticketPrice==='number') cardsElTop.value = String(room.ticketPrice);
+            } else {
+              cardsElTop.style.display = state.isHost ? 'none' : '';
+              cardsElTop.placeholder = '';
+              cardsElTop.title = '';
+            }
+          }
+          // Toggle intervalo visible por autodraw
+          const autoDrawEl = menuPanel.querySelector('#bn-autodraw');
+          const intervalWrap = menuPanel.querySelector('#bn-interval-wrap');
+          if (intervalWrap) intervalWrap.style.display = (autoDrawEl && autoDrawEl.checked) ? '' : 'none';
+          renderLobby();
+        }catch(_){}};
 
         s.on('bingo_room_created', onRoomCreated);
         s.on('bingo_room_updated', onRoomUpdated);
@@ -611,13 +676,12 @@ const BingoV2 = {
         const cardsEl = menuPanel.querySelector('#bn-cards');
         const readyBtn = menuPanel.querySelector('#bn-ready');
         const ecoRadios = menuPanel.querySelectorAll('input[name="bnEcoMode"]');
-        const ticketEl = menuPanel.querySelector('#bn-ticket');
         const gameModeEl = menuPanel.querySelector('#bn-game-mode');
         const maxPlayersEl = menuPanel.querySelector('#bn-max-players');
         const maxCardsEl = menuPanel.querySelector('#bn-max-cards');
         const autoDrawEl = menuPanel.querySelector('#bn-autodraw');
         const intervalEl = menuPanel.querySelector('#bn-interval');
-        const applyBtn = menuPanel.querySelector('#bn-apply');
+        const intervalWrap = menuPanel.querySelector('#bn-interval-wrap');
         const publicEl = menuPanel.querySelector('#bn-public');
 
         createBtn && (createBtn.onclick = ()=>{
@@ -630,9 +694,11 @@ const BingoV2 = {
             drawIntervalMs: ((parseInt(intervalEl && intervalEl.value,10) || 5) * 1000),
             ecoMode,
             maxPlayers: parseInt(maxPlayersEl && maxPlayersEl.value,10) || 30,
-            ticketPrice: parseInt(ticketEl && ticketEl.value,10) || 1,
             maxCardsPerUser: parseInt(maxCardsEl && maxCardsEl.value,10) || 10
           };
+          if (ecoMode==='fire') {
+            payload.ticketPrice = parseInt((cardsEl && cardsEl.value) || '1', 10) || 1;
+          }
           try { Socket.socket.emit('create_bingo_room', payload); }
           catch(e){ ui.showToast('No se pudo crear','error'); }
         });
@@ -666,34 +732,29 @@ const BingoV2 = {
             if (!state.room) return;
             if (!state.isHost) { renderLobby(); return; }
             const ecoMode = Array.from(ecoRadios).find(x=>x.checked)?.value || 'friendly';
+            // toggle top controls
+            if (state.isHost) {
+              if (ecoMode==='fire'){
+                if (codeEl) codeEl.style.display = 'none';
+                if (joinBtn) joinBtn.style.display = 'none';
+                if (cardsEl) { cardsEl.style.display=''; cardsEl.placeholder='Ticket \uD83D\uDD25'; cardsEl.title='Ticket (fuegos)'; }
+              } else {
+                if (cardsEl) { cardsEl.style.display='none'; cardsEl.placeholder=''; cardsEl.title=''; }
+              }
+            }
             const payload = { roomCode: state.room.code, ecoMode };
-            if (ecoMode==='fire') { payload.ticketPrice = parseInt(ticketEl.value||'1',10)||1; }
+            if (ecoMode==='fire') { payload.ticketPrice = parseInt((cardsEl && cardsEl.value) || '1',10)||1; }
             try { Socket.socket.emit('bingo_set_mode', payload); } catch(e){ ui.showToast('No se pudo cambiar modo','error'); }
           };
         });
-        applyBtn && (applyBtn.onclick = ()=>{
-          if (!state.room) return;
-          if (!state.isHost) return;
-          const payload = {
-            roomCode: state.room.code,
-            ecoMode: Array.from(ecoRadios).find(x=>x.checked)?.value || 'friendly',
-            ticketPrice: parseInt(ticketEl.value||'1',10)||1,
-            mode: (gameModeEl && gameModeEl.value) || 'line',
-            maxPlayers: parseInt(maxPlayersEl && maxPlayersEl.value,10) || 30,
-            maxCardsPerUser: parseInt(maxCardsEl && maxCardsEl.value,10) || 10,
-            autoDraw: !!(autoDrawEl && autoDrawEl.checked),
-            drawIntervalMs: ((parseInt(intervalEl && intervalEl.value,10) || 5) * 1000)
+
+        // Toggle intervalo al cambiar Auto
+        if (autoDrawEl) {
+          autoDrawEl.onchange = ()=>{
+            if (intervalWrap) intervalWrap.style.display = autoDrawEl.checked ? '' : 'none';
           };
-          try { Socket.socket.emit('bingo_set_mode', payload); }
-          catch(e){ ui.showToast('No se pudo aplicar configuración','error'); }
-        });
-        ticketEl && (ticketEl.onchange = ()=>{
-          if (!state.room) return;
-          if (!state.isHost) return;
-          const ecoMode = 'fire';
-          const payload = { roomCode: state.room.code, ecoMode, ticketPrice: parseInt(ticketEl.value||'1',10)||1 };
-          try { Socket.socket.emit('bingo_set_mode', payload); } catch(e){ ui.showToast('No se pudo actualizar ticket','error'); }
-        });
+        }
+        // Sin botón Aplicar ni ticket dedicado; se usa #bn-cards como ticket si 🔥
       }
     } catch(e){ console.warn('bingo socket setup failed', e); }
 
