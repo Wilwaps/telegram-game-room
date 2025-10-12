@@ -12,7 +12,23 @@ const telegramRoutes = require('./routes/telegram');
 
 const app = express();
 app.set('trust proxy', true);
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      "default-src": ["'self'"],
+      "script-src": ["'self'", "https://cdn.tailwindcss.com", "'unsafe-inline'"],
+      "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
+      "img-src": ["'self'", "data:", "https:", "blob:"],
+      "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
+      "connect-src": ["'self'"],
+      "frame-ancestors": ["'self'", "https://*.telegram.org", "https://web.telegram.org"],
+      "upgrade-insecure-requests": []
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.resolve(__dirname, '../public')));
