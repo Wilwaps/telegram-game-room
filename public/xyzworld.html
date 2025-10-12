@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>XYZWORLD</title>
+  <meta name="description" content="XYZWORLD • Juegos, recompensas y patrocinios dentro de Telegram. Juega, gana, cobra e invierte con economía en tiempo real." />
+  <style>
+    :root{
+      --bg:#0b0e14; --panel:#0f1524; --card:#121a2b; --fg:#e6edf3; --muted:#9fb1c6; --accent:#22d3ee; --violet:#8b5cf6; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+      --glass: rgba(255,255,255,.06);
+    }
+    html, body { height: 100%; }
+    body{
+      margin:0; color:var(--fg); background:
+        radial-gradient(1400px 900px at -10% -10%, rgba(34,211,238,.12), transparent),
+        radial-gradient(1400px 900px at 110% -20%, rgba(139,92,246,.10), transparent),
+        var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial;
+    }
+    a{ color:inherit; text-decoration:none; }
+    .container{ max-width:1200px; margin:0 auto; padding:24px; }
+    .nav{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0; }
+    .brand{ font-size:18px; font-weight:800; letter-spacing:.35px; }
+    .navlinks{ display:flex; gap:10px; flex-wrap:wrap; }
+    .btn{ display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:10px; border:1px solid rgba(34,211,238,.35); background: rgba(34,211,238,.10); color:#e9fbff; transition:.18s ease; }
+    .btn:hover{ transform: translateY(-1px); background: rgba(34,211,238,.16); }
+    .btn-ghost{ border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.06); color:#e6edf3; }
+    .btn-ghost:hover{ background: rgba(255,255,255,.10); }
+
+    .hero{ display:grid; grid-template-columns: 1.2fr 1fr; gap:22px; margin-top:26px; align-items:center; }
+    .hero h1{ margin:0 0 10px; font-size:42px; letter-spacing:.3px; }
+    .lead{ color:var(--muted); font-size:16px; line-height:1.6; }
+    .cta{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+    .badge{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#bfefff; border:1px solid rgba(34,211,238,.4); padding:5px 10px; border-radius:999px; background: rgba(34,211,238,.10); }
+    .card{ background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)); border: 1px solid var(--glass); border-radius: 16px; padding:16px; backdrop-filter: blur(6px); box-shadow: 0 10px 28px rgba(0,0,0,.25); }
+    .kpis{ display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:14px; }
+    .kpi .label{ color:var(--muted); font-size:13px; }
+    .kpi .val{ font-size:26px; font-weight:800; margin-top:2px; }
+
+    .section{ margin-top:30px; }
+    .sec-title{ font-size:20px; font-weight:800; letter-spacing:.35px; margin:0 0 10px; }
+    .grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
+    .item h3{ margin:0 0 6px; font-size:16px; }
+    .muted{ color:var(--muted); font-size:14px; }
+    .list{ display:flex; flex-direction:column; gap:8px; }
+    .row{ display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--glass); border-radius:12px; background: rgba(255,255,255,.02); }
+    .pill{ font-size:11px; border:1px solid rgba(255,255,255,.2); border-radius:999px; padding:2px 8px; color:#bcd7ff; }
+
+    .footer{ margin-top:34px; padding:18px; border-top:1px solid var(--glass); color:var(--muted); font-size:12px; text-align:center; }
+
+    @media (max-width: 900px){ .hero{ grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <div class="brand">XYZWORLD</div>
+      <div class="navlinks">
+        <a class="btn-ghost btn" href="#jugadores">Jugadores</a>
+        <a class="btn-ghost btn" href="#sponsors">Sponsors</a>
+        <a class="btn" href="https://t.me/xyz3w_bot" target="_blank" rel="noopener">Abrir en Telegram</a>
+      </div>
+    </div>
+
+    <section class="hero">
+      <div>
+        <span class="badge">MiniApp en Telegram • Economía en tiempo real</span>
+        <h1>Juega, gana y cobra dentro de Telegram</h1>
+        <p class="lead">XYZWORLD es un ecosistema de juegos y actividades con recompensas reales. Participa en minijuegos, retos diarios y sorteos; acumula 🔥 y monedas; cobra premios, reinvierte y escala tu progreso. Para marcas y creadores: patrocinen experiencias, asignen presupuesto y midan ROI en vivo.</p>
+        <div class="cta">
+          <a class="btn" href="https://t.me/xyz3w_bot" target="_blank" rel="noopener">Comenzar en Telegram</a>
+          <a class="btn-ghost btn" href="/portal.html">Ver Portal</a>
+        </div>
+        <div class="kpis">
+          <div class="card kpi"><div class="label">Economía</div><div class="val">SSE en vivo</div></div>
+          <div class="card kpi"><div class="label">Pruebas</div><div class="val">QA 10/10</div></div>
+          <div class="card kpi"><div class="label">Deploy</div><div class="val">Railway</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="list">
+          <div class="row"><span class="pill">Tiempo real</span><span class="muted">Supply, transferencias y XP con actualizaciones instantáneas</span></div>
+          <div class="row"><span class="pill">MiniApp</span><span class="muted">Se abre dentro de Telegram, sin instalaciones</span></div>
+          <div class="row"><span class="pill">Seguridad</span><span class="muted">Webhook con secret, headers admin en .env, rate-limit</span></div>
+          <div class="row"><span class="pill">Escalable</span><span class="muted">Módulos para tienda, topups, quests, sorteos y mercado</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="jugadores">
+      <h2 class="sec-title">Para jugadores: cómo ganas dinero</h2>
+      <div class="grid">
+        <div class="card item">
+          <h3>1. Juega y participa</h3>
+          <p class="muted">Mini juegos, retos diarios, misiones y torneos. Ganas 🔥 y monedas por rendimiento, rachas y logros.</p>
+        </div>
+        <div class="card item">
+          <h3>2. Gana y cobra</h3>
+          <p class="muted">Suma recompensas en tu balance. Cobra premios en eventos o canjéalos en la tienda (gift cards, beneficios, perks).</p>
+        </div>
+        <div class="card item">
+          <h3>3. Reinvierte y escala</h3>
+          <p class="muted">Invierte en boosters, pases o entradas a sorteos. Sube de nivel con XP y desbloquea mejores retornos.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="sponsors">
+      <h2 class="sec-title">Para sponsors: cómo participar y medir retorno</h2>
+      <div class="grid">
+        <div class="card item">
+          <h3>Patrocina experiencias</h3>
+          <p class="muted">Crea salas temáticas, brinda premios y misiones de marca. Impacto orgánico dentro de comunidades Telegram.</p>
+        </div>
+        <div class="card item">
+          <h3>Asigna presupuesto</h3>
+          <p class="muted">Claves de sponsor con balance dedicado para transferencias. Control de gasto, límite por campaña y reglas.</p>
+        </div>
+        <div class="card item">
+          <h3>Mide ROI en vivo</h3>
+          <p class="muted">Dashboard con supply/txs/usuarios/XP y desglose por campaña. A/B testing y reportes exportables.</p>
+        </div>
+      </div>
+      <div class="cta">
+        <a class="btn" href="https://t.me/xyz3w_bot" target="_blank" rel="noopener">Hablar con el bot</a>
+        <a class="btn-ghost btn" href="/dashboard.html">Ver Dashboard</a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="sec-title">Juegos y actividades</h2>
+      <div class="grid">
+        <div class="card item"><h3>Minijuegos</h3><p class="muted">Rápidos, competitivos y virales (ej: bingo, retos de tiempo, puzzles).</p></div>
+        <div class="card item"><h3>Quests</h3><p class="muted">Tareas diarias y semanales con recompensas escalables.</p></div>
+        <div class="card item"><h3>Sorteos</h3><p class="muted">Participación con 🔥; transparencia y anuncios automáticos.</p></div>
+        <div class="card item"><h3>Mercado</h3><p class="muted">Canje de premios, perks y utilidades digitales.</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="sec-title">Economía en tiempo real</h2>
+      <div class="grid">
+        <div class="card item"><h3>Supply y quema</h3><p class="muted">Supply total, circulante y quemado con SSE. Máxima transparencia.</p></div>
+        <div class="card item"><h3>Transferencias</h3><p class="muted">De sponsor a jugador o entre usuarios (reglas anti‑fraude en roadmap).</p></div>
+        <div class="card item"><h3>XP configurable</h3><p class="muted">Umbrales dinámicos y progresión por niveles.</p></div>
+      </div>
+    </section>
+
+    <div class="footer">
+      Tecnologías: Node.js, Express, SSE, Railway, Telegram Bot API, TestSprite, Chrome DevTools. Integraciones posibles: Redis, PostgreSQL, Stripe, Web3, almacenamiento S3, analítica.
+    </div>
+  </div>
+</body>
+</html>
