@@ -1,88 +1,81 @@
-﻿{
+{
   "tech_stack": [
-    "JavaScript (Node.js 16+)",
+    "JavaScript (Node.js >=16)",
     "Express 4",
-    "Socket.io 4",
-    "Redis (ioredis)",
+    "helmet",
+    "cors",
+    "express-rate-limit",
     "Winston",
-    "Telegram Bot API"
+    "SSE (Server-Sent Events)"
   ],
   "features": [
     {
+      "name": "Health API",
+      "description": "Healthcheck del servidor para validar disponibilidad.",
+      "files": [
+        "backend/server.js"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": { "title": "Health API", "version": "1.0.0" },
+        "servers": [ { "url": "http://localhost:3000" } ],
+        "paths": {
+          "/health": {
+            "get": {
+              "summary": "Healthcheck",
+              "responses": { "200": { "description": "OK" } }
+            }
+          }
+        }
+      }
+    },
+    {
       "name": "Economy API",
-      "description": "Economía: supply, patrocinadores, transferencias, historial y SSE.",
+      "description": "Economía en memoria: resumen de supply, lista de transacciones, stream SSE y burn (admin).",
       "files": [
         "backend/routes/economy.js",
+        "backend/services/memoryStore.js",
         "backend/middleware/adminAuth.js",
-        "backend/services/redisService.js"
+        "backend/server.js"
       ],
       "api_doc": {
         "openapi": "3.0.0",
         "info": { "title": "Economy API", "version": "1.0.0" },
-        "servers": [{ "url": "http://localhost:3000" }],
+        "servers": [ { "url": "http://localhost:3000" } ],
         "paths": {
-          "/api/economy/supply": { "get": { "summary": "Get supply summary", "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/supply/txs": { "get": { "summary": "List supply txs", "parameters": [ { "name": "limit", "in": "query", "schema": { "type": "integer" } } ], "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/supply/stream": { "get": { "summary": "Supply SSE stream", "responses": { "200": { "description": "SSE stream" } } } },
-          "/api/economy/users": { "get": { "summary": "List users with fires", "parameters": [ { "name": "cursor", "in": "query", "schema": { "type": "string" } }, { "name": "limit", "in": "query", "schema": { "type": "integer" } }, { "name": "search", "in": "query", "schema": { "type": "string" } } ], "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/history/{userId}": { "get": { "summary": "User fires history", "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }, { "name": "limit", "in": "query", "schema": { "type": "integer" } }, { "name": "offset", "in": "query", "schema": { "type": "integer" } } ], "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/sponsors": { "get": { "summary": "List sponsors", "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/sponsors/add": { "post": { "summary": "Add sponsor (admin)", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "userId": { "type": "string" }, "key": { "type": "string" }, "description": { "type": "string" }, "initialAmount": { "type": "integer" } } } } } }, "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/sponsors/remove": { "post": { "summary": "Remove sponsor (admin)", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "userId": { "type": "string" } }, "required": ["userId"] } } } }, "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/sponsors/set-meta": { "post": { "summary": "Set sponsor meta (admin)", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "userId": { "type": "string" }, "description": { "type": "string" } }, "required": ["userId"] } } } }, "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/sponsors/set-key": { "post": { "summary": "Set sponsor key (admin)", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "userId": { "type": "string" }, "key": { "type": "string" } }, "required": ["userId", "key"] } } } }, "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/sponsors/remove-key": { "post": { "summary": "Remove sponsor key (admin)", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "userId": { "type": "string" } }, "required": ["userId"] } } } }, "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/transfer": { "post": { "summary": "Transfer fires (sponsor)", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "fromUserId": { "type": "string" }, "toUserId": { "type": "string" }, "amount": { "type": "integer" }, "reason": { "type": "string" }, "sponsorKey": { "type": "string" } }, "required": ["fromUserId", "toUserId", "amount"] } } } }, "responses": { "200": { "description": "OK" } } } },
-          "/api/economy/grant-from-supply": { "post": { "summary": "Grant fires from reserve (admin)", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "toUserId": { "type": "string" }, "amount": { "type": "integer" }, "reason": { "type": "string" } }, "required": ["toUserId", "amount"] } } } }, "responses": { "200": { "description": "OK" } } } }
-        }
-      }
-    },
-    {
-      "name": "XP API",
-      "description": "Gestión de umbrales de XP.",
-      "files": [ "backend/routes/xp.js" ],
-      "api_doc": {
-        "openapi": "3.0.0",
-        "info": { "title": "XP API", "version": "1.0.0" },
-        "servers": [{ "url": "http://localhost:3000" }],
-        "paths": {
-          "/api/xp/config": {
-            "get": { "summary": "Get XP thresholds", "responses": { "200": { "description": "OK" } } },
-            "post": { "summary": "Set XP thresholds", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "thresholds": { "type": "object" } } } } } }, "responses": { "200": { "description": "OK" } } }
-          }
-        }
-      }
-    },
-    {
-      "name": "Profile API",
-      "description": "Perfil de usuario: lectura/actualización y solicitud de cambio de clave.",
-      "files": [ "backend/routes/profile.js" ],
-      "api_doc": {
-        "openapi": "3.0.0",
-        "info": { "title": "Profile API", "version": "1.0.0" },
-        "servers": [{ "url": "http://localhost:3000" }],
-        "paths": {
-          "/api/profile/{userId}": {
-            "get": { "summary": "Get profile", "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } } ], "responses": { "200": { "description": "OK" } } },
-            "post": { "summary": "Update profile", "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } } ], "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "firstName": { "type": "string" }, "lastName": { "type": "string" }, "phone": { "type": "string" }, "email": { "type": "string" } } } } } }, "responses": { "200": { "description": "OK" } } }
+          "/api/economy/supply": {
+            "get": { "summary": "Obtener resumen de supply", "responses": { "200": { "description": "OK" } } }
           },
-          "/api/profile/{userId}/request-key-change": {
-            "post": { "summary": "Request key change", "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } } ], "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "newKey": { "type": "string" }, "note": { "type": "string" } } } } } }, "responses": { "200": { "description": "OK" } } }
+          "/api/economy/supply/txs": {
+            "get": {
+              "summary": "Listar transacciones de supply",
+              "parameters": [
+                { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+                { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+              ],
+              "responses": { "200": { "description": "OK" } }
+            }
+          },
+          "/api/economy/supply/stream": {
+            "get": { "summary": "Stream SSE con snapshots de supply", "responses": { "200": { "description": "SSE stream" } } }
+          },
+          "/api/economy/supply/burn": {
+            "post": {
+              "summary": "Quemar una cantidad del supply (admin)",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": { "amount": { "type": "integer", "minimum": 1 } },
+                      "required": ["amount"]
+                    }
+                  }
+                }
+              },
+              "responses": { "200": { "description": "OK" }, "400": { "description": "invalid_amount" }, "403": { "description": "admin_required|unauthorized" } }
+            }
           }
-        }
-      }
-    },
-    {
-      "name": "Store API",
-      "description": "Catálogo y canje de artículos usando fuegos.",
-      "files": [ "backend/routes/store.js", "backend/services/redisService.js" ],
-      "api_doc": {
-        "openapi": "3.0.0",
-        "info": { "title": "Store API", "version": "1.0.0" },
-        "servers": [{ "url": "http://localhost:3000" }],
-        "paths": {
-          "/api/store/catalog": { "get": { "summary": "Get catalog", "responses": { "200": { "description": "OK" } } } },
-          "/api/store/redeem": { "post": { "summary": "Redeem item", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "userId": { "type": "string" }, "itemId": { "type": "string" }, "requestId": { "type": "string" } }, "required": ["userId", "itemId"] } } } }, "responses": { "200": { "description": "OK" } } } }
         }
       }
     }

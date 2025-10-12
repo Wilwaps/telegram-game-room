@@ -1,0 +1,18 @@
+[20251011-211023] CLEAN START
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\backend
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\frontend
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\frontend-v2
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\logs
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\node_modules
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\posiblemente borrar
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\scripts
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\$null
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\.eslintrc.json
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\.prettierrc.json
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\cleanup_move_log.txt
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\errors_memoria_proyecto.json
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\Historial
+[20251011-211023] Deleted: C:\Users\pc1\Documents\MEGA\PYTHON\ytwice3.2.1\telegram-game-room\INSTRUCCIONES_FINALES.md
+[20251011-211023] Scaffold created: backend/, frontend-v2/, scripts/
+[20251011-211023] npm ci executed
+[20251011-211023] CLEAN DONE

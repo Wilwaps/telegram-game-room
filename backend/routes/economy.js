@@ -1,236 +1,73 @@
 const express = require('express');
 const router = express.Router();
+const store = require('../services/memoryStore');
 const adminAuth = require('../middleware/adminAuth');
-const supplyService = require('../services/supplyService');
-const economyService = require('../services/economyService');
-const redisService = require('../services/redisService');
-const logger = require('../config/logger');
 
 // GET /api/economy/supply
-router.get('/supply', async (req, res) => {
+router.get('/supply', (req, res) => {
   try {
-    const summary = await supplyService.getSummary();
-    const [_, keys] = await redisService.client.scan('0', 'MATCH', 'user:*:currency', 'COUNT', 10000);
-    const usersCount = (keys && keys.length) || 0;
-    res.json({ success: true, summary: { ...summary, usersCount } });
+    const supply = store.getSupplySummary();
+    res.json({ success: true, supply });
   } catch (err) {
-    logger.error('GET /economy/supply error:', err);
-    res.status(500).json({ success: false, error: 'No se pudo obtener el resumen de supply' });
+    res.status(500).json({ success: false, error: 'supply_error' });
   }
 });
 
-// =============== PATROCINADORES ===============
-// POST /api/economy/sponsors/add { userId }
-router.post('/sponsors/add', adminAuth, async (req, res) => {
+// GET /api/economy/supply/txs?limit=&offset=
+router.get('/supply/txs', (req, res) => {
   try {
-    const userId = String(req.body?.userId || '').trim();
-    const key = String(req.body?.key || '').trim();
-    const description = String(req.body?.description || '').trim();
-    const initialAmount = Math.max(0, parseInt(req.body?.initialAmount || '0', 10));
-    if (!userId) return res.status(400).json({ success: false, error: 'userId requerido' });
-    await supplyService.addSponsor(userId);
-    if (key) { await supplyService.setSponsorKey(userId, key); }
-    if (description) { await supplyService.setSponsorMeta(userId, { description }); }
-    if (initialAmount > 0) {
-      await supplyService.allocateAndGrant(userId, initialAmount, { reason: 'sponsor_initial_grant', by: req.admin?.userName || 'admin' });
-    }
-    const list = await supplyService.listSponsorsWithFires();
-    res.json({ success: true, sponsors: list.items });
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit || '20', 10) || 20));
+    const offset = Math.max(0, parseInt(req.query.offset || '0', 10) || 0);
+    const items = store.txs.slice(offset, offset + limit);
+    res.json({ success: true, items, limit, offset });
   } catch (err) {
-    logger.error('POST /economy/sponsors/add error:', err);
-    res.status(400).json({ success: false, error: err.message || 'No se pudo agregar patrocinador' });
-  }
-});
-
-// POST /api/economy/sponsors/remove { userId }
-router.post('/sponsors/remove', adminAuth, async (req, res) => {
-  try {
-    const userId = String(req.body?.userId || '').trim();
-    if (!userId) return res.status(400).json({ success: false, error: 'userId requerido' });
-    await supplyService.removeSponsor(userId);
-    const list = await supplyService.listSponsorsWithFires();
-    res.json({ success: true, sponsors: list.items });
-  } catch (err) {
-    logger.error('POST /economy/sponsors/remove error:', err);
-    res.status(400).json({ success: false, error: err.message || 'No se pudo quitar patrocinador' });
-  }
-});
-
-// POST /api/economy/sponsors/set-meta { userId, description }
-router.post('/sponsors/set-meta', adminAuth, async (req, res) => {
-  try {
-    const userId = String(req.body?.userId || '').trim();
-    const description = String(req.body?.description || '').trim();
-    if (!userId) return res.status(400).json({ success: false, error: 'userId requerido' });
-    await supplyService.setSponsorMeta(userId, { description });
-    res.json({ success: true });
-  } catch (err) {
-    logger.error('POST /economy/sponsors/set-meta error:', err);
-    res.status(400).json({ success: false, error: err.message || 'No se pudo establecer descripción' });
-  }
-});
-
-// GET /api/economy/sponsors
-router.get('/sponsors', async (req, res) => {
-  try {
-    const list = await supplyService.listSponsorsWithFires();
-    res.json({ success: true, sponsors: list.items });
-  } catch (err) {
-    logger.error('GET /economy/sponsors error:', err);
-    res.status(500).json({ success: false, error: 'No se pudo obtener patrocinadores' });
-  }
-});
-
-// POST /api/economy/transfer { fromUserId, toUserId, amount, reason }
-// Requiere que fromUserId sea patrocinador
-router.post('/transfer', async (req, res) => {
-  try {
-    const fromUserId = String(req.body?.fromUserId || '').trim();
-    const toUserId = String(req.body?.toUserId || '').trim();
-    const amount = Math.abs(parseInt(req.body?.amount || '0', 10));
-    const reason = String(req.body?.reason || 'transfer');
-    const sponsorKey = String(req.body?.sponsorKey || '');
-    if (!fromUserId || !toUserId || !amount) return res.status(400).json({ success: false, error: 'Datos inválidos' });
-    const isSponsor = (await redisService.client.sismember('economy:sponsors', fromUserId)) === 1;
-    if (!isSponsor) return res.status(403).json({ success: false, error: 'Solo patrocinadores pueden transferir' });
-    // Validación de clave de patrocinador
-    const okKey = await supplyService.verifySponsorKey(fromUserId, sponsorKey);
-    if (!okKey) return res.status(403).json({ success: false, error: 'Clave de patrocinador inválida' });
-    const result = await economyService.transfer(fromUserId, toUserId, amount, { reason });
-    res.json({ success: true, result });
-  } catch (err) {
-    logger.error('POST /economy/transfer error:', err);
-    res.status(400).json({ success: false, error: err.message || 'No se pudo transferir' });
-  }
-});
-
-// POST /api/economy/sponsors/set-key { userId, key }
-router.post('/sponsors/set-key', adminAuth, async (req, res) => {
-  try {
-    const userId = String(req.body?.userId || '').trim();
-    const key = String(req.body?.key || '').trim();
-    if (!userId || !key) return res.status(400).json({ success: false, error: 'userId y key requeridos' });
-    await supplyService.setSponsorKey(userId, key);
-    res.json({ success: true });
-  } catch (err) {
-    logger.error('POST /economy/sponsors/set-key error:', err);
-    res.status(400).json({ success: false, error: err.message || 'No se pudo asignar clave' });
-  }
-});
-
-// POST /api/economy/sponsors/remove-key { userId }
-router.post('/sponsors/remove-key', adminAuth, async (req, res) => {
-  try {
-    const userId = String(req.body?.userId || '').trim();
-    if (!userId) return res.status(400).json({ success: false, error: 'userId requerido' });
-    await supplyService.removeSponsorKey(userId);
-    res.json({ success: true });
-  } catch (err) {
-    logger.error('POST /economy/sponsors/remove-key error:', err);
-    res.status(400).json({ success: false, error: err.message || 'No se pudo remover clave' });
+    res.status(500).json({ success: false, error: 'tx_list_error' });
   }
 });
 
 // GET /api/economy/supply/stream (SSE)
-router.get('/supply/stream', async (req, res) => {
-  try {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.flushHeaders?.();
+router.get('/supply/stream', (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive'
+  });
+  res.flushHeaders && res.flushHeaders();
 
-    let closed = false;
-    req.on('close', () => {
-      closed = true;
-      clearInterval(interval);
-    });
+  const sendEvent = (name, payload) => {
+    try {
+      res.write(`event: ${name}\n`);
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch (_) {}
+  };
 
-    const send = (data) => {
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
+  // initial snapshot
+  sendEvent('supply', { value: store.getSupplySummary(), ts: Date.now() });
 
-    // Primer payload inmediato
-    const firstSummary = await supplyService.getSummary();
-    const firstTxs = await supplyService.getSupplyTxs(20);
-    send({ type: 'init', summary: firstSummary, items: firstTxs });
+  // heartbeat
+  const hb = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch (_) {}
+  }, 15000);
 
-    // Heartbeat cada 20s para mantener conexión
-    const hb = setInterval(() => { if (!closed) res.write(': ping\n\n'); }, 20000);
+  const onSupply = (snap) => sendEvent('supply', { value: snap, ts: Date.now() });
+  store.on('supply_changed', onSupply);
 
-    // Poll ligero cada 2s
-    const interval = setInterval(async () => {
-      try {
-        const summary = await supplyService.getSummary();
-        const items = await supplyService.getSupplyTxs(20);
-        send({ type: 'update', summary, items });
-      } catch (err) {
-        logger.error('SSE /supply/stream error:', err);
-      }
-    }, 2000);
-
-    // Limpiar heartbeat al cerrar
-    req.on('close', () => clearInterval(hb));
-  } catch (err) {
-    logger.error('GET /economy/supply/stream error:', err);
-    res.status(500).end();
-  }
+  req.on('close', () => {
+    clearInterval(hb);
+    store.off('supply_changed', onSupply);
+  });
 });
 
-// GET /api/economy/supply/txs?limit=100
-router.get('/supply/txs', async (req, res) => {
+// POST /api/economy/supply/burn { amount }
+router.post('/supply/burn', adminAuth, (req, res) => {
   try {
-    const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit || '100', 10)));
-    const items = await supplyService.getSupplyTxs(limit);
-    res.json({ success: true, items });
+    const amount = parseInt(req.body?.amount || '0', 10) || 0;
+    if (amount <= 0) return res.status(400).json({ success: false, error: 'invalid_amount' });
+    store.addBurn(amount);
+    const tx = store.pushTx({ type: 'burn', amount });
+    res.json({ success: true, tx, supply: store.getSupplySummary() });
   } catch (err) {
-    logger.error('GET /economy/supply/txs error:', err);
-    res.status(500).json({ success: false, error: 'No se pudo obtener auditoría de supply' });
-  }
-});
-
-// GET /api/economy/users?cursor=0&limit=50&search=
-router.get('/users', async (req, res) => {
-  try {
-    const cursor = String(req.query.cursor || '0');
-    const limit = Math.max(1, Math.min(200, parseInt(req.query.limit || '50', 10)));
-    const search = String(req.query.search || '');
-    const { cursor: next, items } = await supplyService.listUsersWithFires({ cursor, limit, search });
-    res.json({ success: true, cursor: next, items });
-  } catch (err) {
-    logger.error('GET /economy/users error:', err);
-    res.status(500).json({ success: false, error: 'No se pudo obtener usuarios' });
-  }
-});
-
-// GET /api/economy/history/:userId
-router.get('/history/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const limit = Math.max(1, Math.min(200, parseInt(req.query.limit || '50', 10)));
-    const offset = Math.max(0, parseInt(req.query.offset || '0', 10));
-    const items = await economyService.getHistory(userId, limit, offset);
-    res.json({ success: true, items, limit, offset });
-  } catch (err) {
-    logger.error('GET /economy/history error:', err);
-    res.status(500).json({ success: false, error: 'No se pudo obtener historial' });
-  }
-});
-
-// POST /api/economy/grant-from-supply
-// body: { adminUsername, adminCode, toUserId, amount, reason }
-router.post('/grant-from-supply', adminAuth, async (req, res) => {
-  try {
-    const toUserId = String(req.body?.toUserId || '').trim();
-    const amount = Math.abs(parseInt(req.body?.amount || '0', 10));
-    const reason = String(req.body?.reason || 'admin_grant');
-    if (!toUserId || !amount) return res.status(400).json({ success: false, error: 'Datos inválidos' });
-    const out = await supplyService.allocateAndGrant(toUserId, amount, { reason, by: req.admin?.userName || 'admin' });
-    const summary = await supplyService.getSummary();
-    res.json({ success: true, result: out, summary });
-  } catch (err) {
-    logger.error('POST /economy/grant-from-supply error:', err);
-    res.status(400).json({ success: false, error: err.message || 'No se pudo asignar desde reserva' });
+    res.status(500).json({ success: false, error: 'burn_error' });
   }
 });
 

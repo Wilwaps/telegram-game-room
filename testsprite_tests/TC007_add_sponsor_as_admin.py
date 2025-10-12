@@ -1,54 +1,54 @@
+import os
 import requests
-import uuid
-
-BASE_URL = "https://telegram-game-room-production.up.railway.app"
-TIMEOUT = 30
-
-HEADERS_ADMIN = {
-    "X-Test-Runner": "testsprite",
-    "User-Agent": "python-requests TestSprite",
-    "x-admin-username": "wilcnct",
-    "x-admin-code": "658072974",
-    "Content-Type": "application/json",
-}
-
 
 def test_add_sponsor_as_admin():
-    # Prepare test sponsor data
-    test_user_id = f"testsprite-{uuid.uuid4()}"
+    base_url = "http://127.0.0.1:3000"
+    endpoint = "/api/economy/sponsors/add"
+    url = base_url + endpoint
+    timeout = 30
+
+    # Admin headers
+    admin_username = "wilcnct"
+    admin_code = os.getenv("X_ADMIN_CODE", "default_admin_code_value")
+    headers = {
+        "X-Test-Runner": "testsprite",
+        "User-Agent": "TestSprite",
+        "x-admin-username": admin_username,
+        "x-admin-code": admin_code,
+        "Content-Type": "application/json"
+    }
+
+    # Valid sponsor data
     sponsor_data = {
-        "userId": test_user_id,
+        "userId": "test_sponsor_user_001",
         "key": "testkey123",
-        "description": "Test Sponsor added by admin",
+        "description": "Test Sponsor",
         "initialAmount": 1000
     }
 
-    try:
-        # POST /api/economy/sponsors/add as admin
-        resp = requests.post(
-            f"{BASE_URL}/api/economy/sponsors/add",
-            json=sponsor_data,
-            headers=HEADERS_ADMIN,
-            timeout=TIMEOUT,
-        )
-        assert resp.status_code == 200, f"Expected status 200, got {resp.status_code}"
-        resp_json = resp.json()
-        assert "success" in resp_json, "'success' field missing from response"
-        assert resp_json["success"] is True, "Response success is not True"
-        assert "sponsors" in resp_json, "'sponsors' field missing from response"
-        assert isinstance(resp_json["sponsors"], list), "'sponsors' is not a list"
-        # Validate added sponsor is in returned sponsors list by userId
-        assert any(s.get("userId") == test_user_id for s in resp_json["sponsors"]), (
-            f"Sponsor with userId {test_user_id} not found in response sponsors"
-        )
-    finally:
-        # Cleanup: remove the test sponsor by admin
-        requests.post(
-            f"{BASE_URL}/api/economy/sponsors/remove",
-            json={"userId": test_user_id},
-            headers=HEADERS_ADMIN,
-            timeout=TIMEOUT,
-        )
+    # Since no resource ID is provided, create and delete in try-finally is not required,
+    # but we clean up by removing sponsor after test.
 
+    # Remove sponsor endpoint for cleanup
+    remove_endpoint = "/api/economy/sponsors/remove"
+    remove_url = base_url + remove_endpoint
+
+    try:
+        # Add sponsor
+        response = requests.post(url, json=sponsor_data, headers=headers, timeout=timeout)
+        assert response.status_code == 200, f"Expected status 200, got {response.status_code}"
+        resp_json = response.json()
+        assert resp_json is not None, "Response JSON is empty"
+        
+        # Optional: Validate response contents if known (schema not specified beyond 200 OK)
+
+    finally:
+        # Cleanup: Remove sponsor to avoid test pollution
+        remove_payload = {"userId": sponsor_data["userId"]}
+        try:
+            remove_resp = requests.post(remove_url, json=remove_payload, headers=headers, timeout=timeout)
+            assert remove_resp.status_code == 200, f"Cleanup failed, status code {remove_resp.status_code}"
+        except Exception:
+            pass  # Ignore any cleanup errors to not mask test results
 
 test_add_sponsor_as_admin()

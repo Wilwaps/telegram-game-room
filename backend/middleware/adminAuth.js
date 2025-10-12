@@ -1,37 +1,32 @@
-/**
- * Middleware de autenticación admin para endpoints sensibles.
- * Requiere username de admin (@wilcnct) y clave 658072974.
- * Acepta encabezados: x-admin-username, x-admin-code
- */
-const { constants } = require('../config/config');
+const { security } = require('../config/config');
 
-const ADMIN_CODE = '658072974';
-
-function normalizeUser(u = '') {
-  return String(u).trim().replace(/^@/, '').toLowerCase();
+function normalize(u) {
+  return String(u || '').trim().replace(/^@/, '').toLowerCase();
 }
 
 module.exports = function adminAuth(req, res, next) {
   try {
-    const hUser = normalizeUser(req.header('x-admin-username') || req.body?.adminUsername || '');
-    const hCode = String(req.header('x-admin-code') || req.body?.adminCode || '');
-    const cfgUser = normalizeUser(process.env.ADMIN_USERNAME || constants.ADMIN.USERNAME || 'wilcnct');
-    const hx = String(req.header('x-test-runner') || '');
-
-    if (/testsprite/i.test(hx) || process.env.ALLOW_TEST_RUNNER === 'true') {
-      req.admin = { userName: hUser || 'testsprite' };
+    const hx = String(req.headers['x-test-runner'] || '');
+    const allowEnv = process.env.ALLOW_TEST_RUNNER === 'true';
+    const isTestHX = /testsprite/i.test(hx);
+    // Bypass de QA endurecido: requiere env + header
+    if (allowEnv && isTestHX) {
+      req.admin = { userName: normalize(req.headers['x-admin-username'] || 'testsprite') };
       return next();
     }
-
-    if (hUser !== normalizeUser('wilcnct') && hUser !== cfgUser) {
-      return res.status(403).json({ success: false, error: 'No autorizado (usuario)' });
+    const user = normalize(req.headers['x-admin-username'] || req.body?.adminUsername);
+    const code = String(req.headers['x-admin-code'] || req.body?.adminCode || '');
+    const cfgUser = normalize(process.env.ADMIN_USERNAME || security.admin.username || 'wilcnct');
+    const cfgCode = String(process.env.ADMIN_CODE || security.admin.code || '');
+    if (!user || !code) {
+      return res.status(403).json({ success: false, error: 'admin_required' });
     }
-    if (hCode !== ADMIN_CODE) {
-      return res.status(403).json({ success: false, error: 'No autorizado (clave)' });
+    if (user !== cfgUser || code !== cfgCode) {
+      return res.status(403).json({ success: false, error: 'unauthorized' });
     }
-    req.admin = { userName: hUser };
+    req.admin = { userName: user };
     next();
   } catch (err) {
-    return res.status(403).json({ success: false, error: 'No autorizado' });
+    return res.status(500).json({ success: false, error: 'admin_middleware_error' });
   }
 };

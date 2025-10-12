@@ -1,0 +1,140 @@
+{
+  "project": "telegram-game-room",
+  "tech_stack": [
+    "Node.js 16+",
+    "Express 4",
+    "Socket.io 4",
+    "Redis (ioredis)",
+    "Winston",
+    "Frontend Vanilla JS/CSS (v2)",
+    "Telegram WebApp (opcional)"
+  ],
+  "modules": {
+    "backend": {
+      "config": [
+        "backend/config/config.js",
+        "backend/config/logger.js"
+      ],
+      "server": "backend/server.js",
+      "middleware": [
+        "backend/middleware/adminAuth.js"
+      ],
+      "models": [
+        "backend/models/BingoRoom.js",
+        "backend/models/Room.js",
+        "backend/models/User.js"
+      ],
+      "services": [
+        "backend/services/redisService.js",
+        "backend/services/economyService.js",
+        "backend/services/supplyService.js",
+        "backend/services/xpService.js",
+        "backend/services/profileService.js",
+        "backend/services/bingoService.js",
+        "backend/services/socketService.js",
+        "backend/services/telegramService.js",
+        "backend/services/tokenService.js"
+      ],
+      "routes": [
+        "backend/routes/economy.js",
+        "backend/routes/profile.js",
+        "backend/routes/store.js",
+        "backend/routes/xp.js"
+      ],
+      "utils": [
+        "backend/utils/gameLogic.js",
+        "backend/utils/validation.js"
+      ]
+    },
+    "frontend": {
+      "core": [
+        "frontend-v2/js/core/app.js",
+        "frontend-v2/js/core/socket.js",
+        "frontend-v2/js/core/ui.js",
+        "frontend-v2/js/core/utils.js",
+        "frontend-v2/js/core/registry.js",
+        "frontend-v2/js/core/config.js",
+        "frontend-v2/js/core/market.js"
+      ],
+      "plugins": [
+        "frontend-v2/js/plugins/bingo/index.js",
+        "frontend-v2/js/plugins/tictactoe/index.js"
+      ]
+    }
+  },
+  "endpoints": [
+    {"method":"GET","path":"/api/economy/supply","file":"backend/routes/economy.js"},
+    {"method":"GET","path":"/api/economy/supply/txs?limit=","file":"backend/routes/economy.js"},
+    {"method":"GET","path":"/api/economy/supply/stream","file":"backend/routes/economy.js"},
+    {"method":"GET","path":"/api/economy/users?cursor=&limit=&search=","file":"backend/routes/economy.js"},
+    {"method":"GET","path":"/api/economy/history/:userId","file":"backend/routes/economy.js"},
+    {"method":"POST","path":"/api/economy/transfer","file":"backend/routes/economy.js"},
+    {"method":"POST","path":"/api/economy/sponsors/add","file":"backend/routes/economy.js","auth":"adminAuth"},
+    {"method":"POST","path":"/api/economy/sponsors/remove","file":"backend/routes/economy.js","auth":"adminAuth"},
+    {"method":"POST","path":"/api/economy/sponsors/set-meta","file":"backend/routes/economy.js","auth":"adminAuth"},
+    {"method":"GET","path":"/api/economy/sponsors","file":"backend/routes/economy.js"},
+    {"method":"POST","path":"/api/economy/sponsors/set-key","file":"backend/routes/economy.js","auth":"adminAuth"},
+    {"method":"POST","path":"/api/economy/sponsors/remove-key","file":"backend/routes/economy.js","auth":"adminAuth"},
+    {"method":"POST","path":"/api/economy/grant-from-supply","file":"backend/routes/economy.js","auth":"adminAuth"},
+
+    {"method":"GET","path":"/api/profile/:userId","file":"backend/routes/profile.js"},
+    {"method":"POST","path":"/api/profile/:userId","file":"backend/routes/profile.js"},
+    {"method":"POST","path":"/api/profile/:userId/request-key-change","file":"backend/routes/profile.js"},
+
+    {"method":"GET","path":"/api/store/catalog","file":"backend/routes/store.js"},
+    {"method":"POST","path":"/api/store/redeem","file":"backend/routes/store.js"},
+
+    {"method":"GET","path":"/api/xp/config","file":"backend/routes/xp.js"},
+    {"method":"POST","path":"/api/xp/config","file":"backend/routes/xp.js"}
+  ],
+  "socket_events": {
+    "defined_in": "backend/config/config.js",
+    "groups": {
+      "connection": ["connection","disconnect","authenticate","authenticated","error"],
+      "rooms": ["create_room","room_created","join_room","leave_room","close_room","make_public","rooms_list","room_updated","room_added","room_removed","room_closed","player_joined","player_left"],
+      "economy": ["get_fires","fires_balance","earn_fire","spend_fires","transfer_fires","fires_updated","get_fires_history","fires_history","fires_transaction","welcome_status","welcome_info","welcome_claim","daily_bonus_status","daily_bonus_info","daily_bonus_claim"],
+      "xp": ["get_xp","xp_balance","earn_xp","lose_xp","xp_updated","get_xp_history","xp_history","xp_transaction"],
+      "bingo": [
+        "create_bingo_room","bingo_room_created","join_bingo","bingo_joined","bingo_make_public","bingo_room_updated","leave_bingo",
+        "start_bingo","bingo_started","draw_next","number_drawn","claim_bingo","bingo_valid","bingo_invalid","bingo_winner","bingo_finished",
+        "pause_bingo","resume_bingo","bingo_potential","player_joined_bingo","player_left_bingo","host_left_bingo","bingo_paused","bingo_resumed","room_full",
+        "bingo_set_mode","bingo_mode_updated","bingo_set_ready","bingo_ready_updated","bingo_set_cards"
+      ]
+    }
+  },
+  "event_flows": [
+    {
+      "name": "Bingo start flow",
+      "frontend_emit": ["bingo_set_cards","bingo_set_ready","bingo_set_mode"],
+      "backend_handler": "backend/services/socketService.js",
+      "state_updates": ["redisService.setBingoRoom","BingoRoom.start()","bingoService.generateDrawOrder()"],
+      "frontend_listen": ["bingo_mode_updated","bingo_started","bingo_room_updated","number_drawn"]
+    },
+    {
+      "name": "Bingo claim & payout",
+      "frontend_emit": ["claim_bingo"],
+      "backend_handler": "backend/services/socketService.js",
+      "payout": {"distribution": "70% winner, 20% host, 10% sponsor","sponsor_user_id":"1417856820","calculator":"backend/services/bingoService.js:calculateDistribution"},
+      "frontend_listen": ["bingo_winner","fires_updated","fires_transaction","bingo_finished"]
+    },
+    {
+      "name": "Economy HUD",
+      "frontend_listen": ["fires_balance","fires_updated"],
+      "frontend_emit": ["get_fires"]
+    }
+  ],
+  "dependencies": [
+    {"from":"backend/services/socketService.js","to":["backend/models/BingoRoom.js","backend/services/bingoService.js","backend/services/redisService.js","backend/services/economyService.js","backend/config/config.js","backend/config/logger.js"]},
+    {"from":"backend/routes/economy.js","to":["backend/services/supplyService.js","backend/services/economyService.js","backend/services/redisService.js","backend/middleware/adminAuth.js","backend/config/logger.js"]},
+    {"from":"backend/routes/store.js","to":["backend/services/redisService.js","backend/services/economyService.js","backend/config/logger.js"]},
+    {"from":"frontend-v2/js/core/app.js","to":["frontend-v2/js/core/socket.js","frontend-v2/js/core/ui.js","frontend-v2/js/core/utils.js","frontend-v2/js/core/registry.js","frontend-v2/js/plugins/bingo/index.js","frontend-v2/js/plugins/tictactoe/index.js"]},
+    {"from":"frontend-v2/js/plugins/bingo/index.js","to":["frontend-v2/js/core/socket.js","frontend-v2/js/core/ui.js","frontend-v2/js/core/utils.js"]}
+  ],
+  "risk_hotspots": [
+    "Rate limit 429 en endpoints públicos durante pruebas (economía/XP/SSE). Sugerido: relajar límites o whitelisting para TestSprite.",
+    "SSE /api/economy/supply/stream sensible a rate-limit/proxy.",
+    "Identidad dev: en producción validar Telegram WebApp initData antes de confiar en userId."
+  ],
+  "test_artifacts": "testsprite_tests/tmp",
+  "last_update": "2025-10-11T16:30:00-04:00"
+}
