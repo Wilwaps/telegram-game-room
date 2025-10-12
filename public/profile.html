@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Perfil • Telegram Game Room</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#06e4f9',
+            'background-light': '#f5f8f8',
+            'background-dark': '#0B0E14',
+            violet: '#a78bfa',
+            accent: '#22d3ee',
+            card: '#121A2B',
+            text: '#E6EDF3',
+            glass: 'rgba(255, 255, 255, 0.1)'
+          },
+          fontFamily: { display: ['Space Grotesk'] },
+          borderRadius: { DEFAULT: '0.5rem', lg: '0.75rem', xl: '1rem', full: '9999px' }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { min-height: max(884px, 100dvh); }
+    .nav-item:hover { background-color: var(--tw-bg-accent); color: var(--tw-bg-background-dark); }
+    .nav-item { transition: background-color 0.2s, color 0.2s; }
+    .nav-item .material-symbols-outlined { display:block; margin:0 auto 0.25rem; }
+  </style>
+</head>
+<body class="bg-background-dark font-display text-text">
+<div class="flex flex-col min-h-screen">
+  <main class="flex-1 p-4 pb-24">
+    <div class="flex flex-col items-center space-y-6">
+      <div class="relative">
+        <img alt="User profile image" class="w-32 h-32 rounded-full border-2 border-glass" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcO4sAoIKsqz6c_1ao9l8oLKrRoHcgQgvKXMVZ1GjrD6yIt1wIHUoUejWNVg5YeFSUNG2AzXPMsQBpnk9JKm7nj3Fl0c_-Jqff4R7sYxnLt9HXJtqXN5mHa4LpYy8ze_U0XA5E_p63z6cQCqLqyvstKocyRXYEASAUSo6DzvZTIfgZsyx7Xqbw8vV7RblR_FBppp7LTCsFU7QanKpaRmqO3o8B9Vxmy_1-jF73jvsjIbKoT9uvlznwhPR06j9c8xcPEZp403DWuA_j"/>
+      </div>
+
+      <div class="bg-card rounded-lg p-4 w-full max-w-md bg-gradient-to-br from-card to-accent/10">
+        <div class="flex justify-around items-center">
+          <div class="flex items-center space-x-2">
+            <span class="material-symbols-outlined text-accent" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+            <span class="font-bold text-lg">4</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="material-symbols-outlined text-violet">monetization_on</span>
+            <span class="font-bold text-lg">100</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-lg">1,000</span>
+            <span class="text-sm">EXP</span>
+            <span class="material-symbols-outlined text-accent ml-1">mail</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full max-w-md space-y-3">
+        <a class="block w-full bg-accent text-background-dark font-bold py-3 rounded-lg hover:opacity-90 transition-opacity text-center" href="#">Datos Personales</a>
+        <a class="block w-full bg-primary text-background-dark font-bold py-3 rounded-lg hover:opacity-90 transition-opacity text-center" href="#">Avance y logros</a>
+      </div>
+
+      <div class="bg-card rounded-lg p-4 w-full max-w-md bg-gradient-to-br from-card to-accent/10">
+        <h3 class="font-bold text-lg mb-3 text-center">Estadísticas de Juego</h3>
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p class="text-xs text-text/70">Victorias</p>
+            <p class="font-bold text-xl">100</p>
+          </div>
+          <div>
+            <p class="text-xs text-text/70">Empates</p>
+            <p class="font-bold text-xl">50</p>
+          </div>
+          <div>
+            <p class="text-xs text-text/70">Derrotas</p>
+            <p class="font-bold text-xl">20</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full max-w-md pt-4">
+        <button class="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-text font-bold py-3 rounded-lg hover:opacity-90 transition-opacity">
+          Fuego Canjeado
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <nav class="fixed bottom-0 left-0 right-0 bg-card border-t border-glass px-2 py-1">
+    <div class="flex justify-around text-xs text-center text-text/80">
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/profile" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">person</span>
+        <span>Perfil</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">door_open</span>
+        <span>Lobby</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">sports_esports</span>
+        <span>Juegos</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">confirmation_number</span>
+        <span>Rifas</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #a78bfa; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined" style="color: inherit;">storefront</span>
+        <span class="text-xs">Mercado</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #a78bfa; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">groups</span>
+        <span>Rol</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #a78bfa; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Próximo</span>
+      </a>
+    </div>
+  </nav>
+</div>
+</body>
+</html>

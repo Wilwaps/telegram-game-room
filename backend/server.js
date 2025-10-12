@@ -46,6 +46,14 @@ app.use('/api/xp', xpRoutes);
 app.use('/api/economy', economyExtRoutes);
 app.use('/telegram', telegramRoutes);
 
+// Rutas Frontend
+app.get('/supply', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/supply.html'));
+});
+app.get('/profile', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/profile.html'));
+});
+
 // Healthcheck
 app.get('/health', (req, res) => {
   res.json({ success: true, status: 'ok', time: Date.now() });
