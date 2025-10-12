@@ -4,7 +4,7 @@ class MemoryStore extends EventEmitter {
   constructor() {
     super();
     this.supply = {
-      total: 1_000_000,
+      total: 1_000_000_000,
       circulating: 100_000,
       burned: 0
     };
@@ -18,11 +18,21 @@ class MemoryStore extends EventEmitter {
     return { ...this.supply };
   }
 
+  getReserve() {
+    // Reserva disponible = total - (circulating + burned)
+    const { total, circulating, burned } = this.supply;
+    return Math.max(0, Number(total) - (Number(circulating) + Number(burned)));
+  }
+
   addBurn(amount) {
-    const a = Math.max(0, parseInt(amount || 0, 10));
-    this.supply.burned += a;
-    if (this.supply.circulating >= a) this.supply.circulating -= a;
-    this.emit('supply_changed', this.getSupplySummary());
+    const request = Math.max(0, parseInt(amount || 0, 10));
+    const canBurn = Math.min(request, this.supply.circulating);
+    if (canBurn > 0) {
+      this.supply.burned += canBurn;
+      this.supply.circulating -= canBurn;
+      this.emit('supply_changed', this.getSupplySummary());
+    }
+    return canBurn;
   }
 
   pushTx(tx) {
@@ -100,12 +110,11 @@ class MemoryStore extends EventEmitter {
 
   grantFromSupply({ toUserId, amount, reason }) {
     const u = this.ensureUser(toUserId);
-    const a = Math.max(0, Number(amount) || 0);
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
     if (!u || a <= 0) throw new Error('invalid_grant');
-    if (this.supply.circulating < a) {
-      // Para MVP, permitir circulating negativo no; simular reserva desde total
-      this.supply.circulating += a; // se incrementa la circulación desde reserva
-    }
+    const reserve = this.getReserve();
+    if (a > reserve) throw new Error('insufficient_reserve');
+    this.supply.circulating += a; // Se libera desde la reserva hacia circulación
     u.fires += a;
     const tx = this.pushTx({ type: 'grant', toUserId, amount: a, reason: reason || 'grant' });
     this._addUserTx(toUserId, tx);

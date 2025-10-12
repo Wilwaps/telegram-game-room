@@ -63,9 +63,10 @@ router.post('/supply/burn', adminAuth, (req, res) => {
   try {
     const amount = parseInt(req.body?.amount || '0', 10) || 0;
     if (amount <= 0) return res.status(400).json({ success: false, error: 'invalid_amount' });
-    store.addBurn(amount);
-    const tx = store.pushTx({ type: 'burn', amount });
-    res.json({ success: true, tx, supply: store.getSupplySummary() });
+    const burned = store.addBurn(amount);
+    if (burned <= 0) return res.status(400).json({ success: false, error: 'insufficient_circulating' });
+    const tx = store.pushTx({ type: 'burn', amount: burned });
+    res.json({ success: true, tx, burned, supply: store.getSupplySummary() });
   } catch (err) {
     res.status(500).json({ success: false, error: 'burn_error' });
   }

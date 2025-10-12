@@ -122,7 +122,9 @@ router.post('/grant-from-supply', adminAuth, (req, res) => {
     const out = store.grantFromSupply({ toUserId, amount, reason });
     res.json({ success: true, ...out });
   } catch (err) {
-    res.status(500).json({ success: false, error: 'grant_error' });
+    const msg = (err && err.message) || 'grant_error';
+    const code = (msg === 'insufficient_reserve' || msg === 'invalid_grant') ? 400 : 500;
+    res.status(code).json({ success: false, error: msg });
   }
 });
 
