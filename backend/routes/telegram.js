@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const logger = require('../config/logger');
+const https = require('https');
+const { URL } = require('url');
 
 // Health simple del webhook
 router.get('/webhook', (req, res) => {
@@ -23,21 +25,43 @@ router.post('/webhook', async (req, res) => {
     const update = req.body || {};
     logger.info('telegram_update', { update });
 
-     try {
-       const token = process.env.TELEGRAM_BOT_TOKEN || '';
-       const chatId = (update && update.message && update.message.chat && update.message.chat.id) ||
-                      (update && update.callback_query && update.callback_query.message && update.callback_query.message.chat && update.callback_query.message.chat.id);
-       const baseUrl = process.env.PUBLIC_WEBAPP_URL || `${req.protocol}://${req.get('host')}`;
-       if (token && chatId) {
-         const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-         const payload = {
-           chat_id: chatId,
-           text: 'Abre la WebApp',
-           reply_markup: { inline_keyboard: [[ { text: 'Abrir WebApp', web_app: { url: baseUrl } } ]] }
+     const postJSON = (urlStr, data) => new Promise((resolve) => {
+       try {
+         const u = new URL(urlStr);
+         const body = Buffer.from(JSON.stringify(data));
+         const opts = {
+           method: 'POST',
+           hostname: u.hostname,
+           path: u.pathname + (u.search || ''),
+           headers: {
+             'Content-Type': 'application/json',
+             'Content-Length': body.length
+           }
          };
-         await fetch(apiUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
-       }
-     } catch (_) {}
+         const reqH = https.request(opts, (resp) => {
+           resp.on('data', () => {});
+           resp.on('end', resolve);
+         });
+         reqH.on('error', () => resolve());
+         reqH.write(body);
+         reqH.end();
+       } catch (_) { resolve(); }
+     });
+
+     const token = process.env.TELEGRAM_BOT_TOKEN || '';
+     const chatId = (update && update.message && update.message.chat && update.message.chat.id) ||
+                    (update && update.callback_query && update.callback_query.message && update.callback_query.message.chat && update.callback_query.message.chat.id);
+     const hostUrl = `${req.protocol}://${req.get('host')}`;
+     const baseUrl = process.env.PUBLIC_WEBAPP_URL || `${hostUrl}/portal.html`;
+     if (token && chatId) {
+       const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+       const payload = {
+         chat_id: chatId,
+         text: 'Abre la WebApp',
+         reply_markup: { inline_keyboard: [[ { text: 'Abrir WebApp', web_app: { url: baseUrl } } ]] }
+       };
+       await postJSON(apiUrl, payload);
+     }
 
      return res.status(200).json({ ok: true });
   } catch (err) {

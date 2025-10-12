@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard • Telegram Game Room</title>
+  <style>
+    :root { --bg:#0b0e14; --panel:#0f1524; --card:#121a2b; --fg:#e6edf3; --muted:#9fb1c6; --accent:#22d3ee; --ok:#34d399; --warn:#f59e0b; --err:#ef4444; }
+    html, body { height: 100%; }
+    body { margin:0; background:
+      radial-gradient(800px 500px at 10% -10%, rgba(34,211,238,.14), transparent),
+      radial-gradient(900px 500px at 110% -20%, rgba(139,92,246,.10), transparent),
+      var(--bg);
+      color:var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .brand { font-weight: 800; letter-spacing:.35px; font-size: 20px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#bfefff; border:1px solid rgba(34,211,238,.4); padding:5px 10px; border-radius:999px; background: rgba(34,211,238,.10); }
+    .subtitle { color:var(--muted); margin-top:6px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-top: 18px; }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding:16px; box-shadow: 0 6px 24px rgba(0,0,0,.25); backdrop-filter: blur(6px); }
+    .kpi { font-size: 28px; font-weight: 800; }
+    .label { color: var(--muted); font-size: 13px; }
+    .list { display:flex; flex-direction:column; gap:8px; max-height: 260px; overflow:auto; }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid rgba(255,255,255,.06); border-radius:10px; padding:8px 10px; background: rgba(255,255,255,.02); font-size:13px; }
+    .muted { color: var(--muted); }
+    .nav { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn { display:inline-flex; align-items:center; gap:8px; background: rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.35); color:#e6fbff; padding:10px 14px; border-radius:10px; cursor:pointer; text-decoration:none; transition:.18s ease; }
+    .btn:hover { transform: translateY(-1px); background: rgba(34,211,238,0.16); }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div>
+        <div class="brand">Dashboard</div>
+        <div class="subtitle">Supply, transacciones y usuarios (real-time)</div>
+      </div>
+      <div class="nav">
+        <a class="btn" href="/portal.html">Portal</a>
+        <a class="btn" href="/">Home</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="label">Total supply</div>
+        <div class="kpi" id="total">-</div>
+      </div>
+      <div class="card">
+        <div class="label">Circulating</div>
+        <div class="kpi" id="circ">-</div>
+      </div>
+      <div class="card">
+        <div class="label">Burned</div>
+        <div class="kpi" id="burn">-</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="label">Últimas transacciones de supply</div>
+        <div id="txs" class="list"></div>
+      </div>
+      <div class="card">
+        <div class="label">Usuarios (sample)</div>
+        <div id="users" class="list"></div>
+      </div>
+      <div class="card">
+        <div class="label">XP thresholds (config)</div>
+        <div class="list" id="xp"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const fmt = (n) => new Intl.NumberFormat().format(n ?? 0);
+    const $ = (id) => document.getElementById(id);
+
+    async function loadSupply(){
+      const r = await fetch('/api/economy/supply');
+      const j = await r.json();
+      if(j && j.success){
+        $('total').textContent = fmt(j.supply.total);
+        $('circ').textContent  = fmt(j.supply.circulating);
+        $('burn').textContent  = fmt(j.supply.burned);
+      }
+    }
+    function startSSE(){
+      const es = new EventSource('/api/economy/supply/stream');
+      es.addEventListener('supply', (ev) => {
+        try { const d = JSON.parse(ev.data); const s=d.value; if(s){ $('total').textContent=fmt(s.total); $('circ').textContent=fmt(s.circulating); $('burn').textContent=fmt(s.burned); } } catch(_){ }
+      });
+    }
+
+    async function loadTxs(){
+      const r = await fetch('/api/economy/supply/txs?limit=20');
+      const j = await r.json();
+      const el = $('txs'); el.innerHTML = '';
+      const items = j.items || [];
+      for(const it of items){
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<span class="muted">${it.type || 'tx'}</span><span>${fmt(it.amount||0)}</span>`;
+        el.appendChild(row);
+      }
+    }
+
+    async function loadUsers(){
+      try{
+        const r = await fetch('/api/economy/users?cursor=&limit=10');
+        const list = await r.json();
+        const el = $('users'); el.innerHTML='';
+        (list||[]).forEach(u => {
+          const row = document.createElement('div');
+          row.className='row';
+          const uid = u.userId || u.id || '-';
+          row.innerHTML = `<span class="muted">${uid}</span><span>${fmt(u.fires||0)} 🔥</span>`;
+          el.appendChild(row);
+        });
+      } catch(_){ $('users').innerHTML='<div class="row">No data</div>'; }
+    }
+
+    async function loadXP(){
+      try{
+        const r = await fetch('/api/xp/config');
+        const j = await r.json();
+        const el = $('xp'); el.innerHTML='';
+        const th = (j.config && j.config.thresholds) || j.thresholds || {};
+        Object.entries(th).forEach(([lvl, pts])=>{
+          const row=document.createElement('div'); row.className='row';
+          row.innerHTML = `<span class="muted">Nivel ${lvl}</span><span>${fmt(pts)}</span>`;
+          el.appendChild(row);
+        });
+      }catch(_){ $('xp').innerHTML='<div class="row">No data</div>'; }
+    }
+
+    loadSupply();
+    startSSE();
+    loadTxs();
+    loadUsers();
+    loadXP();
+  </script>
+</body>
+</html>
