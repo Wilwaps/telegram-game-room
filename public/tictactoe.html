@@ -20,12 +20,19 @@
             'background-dark': '#0B0E14',
             accent: '#22d3ee',
             card: '#121A2B',
+            panel: '#0F1524',
             text: '#E6EDF3',
-            glass: 'rgba(255,255,255,0.1)'
+            glass: 'rgba(255,255,255,0.1)',
+            danger: '#EF4444'
           },
           fontFamily: { display: ['Space Grotesk'] },
           boxShadow: {
-            gold: '0 0 12px 4px rgba(255, 215, 0, 0.6), 0 0 24px 8px rgba(255, 215, 0, 0.35)'
+            gold: '0 0 12px 4px rgba(255, 215, 0, 0.6), 0 0 24px 8px rgba(255, 215, 0, 0.35)',
+            'neon-violet': '0 0 10px #a78bfa, 0 0 20px #a78bfa, 0 0 30px #a78bfa',
+            'neon-accent': '0 0 10px #22d3ee, 0 0 20px #22d3ee, 0 0 30px #22d3ee',
+            'neon-red': '0 0 10px rgba(239, 68, 68, 0.6), 0 0 20px rgba(239, 68, 68, 0.4)',
+            'neon-gold': '0 0 5px #facc15, 0 0 10px #facc15, 0 0 15px #facc15, 0 0 20px #facc15',
+            'neon-cyan-faint': '0 0 8px #21d5ed'
           },
           borderRadius: { DEFAULT: '0.5rem' }
         }
@@ -43,28 +50,51 @@
   <main class="flex-1 p-4 pb-24">
     <div class="max-w-md mx-auto space-y-4">
       <h1 class="text-3xl font-bold text-center text-accent">La Vieja</h1>
-      <div class="bg-card border border-glass rounded-lg p-4 space-y-2">
-        <div class="flex items-center justify-between text-sm">
-          <div>Tu ID: <span id="me" class="font-mono"></span></div>
-          <div>Tu marca: <span id="myMark" class="font-bold"></span></div>
+
+      <!-- Lobby -->
+      <section id="lobby" class="space-y-6">
+        <div class="bg-panel rounded-xl border border-glass p-4">
+          <h2 class="text-xl font-bold mb-4 text-center">Salas Activas</h2>
+          <div id="activeCard" class="bg-card rounded-lg p-4 flex items-center justify-between shadow-neon-red hidden">
+            <p class="text-text">Regresa a tu sala</p>
+            <p class="text-danger font-bold text-lg" id="countdown" style="text-shadow: 0 0 8px #EF4444;">00:30 seg</p>
+          </div>
+          <div class="mt-4 flex items-center gap-2">
+            <input id="codeInput" class="flex-grow bg-card border border-glass rounded-lg px-3 py-2 text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Código de sala" type="text"/>
+            <button id="joinCodeBtn" class="bg-accent/80 text-background-dark font-bold py-2 px-4 rounded-lg shadow-[0_0_10px_rgba(34,211,238,0.5)] hover:bg-accent transition-all duration-300">Unirme</button>
+          </div>
         </div>
-        <div class="flex items-center justify-between text-sm">
-          <div>Room: <a id="roomLink" class="underline text-accent" href="#" target="_blank"></a></div>
-          <div>Turno: <span id="turn" class="font-bold"></span></div>
+
+        <div class="bg-panel rounded-xl border border-glass p-4">
+          <h2 class="text-xl font-bold mb-4 text-center">Salas Creadas</h2>
+          <div id="roomsList" class="space-y-4"></div>
         </div>
-        <div class="text-center text-sm">Estado: <span id="status" class="font-semibold"></span></div>
-      </div>
+      </section>
 
-      <div id="grid" class="grid grid-cols-3 gap-2 select-none"></div>
+      <!-- Room/Board View -->
+      <section id="roomView" class="space-y-4 hidden">
+        <div class="bg-card border border-glass rounded-lg p-4 space-y-2">
+          <div class="flex items-center justify-between text-sm">
+            <div>Tu ID: <span id="me" class="font-mono"></span></div>
+            <div>Tu marca: <span id="myMark" class="font-bold"></span></div>
+          </div>
+          <div class="flex items-center justify-between text-sm">
+            <div>Room: <a id="roomLink" class="underline text-accent" href="#" target="_blank"></a></div>
+            <div>Turno: <span id="turn" class="font-bold"></span></div>
+          </div>
+          <div class="text-center text-sm">Estado: <span id="status" class="font-semibold"></span></div>
+        </div>
+        <div id="grid" class="grid grid-cols-3 gap-2 select-none"></div>
 
-      <div class="flex gap-2">
-        <button id="newBtn" class="flex-1 bg-accent text-background-dark font-bold py-2 rounded-lg">Crear sala</button>
-        <button id="copyBtn" class="flex-1 bg-primary text-background-dark font-bold py-2 rounded-lg">Copiar enlace</button>
-      </div>
+        <div class="flex gap-2">
+          <button id="newBtn" class="flex-1 bg-accent text-background-dark font-bold py-2 rounded-lg">Crear sala</button>
+          <button id="copyBtn" class="flex-1 bg-primary text-background-dark font-bold py-2 rounded-lg">Copiar enlace</button>
+        </div>
 
-      <div class="text-xs text-text/70">
-        - Haz click en una casilla vacía cuando sea tu turno. La jugada válida brillará en dorado.
-      </div>
+        <div class="text-xs text-text/70">
+          - Haz click en una casilla vacía cuando sea tu turno. La jugada válida brillará en dorado.
+        </div>
+      </section>
     </div>
   </main>
 
@@ -92,10 +122,18 @@
   const roomLinkEl = $('roomLink');
   const newBtn = $('newBtn');
   const copyBtn = $('copyBtn');
+  const lobby = $('lobby');
+  const roomView = $('roomView');
+  const activeCard = $('activeCard');
+  const countdownEl = $('countdown');
+  const codeInput = $('codeInput');
+  const joinCodeBtn = $('joinCodeBtn');
+  const roomsList = $('roomsList');
   let myId = null;
   let roomId = null;
   let myMark = null;
   let es = null;
+  let countdownTimer = null;
 
   function getQuery(name){
     const u = new URL(window.location.href);
@@ -105,6 +143,8 @@
   function setTurn(t){ turnEl.textContent = t || '-'; }
   function setMyMark(m){ myMark = m; markEl.textContent = m || '-'; }
   function setRoom(r){ roomId = r; const link = `${location.origin}/games/tictactoe?room=${encodeURIComponent(r)}`; roomLinkEl.textContent = r; roomLinkEl.href = link; }
+  function showLobby(){ lobby.classList.remove('hidden'); roomView.classList.add('hidden'); }
+  function showRoom(){ roomView.classList.remove('hidden'); lobby.classList.add('hidden'); }
 
   function getUserId(){
     const tg = window.Telegram && window.Telegram.WebApp;
@@ -128,12 +168,70 @@
     }
   }
 
+  function fmtTime(ms){
+    const s = Math.max(0, Math.ceil(ms/1000));
+    const mm = String(Math.floor(s/60)).padStart(2,'0');
+    const ss = String(s%60).padStart(2,'0');
+    return `${mm}:${ss} seg`;
+  }
+
+  function updateActiveCard(room){
+    try{ clearInterval(countdownTimer); }catch(_){ }
+    const amI = (room.players && (room.players.X===myId ? 'X' : (room.players.O===myId ? 'O' : null)));
+    const myTurn = amI && room.turn === amI;
+    const deadline = room.turnDeadline ? Number(room.turnDeadline) : 0;
+    if (room.status==='playing' && myTurn && deadline){
+      activeCard.classList.remove('hidden');
+      const tick = ()=>{
+        const left = deadline - Date.now();
+        countdownEl.textContent = fmtTime(left);
+        if (left <= 0) { clearInterval(countdownTimer); countdownEl.textContent = '00:00 seg'; }
+      };
+      tick();
+      countdownTimer = setInterval(tick, 250);
+    } else {
+      activeCard.classList.add('hidden');
+    }
+  }
+
+  async function loadLobby(){
+    showLobby();
+    // lista de mis salas
+    const r = await fetch(`/api/games/tictactoe/my-rooms?userId=${encodeURIComponent(myId)}`);
+    const j = await r.json();
+    roomsList.innerHTML = '';
+    const arr = (j && j.success && Array.isArray(j.rooms)) ? j.rooms : [];
+    if (!arr.length){
+      const empty = document.createElement('div'); empty.className='text-center text-text/60'; empty.textContent='No has creado salas'; roomsList.appendChild(empty);
+    } else {
+      for (const rm of arr){
+        const wrap = document.createElement('div');
+        wrap.className = 'bg-card rounded-lg p-4 shadow-[0_0_8px_#21d5ed] border border-transparent';
+        wrap.innerHTML = `<div class="flex justify-between items-center mb-2">
+          <span class="text-accent font-mono text-lg">#${rm.code||'------'}</span>
+          <a class="underline text-accent" href="/games/tictactoe?room=${encodeURIComponent(rm.id)}">Abrir</a>
+        </div>
+        <div class="flex justify-around text-center text-sm">
+          <div><p class="font-bold text-lg">-</p><p class="text-text/60">V</p></div>
+          <div><p class="font-bold text-lg">-</p><p class="text-text/60">E</p></div>
+          <div><p class="font-bold text-lg">-</p><p class="text-text/60">D</p></div>
+        </div>`;
+        roomsList.appendChild(wrap);
+      }
+    }
+
+    // si hay sala con mi turno, mostrar countdown
+    const playingMine = arr.find(rm=> (rm.players&& (rm.players.X===myId||rm.players.O===myId)) && rm.status==='playing');
+    if (playingMine) updateActiveCard(playingMine); else activeCard.classList.add('hidden');
+  }
+
   async function createRoom(){
     const r = await fetch('/api/games/tictactoe/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: myId }) });
     const j = await r.json();
     if (!j.success) throw new Error('create_failed');
     setRoom(j.state.id);
     subscribe();
+    showRoom();
   }
   async function joinRoom(id){
     const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(id)}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: myId }) });
@@ -141,6 +239,7 @@
     if (!j.success) throw new Error(j.error || 'join_failed');
     setRoom(j.state.id);
     subscribe();
+    showRoom();
   }
 
   function subscribe(){
@@ -158,6 +257,8 @@
           if (s.players.X === myId) setMyMark('X');
           else if (s.players.O === myId) setMyMark('O');
         }
+        // actualizar countdown visible si volvemos al lobby
+        updateActiveCard(s);
       }catch(_){}
     });
   }
@@ -184,15 +285,30 @@
     myId = getUserId();
     meEl.textContent = myId;
     const rid = getQuery('room');
-    if (rid) await joinRoom(rid).catch(()=>createRoom());
-    else await createRoom();
+    if (rid) {
+      await joinRoom(rid).catch(()=>createRoom());
+    } else {
+      await loadLobby();
+    }
   })();
 
-  newBtn.addEventListener('click', ()=>{
-    window.location.href = '/games/tictactoe';
+  newBtn.addEventListener('click', async ()=>{
+    await createRoom();
   });
   copyBtn.addEventListener('click', async ()=>{
     try{ await navigator.clipboard.writeText(roomLinkEl.href); copyBtn.textContent='Copiado'; setTimeout(()=>copyBtn.textContent='Copiar enlace', 1200);}catch(_){ }
+  });
+
+  joinCodeBtn.addEventListener('click', async ()=>{
+    const code = (codeInput.value||'').trim();
+    if (!code) return;
+    try{
+      const r = await fetch('/api/games/tictactoe/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) });
+      const j = await r.json();
+      if (j && j.success && j.state && j.state.id) {
+        setRoom(j.state.id); subscribe(); showRoom();
+      }
+    }catch(_){ }
   });
 })();
 </script>

@@ -13,6 +13,47 @@ router.post('/rooms', (req, res) => {
   }
 });
 
+// GET /api/games/tictactoe/my-rooms?userId=
+router.get('/my-rooms', (req, res) => {
+  try {
+    const userId = String(req.query.userId || '').trim();
+    if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
+    const rooms = store.listRoomsByUser(userId);
+    res.json({ success: true, rooms });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'list_error' });
+  }
+});
+
+// POST /api/games/tictactoe/join-code { code, userId }
+router.post('/join-code', (req, res) => {
+  try {
+    const code = String(req.body && req.body.code || '').trim();
+    const userId = String(req.body && req.body.userId || '').trim();
+    if (!code || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
+    const state = store.findByCode(code);
+    if (!state) return res.status(404).json({ success: false, error: 'room_not_found' });
+    const joined = store.joinRoom(state.id, userId);
+    res.json({ success: true, state: joined });
+  } catch (e) {
+    const msg = e && e.message || 'join_code_error';
+    const code = (msg === 'room_not_found') ? 404 : 400;
+    res.status(code).json({ success: false, error: msg });
+  }
+});
+
+// GET /api/games/tictactoe/code/:code
+router.get('/code/:code', (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim();
+    const state = store.findByCode(code);
+    if (!state) return res.status(404).json({ success: false, error: 'room_not_found' });
+    res.json({ success: true, state });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'code_lookup_error' });
+  }
+});
+
 router.post('/rooms/:id/join', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
