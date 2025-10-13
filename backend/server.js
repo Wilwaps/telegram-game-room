@@ -9,6 +9,7 @@ const economyRoutes = require('./routes/economy');
 const xpRoutes = require('./routes/xp');
 const economyExtRoutes = require('./routes/economy_ext');
 const telegramRoutes = require('./routes/telegram');
+const profileRoutes = require('./routes/profile');
 
 const app = express();
 app.set('trust proxy', true);
@@ -17,7 +18,7 @@ app.use(helmet({
     useDefaults: true,
     directives: {
       "default-src": ["'self'"],
-      "script-src": ["'self'", "https://cdn.tailwindcss.com", "'unsafe-inline'"],
+      "script-src": ["'self'", "https://cdn.tailwindcss.com", "https://telegram.org", "'unsafe-inline'"],
       "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
       "img-src": ["'self'", "data:", "https:", "blob:"],
       "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
@@ -61,6 +62,7 @@ app.use('/api/economy', economyRoutes);
 app.use('/api/xp', xpRoutes);
 app.use('/api/economy', economyExtRoutes);
 app.use('/telegram', telegramRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Rutas Frontend
 app.get('/supply', (req, res) => {

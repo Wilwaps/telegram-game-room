@@ -3,6 +3,7 @@ const router = express.Router();
 const logger = require('../config/logger');
 const https = require('https');
 const { URL } = require('url');
+const store = require('../services/memoryStore');
 
 // Health simple del webhook
 router.get('/webhook', (req, res) => {
@@ -49,14 +50,33 @@ router.post('/webhook', async (req, res) => {
      });
 
      const token = process.env.TELEGRAM_BOT_TOKEN || '';
-     const chatId = (update && update.message && update.message.chat && update.message.chat.id) ||
-                    (update && update.callback_query && update.callback_query.message && update.callback_query.message.chat && update.callback_query.message.chat.id);
+     const msg = update.message;
+     const cbq = update.callback_query;
+     const chat = (msg && msg.chat) || (cbq && cbq.message && cbq.message.chat) || null;
+     const from = (msg && msg.from) || (cbq && cbq.from) || null;
+
+     // Award 1 coin when a user posts a message in the target group
+     const targetChatId = String(process.env.TELEGRAM_TARGET_CHAT_ID || '-1002660157966');
+     if (msg && chat && String(chat.id) === targetChatId) {
+       try {
+         if (from && !from.is_bot) {
+           const uid = 'tg:' + String(from.id);
+           const uname = from.username || [from.first_name, from.last_name].filter(Boolean).join(' ').trim();
+           const out = store.addCoins({ userId: uid, amount: 1, userName: uname, reason: 'coin_msg_group' });
+           if (out) logger.info('coin_awarded', { userId: uid, coins: out.u.coins });
+         }
+       } catch (e) {
+         logger.warn('coin_award_error', { error: String(e) });
+       }
+     }
+
+     // Only send WebApp button for private chats (avoid spamming groups)
      const hostUrl = `${req.protocol}://${req.get('host')}`;
      const baseUrl = process.env.PUBLIC_WEBAPP_URL || `${hostUrl}/portal.html`;
-     if (token && chatId) {
+     if (token && chat && chat.type === 'private') {
        const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
        const payload = {
-         chat_id: chatId,
+         chat_id: chat.id,
          text: 'Abre la WebApp',
          reply_markup: { inline_keyboard: [[ { text: 'Abrir WebApp', web_app: { url: baseUrl } } ]] }
        };

@@ -8,6 +8,7 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script id="tailwind-config">
     tailwind.config = {
@@ -41,6 +42,7 @@
 <div class="flex flex-col min-h-screen">
   <main class="flex-1 p-4 pb-24">
     <div class="flex flex-col items-center space-y-6">
+      <div id="greet" class="w-full max-w-md text-center text-sm text-text/90 bg-card border border-glass rounded-lg p-2" style="display:none"></div>
       <div class="relative">
         <img alt="User profile image" class="w-32 h-32 rounded-full border-2 border-glass" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcO4sAoIKsqz6c_1ao9l8oLKrRoHcgQgvKXMVZ1GjrD6yIt1wIHUoUejWNVg5YeFSUNG2AzXPMsQBpnk9JKm7nj3Fl0c_-Jqff4R7sYxnLt9HXJtqXN5mHa4LpYy8ze_U0XA5E_p63z6cQCqLqyvstKocyRXYEASAUSo6DzvZTIfgZsyx7Xqbw8vV7RblR_FBppp7LTCsFU7QanKpaRmqO3o8B9Vxmy_1-jF73jvsjIbKoT9uvlznwhPR06j9c8xcPEZp403DWuA_j"/>
       </div>
@@ -49,14 +51,14 @@
         <div class="flex justify-around items-center">
           <div class="flex items-center space-x-2">
             <span class="material-symbols-outlined text-accent" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
-            <span class="font-bold text-lg">4</span>
+            <span id="firesVal" class="font-bold text-lg">0</span>
           </div>
           <div class="flex items-center space-x-2">
             <span class="material-symbols-outlined text-violet">monetization_on</span>
-            <span class="font-bold text-lg">100</span>
+            <span id="coinsVal" class="font-bold text-lg">0</span>
           </div>
           <div class="flex items-center space-x-2">
-            <span class="font-bold text-lg">1,000</span>
+            <span id="expVal" class="font-bold text-lg">0</span>
             <span class="text-sm">EXP</span>
             <span class="material-symbols-outlined text-accent ml-1">mail</span>
           </div>
@@ -127,5 +129,38 @@
     </div>
   </nav>
 </div>
+<script>
+  (async () => {
+    const $ = (id) => document.getElementById(id);
+    const fmt = (n) => new Intl.NumberFormat().format(n ?? 0);
+    try {
+      const tg = window.Telegram && window.Telegram.WebApp;
+      const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (!user) {
+        // Sin sesión Telegram: mostrar 0s
+        ['firesVal','coinsVal','expVal'].forEach(id => { const el=$(id); if(el) el.textContent = '0'; });
+        return;
+      }
+      const uid = 'tg:' + String(user.id);
+      const uname = user.username || [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
+      const r = await fetch(`/api/profile/${encodeURIComponent(uid)}`);
+      const j = await r.json();
+      if (j && j.success && j.user) {
+        const u = j.user;
+        const fires = Number(u.fires||0);
+        const coins = Number(u.coins||0);
+        const earned = Number(u.earnedCoins||0);
+        const exp = Number(u.exp||0);
+        const fEl = $('firesVal'); if (fEl) fEl.textContent = fmt(fires);
+        const cEl = $('coinsVal'); if (cEl) cEl.textContent = fmt(coins);
+        const eEl = $('expVal'); if (eEl) eEl.textContent = fmt(exp);
+        const greet = $('greet');
+        if (greet) { greet.style.display='block'; greet.textContent = `¡Felicidades ${uname}! Has ganado ${fmt(earned)} monedas en el grupo.`; }
+      }
+    } catch (e) {
+      // Fallback silencioso
+    }
+  })();
+</script>
 </body>
 </html>

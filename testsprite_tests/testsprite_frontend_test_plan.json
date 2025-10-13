@@ -1,409 +1,460 @@
 [
   {
     "id": "TC001",
-    "title": "Real-time Tic Tac Toe Game Play",
-    "description": "Verify real-time synchronization and game flow for Tic Tac Toe using Socket.io between multiple players.",
+    "title": "Create Public Room Successfully",
+    "description": "Verify that a user can create a public game room with valid inputs and receives a room code.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "User A creates a public Tic Tac Toe game room"
+        "description": "User opens Sala de Juegos MiniApp in Telegram."
       },
       {
         "type": "action",
-        "description": "User B joins the created game room"
+        "description": "User selects option to create a public room."
       },
       {
         "type": "action",
-        "description": "User A makes a valid move in the game"
+        "description": "User submits valid room creation data."
       },
       {
         "type": "assertion",
-        "description": "User B sees the move in real-time without delay"
-      },
-      {
-        "type": "action",
-        "description": "User B makes a move"
+        "description": "Verify that a room code is generated and displayed."
       },
       {
         "type": "assertion",
-        "description": "User A sees User B's move in real-time"
-      },
-      {
-        "type": "action",
-        "description": "Users play until a win or draw condition is met"
-      },
-      {
-        "type": "assertion",
-        "description": "Game correctly identifies win, draw or ongoing state"
-      },
-      {
-        "type": "action",
-        "description": "User requests a rematch"
-      },
-      {
-        "type": "assertion",
-        "description": "Both users are able to start a rematch successfully with reset board"
+        "description": "Verify that the room is listed as public and available to join."
       }
     ]
   },
   {
     "id": "TC002",
-    "title": "Game Room Management - Creation, Joining, Invitations, and Host Transfer",
-    "description": "Test creation of public and private rooms, joining by code/link, sending invitations, and transferring host rights.",
+    "title": "Create Private Room and Invite Friend",
+    "description": "Verify private room creation and invitation mechanism works correctly using invite codes and Telegram links.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "User creates a private game room"
+        "description": "User creates a private game room."
       },
       {
         "type": "assertion",
-        "description": "Room is created with private access code"
+        "description": "Verify private room code or link is generated."
       },
       {
         "type": "action",
-        "description": "User shares invite link or code via Telegram"
+        "description": "User sends invite code or Telegram invitation link to a friend."
       },
       {
         "type": "action",
-        "description": "Another user joins using invite code or link"
+        "description": "Friend opens the MiniApp and uses the invite code/link to join the private room."
       },
       {
         "type": "assertion",
-        "description": "Joining user enters room successfully and is listed as participant"
-      },
-      {
-        "type": "action",
-        "description": "Current host transfers host rights to joined user"
-      },
-      {
-        "type": "assertion",
-        "description": "Host rights are correctly transferred and both users see updated host info"
+        "description": "Verify friend successfully joins the private room."
       }
     ]
   },
   {
     "id": "TC003",
-    "title": "Economy System - Supply and Sponsor Management",
-    "description": "Verify supply summary retrieval and sponsor listing, adding, modifying, and removing sponsors via Economy API with admin authorization.",
+    "title": "Real-time Gameplay Synchronization - Tic Tac Toe",
+    "description": "Validate that moves during a Tic Tac Toe game are synchronized in real time for all players using Socket.io.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Call GET /api/economy/supply and validate status 200 and correct summary data"
+        "description": "Two users join the same Tic Tac Toe game room."
       },
       {
         "type": "action",
-        "description": "Call GET /api/economy/sponsors and validate sponsor list is retrieved"
-      },
-      {
-        "type": "action",
-        "description": "As admin, add a new sponsor via POST /api/economy/sponsors/add with valid data"
+        "description": "Player 1 makes a move in a valid position."
       },
       {
         "type": "assertion",
-        "description": "New sponsor appears in sponsor list"
+        "description": "Player 2's UI updates instantly to reflect Player 1's move."
       },
       {
         "type": "action",
-        "description": "As admin, update sponsor meta data and key"
+        "description": "Player 2 makes a move."
       },
       {
         "type": "assertion",
-        "description": "Sponsor metadata and key updates are persisted"
+        "description": "Player 1's UI updates instantly to reflect Player 2's move."
       },
       {
         "type": "action",
-        "description": "As admin, remove sponsor and verify removal"
+        "description": "Play continues until game conclusion."
       },
       {
         "type": "assertion",
-        "description": "Sponsor no longer appears in sponsors list"
+        "description": "Verify correct game end state and notification for both players."
       }
     ]
   },
   {
     "id": "TC004",
-    "title": "Economy System - Transfer and Grant Fires Transactions",
-    "description": "Validate transfer of virtual currency 'Fuegos' between users with and without sponsor authorization and admin granting from reserve.",
-    "category": "functional",
+    "title": "Error Handling for Invalid Room Join Code",
+    "description": "Check system properly rejects attempts to join a room with invalid or non-existent codes and displays appropriate error.",
+    "category": "error handling",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Perform POST /api/economy/transfer with valid sponsor key and transfer parameters"
+        "description": "User inputs invalid or non-existent room join code."
       },
       {
         "type": "assertion",
-        "description": "Transfer succeeds and user balances update accordingly"
-      },
-      {
-        "type": "action",
-        "description": "Attempt transfer without sponsor key or insufficient permissions"
+        "description": "Confirm user receives a clear error message denying entry."
       },
       {
         "type": "assertion",
-        "description": "Transfer fails with appropriate error message"
-      },
-      {
-        "type": "action",
-        "description": "Admin performs POST /api/economy/grant-from-supply to grant fires from reserve"
-      },
-      {
-        "type": "assertion",
-        "description": "Grant succeeds and recipient balance increases accordingly"
+        "description": "Verify the user remains on the join screen without crashing."
       }
     ]
   },
   {
     "id": "TC005",
-    "title": "User Economy Data Streaming via SSE",
-    "description": "Verify clients receive real-time updates of supply changes via Server-Sent Events (SSE) endpoint.",
+    "title": "Host Transfer in Game Room",
+    "description": "Validate that the host can transfer hosting rights to another user in the room and new host assumes control.",
     "category": "functional",
     "priority": "Medium",
     "steps": [
       {
         "type": "action",
-        "description": "Client subscribes to /api/economy/supply/stream SSE endpoint"
+        "description": "Host selects a participant to transfer host rights."
       },
       {
         "type": "action",
-        "description": "Trigger supply changes via transfers or grants"
+        "description": "Host confirms host transfer."
       },
       {
         "type": "assertion",
-        "description": "Client receives all relevant supply update events in real time"
-      },
-      {
-        "type": "action",
-        "description": "Simulate SSE connection drop and reconnect"
+        "description": "Verify the selected participant receives host privileges."
       },
       {
         "type": "assertion",
-        "description": "Client successfully re-subscribes and receives missed events if supported"
+        "description": "Verify the original host loses hosting privileges."
       }
     ]
   },
   {
     "id": "TC006",
-    "title": "Store Catalog and Redeem Item Functionality",
-    "description": "Validate retrieval of store catalog and successful redemption of items using Fuegos, including error handling for insufficient funds or invalid item ID.",
+    "title": "Request Rematch After Game End",
+    "description": "Ensure users can request and initiate a rematch after a game concludes and the rematch workflow completes successfully.",
     "category": "functional",
-    "priority": "High",
+    "priority": "Medium",
     "steps": [
       {
         "type": "action",
-        "description": "Call GET /api/store/catalog and verify catalog data retrieval"
+        "description": "Game ends and users see final stats."
       },
       {
         "type": "action",
-        "description": "Redeem a valid item via POST /api/store/redeem with correct userId and itemId"
-      },
-      {
-        "type": "assertion",
-        "description": "User's Fuegos balance decreases accordingly and redemption is confirmed"
+        "description": "One user requests a rematch."
       },
       {
         "type": "action",
-        "description": "Attempt to redeem item with insufficient Fuegos balance"
+        "description": "Other user receives and accepts rematch request."
       },
       {
         "type": "assertion",
-        "description": "Redemption fails with appropriate error message"
-      },
-      {
-        "type": "action",
-        "description": "Attempt to redeem with invalid or missing itemId"
-      },
-      {
-        "type": "assertion",
-        "description": "API returns validation error"
+        "description": "Verify new game instance starts with initial game state."
       }
     ]
   },
   {
     "id": "TC007",
-    "title": "User Profile Management",
-    "description": "Verify retrieval and update of user profile information and requesting key change via Profile API.",
+    "title": "Economy: Get Supply Summary API",
+    "description": "Validate the Economy API endpoint that returns supply summary responds with correct data and status 200.",
     "category": "functional",
-    "priority": "Medium",
+    "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Call GET /api/profile/{userId} to retrieve user profile"
+        "description": "Send GET request to /api/economy/supply."
       },
       {
         "type": "assertion",
-        "description": "Profile data returned matches stored information"
-      },
-      {
-        "type": "action",
-        "description": "Update user's profile data with valid changes via POST /api/profile/{userId}"
+        "description": "Assert HTTP status 200."
       },
       {
         "type": "assertion",
-        "description": "Profile data updates are persisted and returned correctly on retrieval"
-      },
-      {
-        "type": "action",
-        "description": "Request key change with valid newKey via POST /api/profile/{userId}/request-key-change"
-      },
-      {
-        "type": "assertion",
-        "description": "Key change request is accepted and confirmation is returned"
+        "description": "Response includes current supply totals as expected."
       }
     ]
   },
   {
     "id": "TC008",
-    "title": "XP Threshold Configuration and Retrieval",
-    "description": "Test retrieval and update of XP thresholds for user progression management through the XP API.",
+    "title": "Economy: Transfer Fires with Valid Sponsor Key",
+    "description": "Verify that a sponsor can transfer fires to another user when providing a valid sponsor key and valid transfer data.",
     "category": "functional",
-    "priority": "Medium",
+    "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Call GET /api/xp/config to retrieve current XP thresholds"
+        "description": "Sponsor sends POST request to /api/economy/transfer with fromUserId, toUserId, amount, sponsorKey, and reason."
       },
       {
         "type": "assertion",
-        "description": "XP thresholds fit expected schema and values"
-      },
-      {
-        "type": "action",
-        "description": "Update XP thresholds with a valid configuration via POST /api/xp/config"
+        "description": "Response status is 200 and transfer is recorded."
       },
       {
         "type": "assertion",
-        "description": "Update accepted and new thresholds are persisted"
-      },
-      {
-        "type": "action",
-        "description": "Attempt updating with invalid payload (e.g. missing required fields or malformed data)"
-      },
-      {
-        "type": "assertion",
-        "description": "API rejects request with appropriate error"
+        "description": "Receiving user fires balance is updated correctly."
       }
     ]
   },
   {
     "id": "TC009",
-    "title": "Security - Rate Limiting and Input Validation",
-    "description": "Verify that API rate limiting works as expected and that invalid or malicious inputs are properly sanitized and rejected.",
-    "category": "security",
+    "title": "Economy: Transfer Fires with Invalid Sponsor Key",
+    "description": "Check that the transfer API rejects transfers with invalid or missing sponsor keys and returns appropriate error status.",
+    "category": "error handling",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Send rapid multiple requests exceeding rate limits to protected endpoints"
+        "description": "Send POST request to /api/economy/transfer with invalid or missing sponsorKey."
       },
       {
         "type": "assertion",
-        "description": "Server responds with 429 Too Many Requests or similar status"
-      },
-      {
-        "type": "action",
-        "description": "Send requests with SQL injection, XSS payloads or malformed inputs to APIs"
+        "description": "Response status is 401 or 403 with authorization error."
       },
       {
         "type": "assertion",
-        "description": "Inputs are sanitized or rejected, no database or application errors occur"
-      },
-      {
-        "type": "action",
-        "description": "Verify Helmet middleware sets appropriate security headers on responses"
-      },
-      {
-        "type": "assertion",
-        "description": "Security headers (e.g. Content-Security-Policy, X-Frame-Options) are present"
+        "description": "No transfer occurs in the backend."
       }
     ]
   },
   {
     "id": "TC010",
-    "title": "UI/UX Responsiveness and Telegram WebApp SDK Integration",
-    "description": "Test the MiniApp UI responsiveness across screen sizes, and verify integration with Telegram WebApp SDK including haptic feedback and animations.",
-    "category": "ui",
-    "priority": "Medium",
-    "steps": [
-      {
-        "type": "action",
-        "description": "Open MiniApp in Telegram WebApp environment on different device sizes"
-      },
-      {
-        "type": "assertion",
-        "description": "UI adapts responsively without layout breakage or clipping"
-      },
-      {
-        "type": "action",
-        "description": "Perform game actions that trigger animations and feedback"
-      },
-      {
-        "type": "assertion",
-        "description": "Animations play smoothly and haptic feedback triggers on supported devices"
-      },
-      {
-        "type": "action",
-        "description": "Test Telegram bot commands and menu buttons related to MiniApp launch and navigation"
-      },
-      {
-        "type": "assertion",
-        "description": "Commands open MiniApp correctly and navigation works seamlessly"
-      }
-    ]
-  },
-  {
-    "id": "TC011",
-    "title": "Scalability and Multi-instance Session Management",
-    "description": "Verify correct handling of multiple game rooms and users concurrently, with Redis session sharing and consistent state across instances.",
+    "title": "Store: Redeem Item with Sufficient Fires",
+    "description": "Validate that a user can redeem an item from the store catalog when they have enough fires, and fires balance updates accordingly.",
     "category": "functional",
     "priority": "High",
     "steps": [
       {
         "type": "action",
-        "description": "Simulate multiple users creating and joining different game rooms concurrently across app instances"
-      },
-      {
-        "type": "assertion",
-        "description": "Each room maintains isolated state and all users receive correct real-time updates"
+        "description": "User queries /api/store/catalog and selects an item."
       },
       {
         "type": "action",
-        "description": "Simulate failover or restart of one app instance connected to Redis"
+        "description": "User sends POST to /api/store/redeem with userId, itemId, and requestId."
       },
       {
         "type": "assertion",
-        "description": "Sessions and game states persist without inconsistencies or user disconnections"
+        "description": "Response status is 200 confirming redemption."
+      },
+      {
+        "type": "assertion",
+        "description": "User's fires balance is decreased appropriately."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Store: Redeem Item with Insufficient Fires",
+    "description": "Ensure that redemption is rejected when the user does not have enough fires to redeem the item.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "User attempts to redeem item costing more fires than user has."
+      },
+      {
+        "type": "assertion",
+        "description": "Response returns 400 or appropriate error code with message about insufficient fires."
+      },
+      {
+        "type": "assertion",
+        "description": "User's fires balance remains unchanged."
       }
     ]
   },
   {
     "id": "TC012",
-    "title": "Error Handling and Timeout Management",
-    "description": "Test backend error responses and proper timeout behavior under network failure or delayed inputs.",
-    "category": "error handling",
+    "title": "Profile: Get and Update User Profile",
+    "description": "Verify that a user profile can be retrieved and updated correctly via API.",
+    "category": "functional",
     "priority": "Medium",
     "steps": [
       {
         "type": "action",
-        "description": "Simulate backend service failure or malformed requests to APIs"
+        "description": "Send GET request to /api/profile/{userId} with valid userId."
       },
       {
         "type": "assertion",
-        "description": "APIs return meaningful error codes and messages without crashing"
+        "description": "Response status 200 and returns user profile fields."
       },
       {
         "type": "action",
-        "description": "Trigger network delays or dropped socket connections during game"
+        "description": "Send POST request to /api/profile/{userId} updating firstName, lastName, phone, and email."
       },
       {
         "type": "assertion",
-        "description": "App handles timeouts gracefully, reconnects, or prompts user appropriately"
+        "description": "Response status 200 confirms update."
+      },
+      {
+        "type": "action",
+        "description": "Send GET request again to verify updated fields."
+      },
+      {
+        "type": "assertion",
+        "description": "Profile data matches the updates sent."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Profile: Request Key Change",
+    "description": "Validate that users can request a key change via API and the request is accepted.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /api/profile/{userId}/request-key-change with newKey and optional note."
+      },
+      {
+        "type": "assertion",
+        "description": "Response status 200 confirming request accepted."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Security: Rate Limiting Enforcement on Economy Transfer Endpoint",
+    "description": "Ensure that rapid repeated requests to the transfer endpoint are throttled according to rate limiting configuration.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send a high volume of rapid POST requests to /api/economy/transfer."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that after threshold, responses return HTTP 429 Too Many Requests."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Real-Time Economy Updates via SSE",
+    "description": "Verify that the supply SSE stream endpoint sends live updates correctly and clients receive consistent event data.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Client connects to /api/economy/supply/stream."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm SSE connection is established."
+      },
+      {
+        "type": "action",
+        "description": "Trigger an economy supply change (e.g. admin grants fires)."
+      },
+      {
+        "type": "assertion",
+        "description": "Client receives an SSE event with updated supply data."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "UI Responsiveness Test on Different Screen Sizes",
+    "description": "Guarantee the MiniApp UI adapts fluidly to various screen sizes including mobile and desktop Telegram WebApp environments.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open MiniApp in Telegram on multiple devices and screen sizes."
+      },
+      {
+        "type": "assertion",
+        "description": "Check UI elements and game board scale correctly with no horizontal scrolling or clipping."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify animations and haptic feedback triggers correctly on supported devices."
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Security: Validate Input Sanitization and Permissions on Room Join",
+    "description": "Check that joining rooms via code correctly sanitizes inputs and rejects unauthorized or malformed requests.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to join room using room code with script or special characters."
+      },
+      {
+        "type": "assertion",
+        "description": "Request is rejected with an error indicating invalid input."
+      },
+      {
+        "type": "action",
+        "description": "Try to join private room without invitation or with an unauthorized user."
+      },
+      {
+        "type": "assertion",
+        "description": "Access is denied with an appropriate message about permissions."
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Scalability: Manage Multiple Game Rooms Concurrently",
+    "description": "Verify system supports multiple concurrent game rooms, with isolated states per room and consistent Redis session management.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate creation of multiple game rooms by different users."
+      },
+      {
+        "type": "action",
+        "description": "Users join respective rooms and play games concurrently."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure game states do not interfere between rooms."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify Redis holds session and game data correctly and isolation is maintained."
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Backend Error Handling and Timeout Management",
+    "description": "Ensure the backend handles unexpected errors gracefully with proper HTTP status codes and response messages, and enforces timeouts on long operations.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate backend failure or delayed response on economy or game endpoints."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify frontend receives appropriate error messages or timeout indications."
+      },
+      {
+        "type": "assertion",
+        "description": "Backend logs errors and does not crash."
       }
     ]
   }

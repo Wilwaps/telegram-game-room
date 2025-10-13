@@ -51,6 +51,12 @@ class MemoryStore extends EventEmitter {
     return this.users.get(id);
   }
 
+  getUser(userId) {
+    const id = String(userId || '').trim();
+    if (!id) return null;
+    return this.users.get(id) || null;
+  }
+
   listUsers({ search = '', limit = 20, cursor = 0 } = {}) {
     const arr = Array.from(this.users.values());
     const q = String(search || '').toLowerCase();
@@ -106,6 +112,18 @@ class MemoryStore extends EventEmitter {
     const rec = this.sponsors.get(String(userId || '').trim());
     if (!rec || !rec.key) return false;
     return String(rec.key) === String(sponsorKey || '');
+  }
+
+  addCoins({ userId, amount = 1, userName, reason = 'coin_msg' }) {
+    const id = String(userId || '').trim();
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!id || a <= 0) return null;
+    const u = this.ensureUser(id);
+    if (userName) u.userName = userName;
+    u.coins = Math.max(0, Number(u.coins || 0)) + a;
+    const tx = this.pushTx({ type: 'coin', toUserId: id, amount: a, reason });
+    this._addUserTx(id, tx);
+    return { u, tx };
   }
 
   grantFromSupply({ toUserId, amount, reason }) {
