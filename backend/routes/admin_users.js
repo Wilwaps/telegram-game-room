@@ -16,10 +16,11 @@ router.get('/list', (req, res) => {
     if (onlineOnly) {
       items = items.filter(u => Number(u.lastSeenAt || 0) > now - ONLINE_WINDOW_MS);
     }
-    const mapped = items.map(u => ({
-      ...u,
-      isOnline: Number(u.lastSeenAt || 0) > now - ONLINE_WINDOW_MS
-    }));
+    const mapped = items.map(u => {
+      const expectedId = u.telegramId ? ('tg:' + String(u.telegramId)) : (u.email ? ('em:' + String(u.email).toLowerCase()) : null);
+      const isOnline = Number(u.lastSeenAt || 0) > now - ONLINE_WINDOW_MS;
+      return { ...u, isOnline, expectedId, idMatch: expectedId ? (expectedId === u.userId) : true };
+    });
     res.json({ success: true, items: mapped, nextCursor, total, now, onlineWindowMs: ONLINE_WINDOW_MS });
   } catch (err) {
     res.status(500).json({ success: false, error: 'list_error' });
@@ -48,6 +49,18 @@ router.get('/stats', (req, res) => {
     res.json({ success: true, total, online, now, onlineWindowMs: ONLINE_WINDOW_MS });
   } catch (err) {
     res.status(500).json({ success: false, error: 'stats_error' });
+  }
+});
+
+// POST /api/admin/users/merge { primaryId, secondaryId }
+router.post('/merge', (req, res) => {
+  try {
+    const { primaryId, secondaryId } = req.body || {};
+    if (!primaryId || !secondaryId || primaryId === secondaryId) return res.status(400).json({ success:false, error:'invalid_params' });
+    const out = store.mergeUsers({ primaryId, secondaryId });
+    res.json({ success: true, ...out });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'merge_error' });
   }
 });
 
