@@ -1,4 +1,6 @@
 const EventEmitter = require('events');
+const fs = require('fs');
+const path = require('path');
 
 class MemoryStore extends EventEmitter {
   constructor() {
@@ -15,8 +17,37 @@ class MemoryStore extends EventEmitter {
     this.coinDaily = new Map(); // userId -> { date: 'YYYY-MM-DD', count: number }
     this.fireRequests = []; // [{ id, userId, amount, reference, status, createdAt, updatedAt }]
     // Evento de bienvenida (bono por primer login)
-    this.welcomeEvent = { active: false, startsAt: 0, endsAt: 0, coins: 0, fires: 0 };
+    this.welcomeEvent = { active: false, startsAt: 0, endsAt: 0, coins: 0, fires: 0, message: '' };
     this.welcomeClaims = new Map(); // userId -> ts de entrega
+    // Cargar estado persistido si existe
+    try {
+      const p = path.resolve(__dirname, '../../storage/events/welcome.json');
+      if (fs.existsSync(p)) {
+        const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+        if (j && j.active && j.endsAt && Date.now() < Number(j.endsAt)) {
+          this.welcomeEvent = {
+            active: true,
+            startsAt: Number(j.startsAt || Date.now()),
+            endsAt: Number(j.endsAt),
+            coins: Math.max(0, parseInt(j.coins || 0, 10)),
+            fires: Math.max(0, parseInt(j.fires || 0, 10)),
+            message: String(j.message || '')
+          };
+        }
+      }
+    } catch (_) {}
+    // Cargar claims persistidos
+    try {
+      const pc = path.resolve(__dirname, '../../storage/events/welcome_claims.json');
+      if (fs.existsSync(pc)) {
+        const jc = JSON.parse(fs.readFileSync(pc, 'utf8'));
+        if (jc && typeof jc === 'object') {
+          for (const [k, v] of Object.entries(jc)) {
+            if (k) this.welcomeClaims.set(k, Number(v) || Date.now());
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   getSupplySummary() {
@@ -30,7 +61,7 @@ class MemoryStore extends EventEmitter {
   }
 
   // -------- Evento de Bienvenida --------
-  setWelcomeEventActive({ coins = 100, fires = 10, durationHours = 72, startsAt } = {}) {
+  setWelcomeEventActive({ coins = 100, fires = 10, durationHours = 72, startsAt, message = '' } = {}) {
     const now = Date.now();
     const start = Number(startsAt || now);
     const ends = start + Math.max(1, Math.floor(Number(durationHours) || 72)) * 3600 * 1000;
@@ -39,13 +70,24 @@ class MemoryStore extends EventEmitter {
       startsAt: start,
       endsAt: ends,
       coins: Math.max(0, parseInt(coins || 0, 10)),
-      fires: Math.max(0, parseInt(fires || 0, 10))
+      fires: Math.max(0, parseInt(fires || 0, 10)),
+      message: String(message || '')
     };
+    try {
+      const dir = path.resolve(__dirname, '../../storage/events');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'welcome.json'), JSON.stringify(this.welcomeEvent, null, 2));
+    } catch (_) {}
     return { ...this.welcomeEvent };
   }
 
   disableWelcomeEvent() {
-    this.welcomeEvent = { active: false, startsAt: 0, endsAt: 0, coins: 0, fires: 0 };
+    this.welcomeEvent = { active: false, startsAt: 0, endsAt: 0, coins: 0, fires: 0, message: '' };
+    try {
+      const dir = path.resolve(__dirname, '../../storage/events');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'welcome.json'), JSON.stringify(this.welcomeEvent, null, 2));
+    } catch (_) {}
   }
 
   getWelcomeEvent() {
@@ -56,6 +98,13 @@ class MemoryStore extends EventEmitter {
     const id = String(userId || '').trim();
     if (!id) return;
     this.welcomeClaims.set(id, Date.now());
+    try {
+      const dir = path.resolve(__dirname, '../../storage/events');
+      fs.mkdirSync(dir, { recursive: true });
+      const obj = {};
+      for (const [k, v] of this.welcomeClaims.entries()) obj[k] = v;
+      fs.writeFileSync(path.join(dir, 'welcome_claims.json'), JSON.stringify(obj));
+    } catch (_) {}
   }
 
   hasClaimedWelcome(userId) {

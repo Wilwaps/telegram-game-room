@@ -73,6 +73,33 @@
       </div>
     </div>
 
+    <div class="grid">
+      <div class="card">
+        <div class="label">Eventos para el usuario</div>
+        <div id="wel-status" class="kpi" style="font-size:18px">-</div>
+        <div class="list" id="wel-info"></div>
+      </div>
+      <div class="card">
+        <div class="label">Configurar evento de bienvenida</div>
+        <div class="list">
+          <div class="row"><span class="muted">Monedas</span><input id="wel-coins" type="number" min="0" value="100" style="width:120px"/></div>
+          <div class="row"><span class="muted">Fuegos</span><input id="wel-fires" type="number" min="0" value="10" style="width:120px"/></div>
+          <div class="row"><span class="muted">Duración (horas)</span><input id="wel-hours" type="number" min="1" value="72" style="width:120px"/></div>
+          <div class="row"><span class="muted">Mensaje</span><input id="wel-msg" type="text" placeholder="Texto mostrado a usuarios" style="flex:1"/></div>
+          <div class="row"><span class="muted">Admin</span>
+            <input id="wel-admin-user" type="text" placeholder="usuario" style="width:140px"/>
+            <input id="wel-admin-code" type="password" placeholder="código" style="width:140px"/>
+          </div>
+          <div class="row" style="justify-content:flex-end">
+            <button id="wel-refresh" class="btn">Actualizar estado</button>
+            <button id="wel-activate" class="btn" style="border-color:#34d399; color:#d1fae5; background:rgba(52,211,153,.1)">Activar</button>
+            <button id="wel-disable" class="btn" style="border-color:#ef4444; color:#fee2e2; background:rgba(239,68,68,.1)">Desactivar</button>
+          </div>
+          <div id="wel-alert" class="muted"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -87,6 +114,59 @@
         $('circ').textContent  = fmt(j.supply.circulating);
         $('burn').textContent  = fmt(j.supply.burned);
       }
+
+    async function fetchWelcomeStatus(){
+      try{
+        const r = await fetch('/api/welcome/status');
+        const j = await r.json();
+        const statusEl = document.getElementById('wel-status');
+        const infoEl = document.getElementById('wel-info');
+        if(!(j&&j.success&&j.event)){ statusEl.textContent='—'; infoEl.innerHTML=''; return; }
+        const ev = j.event; const now = Date.now();
+        const active = !!ev.active && now < Number(ev.endsAt||0);
+        statusEl.textContent = active ? 'Activo' : 'Inactivo';
+        infoEl.innerHTML = '';
+        const mk = (k,v)=>{ const row=document.createElement('div'); row.className='row'; row.innerHTML=`<span class="muted">${k}</span><span>${v}</span>`; infoEl.appendChild(row); };
+        mk('Monedas', fmt(ev.coins||0));
+        mk('Fuegos', fmt(ev.fires||0));
+        mk('Inicio', ev.startsAt? new Date(ev.startsAt).toLocaleString() : '-');
+        mk('Fin', ev.endsAt? new Date(ev.endsAt).toLocaleString() : '-');
+        mk('Mensaje', ev.message? `<code>${ev.message}</code>` : '-');
+        const msgI = document.getElementById('wel-msg'); if (msgI && typeof ev.message==='string') msgI.value = ev.message;
+      }catch(_){ document.getElementById('wel-status').textContent='Error'; }
+    }
+
+    async function activateWelcome(){
+      const coins = parseInt(document.getElementById('wel-coins').value||'0',10)||0;
+      const fires = parseInt(document.getElementById('wel-fires').value||'0',10)||0;
+      const durationHours = parseInt(document.getElementById('wel-hours').value||'72',10)||72;
+      const message = String(document.getElementById('wel-msg').value||'');
+      const user = String(document.getElementById('wel-admin-user').value||'');
+      const code = String(document.getElementById('wel-admin-code').value||'');
+      const alertEl = document.getElementById('wel-alert');
+      alertEl.textContent='';
+      try{
+        const r = await fetch('/api/admin/welcome/activate', {
+          method:'POST', headers:{ 'Content-Type':'application/json', 'x-admin-username': user, 'x-admin-code': code }, body: JSON.stringify({ coins, fires, durationHours, message })
+        });
+        const j = await r.json();
+        if (j&&j.success){ alertEl.textContent='Evento activado.'; await fetchWelcomeStatus(); }
+        else { alertEl.textContent='Error: '+(j&&j.error||'activate_error'); }
+      }catch(e){ alertEl.textContent='Error de red'; }
+    }
+
+    async function disableWelcome(){
+      const user = String(document.getElementById('wel-admin-user').value||'');
+      const code = String(document.getElementById('wel-admin-code').value||'');
+      const alertEl = document.getElementById('wel-alert');
+      alertEl.textContent='';
+      try{
+        const r = await fetch('/api/admin/welcome/disable', { method:'POST', headers:{ 'Content-Type':'application/json', 'x-admin-username': user, 'x-admin-code': code } });
+        const j = await r.json();
+        if (j&&j.success){ alertEl.textContent='Evento desactivado.'; await fetchWelcomeStatus(); }
+        else { alertEl.textContent='Error: '+(j&&j.error||'disable_error'); }
+      }catch(e){ alertEl.textContent='Error de red'; }
+    }
     }
     function startSSE(){
       const es = new EventSource('/api/economy/supply/stream');
@@ -142,6 +222,10 @@
     loadTxs();
     loadUsers();
     loadXP();
+    fetchWelcomeStatus();
+    document.getElementById('wel-refresh').addEventListener('click', fetchWelcomeStatus);
+    document.getElementById('wel-activate').addEventListener('click', activateWelcome);
+    document.getElementById('wel-disable').addEventListener('click', disableWelcome);
   </script>
 </body>
 </html>

@@ -17,6 +17,8 @@ const fireRequestsRoutes = require('./routes/fire_requests');
 const rafflesRoutes = require('./routes/raffles');
 const messagesRoutes = require('./routes/messages');
 const store = require('./services/memoryStore');
+const welcomeRoutes = require('./routes/welcome');
+const adminWelcomeRoutes = require('./routes/admin_welcome');
 
 const app = express();
 app.set('trust proxy', true);
@@ -71,6 +73,8 @@ app.use('/api/economy', economyExtRoutes);
 app.use('/api/economy', fireRequestsRoutes);
 app.use('/api/raffles', rafflesRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/welcome', welcomeRoutes);
+app.use('/api/admin/welcome', adminWelcomeRoutes);
 app.use('/telegram', telegramRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/games/tictactoe', tttRoutes);
@@ -124,7 +128,15 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   logger.info(`Server listening on port ${PORT}`);
-  try { store.setWelcomeEventActive({ coins: 100, fires: 10, durationHours: 72 }); logger.info('Welcome event activated'); } catch (_) {}
+  try {
+    const ev = store.getWelcomeEvent();
+    if (!(ev && ev.active && Date.now() < Number(ev.endsAt || 0))) {
+      store.setWelcomeEventActive({ coins: 100, fires: 10, durationHours: 72 });
+      logger.info('Welcome event activated');
+    } else {
+      logger.info('Welcome event already active, skip activation');
+    }
+  } catch (_) {}
 });
 
 // Ticker para TicTacToe: rota turno por timeout y emite SSE

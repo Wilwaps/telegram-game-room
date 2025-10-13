@@ -13,7 +13,12 @@ router.get('/:userId', (req, res) => {
     const award = store.awardWelcomeIfEligible(userId);
     if (award && award.awarded) {
       try {
-        inbox.send({ toUserId: userId, text: `🎉 Bienvenido/a. Has recibido ${award.coinsAwarded} monedas y ${award.firesAwarded} 🔥 de regalo. Válido hasta ${new Date(award.until).toLocaleString()}.` });
+        const ev = store.getWelcomeEvent();
+        const baseMsg = String(ev.message || '').trim();
+        const fallback = `🎉 Bienvenido/a. Has recibido ${award.coinsAwarded} monedas y ${award.firesAwarded} 🔥 de regalo.`;
+        const tail = `Válido hasta ${new Date(award.until).toLocaleString()}.`;
+        const text = [baseMsg || fallback, tail].filter(Boolean).join(' ');
+        inbox.send({ toUserId: userId, text });
       } catch (_) {}
       // refrescar snapshot del usuario tras el premio
       u = store.getUser(userId) || { userId, userName: '', fires: 0, coins: 0 };

@@ -64,6 +64,30 @@
       <button id="receiveFiresBtn" class="w-full bg-violet/80 text-text font-bold py-3 rounded-lg hover:bg-violet transition-colors">Recibir</button>
     </div>
   </div>
+
+  <!-- Overlay: Bienvenida (evento) -->
+  <div id="welcomeOverlay" class="overlay items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div class="bg-card rounded-xl flex flex-col max-w-md mx-auto w-full shadow-lg border border-glass overflow-hidden">
+      <div class="p-5 bg-gradient-to-r from-amber-500/20 to-accent/20 border-b border-glass text-center">
+        <div class="text-2xl font-extrabold">Regalo de Bienvenida</div>
+        <div id="welcomeMsg" class="text-sm text-text/80 mt-1"></div>
+      </div>
+      <div class="p-6 text-center space-y-4">
+        <div class="flex items-center justify-center gap-6">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-violet text-3xl">monetization_on</span>
+            <span id="welCoins" class="text-3xl font-extrabold">0</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-orange-400 text-3xl" style="font-variation-settings:'FILL' 1;">local_fire_department</span>
+            <span id="welFires" class="text-3xl font-extrabold">0</span>
+          </div>
+        </div>
+        <div id="welUntil" class="text-xs text-text/60"></div>
+        <button id="welcomeOk" class="w-full bg-accent text-background-dark font-bold py-3 rounded-lg hover:opacity-90 transition-opacity">¡Entendido!</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Overlay: Comprar Fuegos -->
@@ -248,6 +272,25 @@
         const cur = $('currentFiresVal'); if (cur) cur.textContent = String(fires);
       }
     }
+    async function checkWelcomeBanner(){
+      try{
+        const r = await fetch('/api/welcome/status');
+        const j = await r.json();
+        if (!(j&&j.success&&j.event)) return;
+        const ev = j.event; const now = Date.now();
+        if (!ev.active || now>Number(ev.endsAt||0)) return;
+        const key = 'welcome_shown_'+String(ev.endsAt||'');
+        if (localStorage.getItem(key)) return;
+        const msg = String(ev.message||'¡Reclama tu bono por bienvenida!');
+        document.getElementById('welcomeMsg').textContent = msg;
+        document.getElementById('welCoins').textContent = new Intl.NumberFormat().format(ev.coins||0);
+        document.getElementById('welFires').textContent = new Intl.NumberFormat().format(ev.fires||0);
+        document.getElementById('welUntil').textContent = 'Válido hasta: '+ new Date(ev.endsAt).toLocaleString();
+        show(document.getElementById('welcomeOverlay'));
+        const btn = document.getElementById('welcomeOk');
+        btn.onclick = ()=>{ hide(document.getElementById('welcomeOverlay')); localStorage.setItem(key,'1'); };
+      }catch(_){ }
+    }
     async function loadFireHistory(){
       if (!uid) return;
       const cont = $('firesHistoryList'); if (!cont) return; cont.innerHTML='';
@@ -340,7 +383,7 @@
     });
     $('inboxBtn')?.addEventListener('click', openInbox);
     $('closeInbox')?.addEventListener('click', ()=> hide($('inboxOverlay')));
-    window.addEventListener('load', async ()=>{ await loadProfile(); await loadInboxUnread(); setInterval(loadInboxUnread, 10000); });
+    window.addEventListener('load', async ()=>{ await loadProfile(); await loadInboxUnread(); await checkWelcomeBanner(); setInterval(loadInboxUnread, 10000); });
   })();
   </script>
 </body>
