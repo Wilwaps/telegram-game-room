@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Juegos • Telegram Game Room</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#06e4f9',
+            'background-light': '#f5f8f8',
+            'background-dark': '#0B0E14',
+            violet: '#a78bfa',
+            accent: '#22d3ee',
+            card: '#121A2B',
+            text: '#E6EDF3',
+            glass: 'rgba(255,255,255,0.1)'
+          },
+          fontFamily: { display: ['Space Grotesk'] },
+          borderRadius: { DEFAULT: '0.5rem', lg: '0.75rem', xl: '1rem', full: '9999px' },
+          boxShadow: {
+            fire: '0 0 15px 5px rgba(255, 165, 0, 0.6), 0 0 25px 10px rgba(255, 255, 0, 0.4)',
+            'neon-violet': '0 0 10px #a78bfa, 0 0 20px #a78bfa, 0 0 30px #a78bfa',
+            'neon-accent': '0 0 10px #22d3ee, 0 0 20px #22d3ee, 0 0 30px #22d3ee'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { min-height: max(884px, 100dvh); }
+    .nav-item:hover { background-color: var(--tw-bg-accent); color: var(--tw-bg-background-dark); }
+    .nav-item { transition: background-color 0.2s, color 0.2s; }
+    .nav-item .material-symbols-outlined { display:block; margin:0 auto 0.25rem; }
+  </style>
+</head>
+<body class="bg-background-dark font-display text-text">
+<div class="flex flex-col min-h-screen">
+  <main class="flex-1 p-4 pb-24">
+    <h1 class="text-3xl font-bold text-center mb-8 text-accent">Juegos</h1>
+    <div class="space-y-6">
+      <!-- La Vieja -->
+      <div class="bg-card rounded-xl border border-glass p-6 flex flex-col items-center text-center">
+        <div class="relative w-24 h-24 mb-4 flex items-center justify-center">
+          <svg class="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="neon-glow-violet" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <g style="filter:url(#neon-glow-violet)">
+              <path d="M20 20 L50 50 M50 20 L20 50" stroke="#a78bfa" stroke-width="8" stroke-linecap="round"/>
+              <circle cx="70" cy="70" r="15" fill="none" stroke="#a78bfa" stroke-width="8"/>
+            </g>
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-violet mb-4">La Vieja</h2>
+        <button id="play-ttt" class="w-full max-w-xs bg-gradient-to-r from-orange-500 to-yellow-400 text-text font-bold py-3 rounded-lg hover:opacity-90 transition-opacity shadow-fire">Jugar Ahora</button>
+      </div>
+
+      <!-- Bingo (placeholder) -->
+      <div class="bg-card rounded-xl border border-glass p-6 flex flex-col items-center text-center">
+        <div class="relative w-24 h-24 mb-4 flex items-center justify-center">
+          <svg class="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="neon-glow-accent" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+              <pattern id="mesh" width="10" height="10" patternUnits="userSpaceOnUse">
+                <path d="M-1,1 l2,-2 M0,10 l10,-10 M9,11 l2,-2" stroke="#22d3ee80" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <g style="filter:url(#neon-glow-accent)">
+              <circle cx="50" cy="50" r="40" fill="url(#mesh)" stroke="#22d3ee" stroke-width="4"/>
+              <circle cx="50" cy="50" r="40" fill="none" stroke="#22d3ee" stroke-width="4"/>
+            </g>
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-accent mb-4">Bingo</h2>
+        <button disabled class="w-full max-w-xs bg-gradient-to-r from-orange-500 to-yellow-400 text-text font-bold py-3 rounded-lg opacity-50 cursor-not-allowed">Próximamente</button>
+      </div>
+    </div>
+  </main>
+
+  <nav class="fixed bottom-0 left-0 right-0 bg-card border-t border-glass px-2 py-1">
+    <div class="flex justify-around text-xs text-center text-text/80">
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/profile" style="--tw-bg-accent:#22d3ee;--tw-bg-background-dark:#0b0e14">
+        <span class="material-symbols-outlined">person</span>
+        <span>Perfil</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg bg-orange-500/20 shadow-fire text-orange-400" href="/games" style="--tw-bg-accent:#22d3ee;--tw-bg-background-dark:#0b0e14">
+        <span class="material-symbols-outlined">sports_esports</span>
+        <span>Juegos</span>
+      </a>
+    </div>
+  </nav>
+</div>
+<script>
+  document.getElementById('play-ttt').addEventListener('click', () => {
+    window.location.href = '/games/tictactoe';
+  });
+</script>
+</body>
+</html>

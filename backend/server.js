@@ -10,6 +10,7 @@ const xpRoutes = require('./routes/xp');
 const economyExtRoutes = require('./routes/economy_ext');
 const telegramRoutes = require('./routes/telegram');
 const profileRoutes = require('./routes/profile');
+const tttRoutes = require('./routes/tictactoe');
 
 const app = express();
 app.set('trust proxy', true);
@@ -63,6 +64,7 @@ app.use('/api/xp', xpRoutes);
 app.use('/api/economy', economyExtRoutes);
 app.use('/telegram', telegramRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/games/tictactoe', tttRoutes);
 
 // Rutas Frontend
 app.get('/supply', (req, res) => {
@@ -70,6 +72,13 @@ app.get('/supply', (req, res) => {
 });
 app.get('/profile', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/profile.html'));
+});
+
+app.get('/games', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/games.html'));
+});
+app.get('/games/tictactoe', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/tictactoe.html'));
 });
 
 // Healthcheck

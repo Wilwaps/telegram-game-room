@@ -12,6 +12,7 @@ class MemoryStore extends EventEmitter {
     this.sponsors = new Map(); // userId -> { userId, key, description }
     this.userTx = new Map(); // userId -> [tx]
     this.txs = []; // simple list of transactions
+    this.coinDaily = new Map(); // userId -> { date: 'YYYY-MM-DD', count: number }
   }
 
   getSupplySummary() {
@@ -22,6 +23,11 @@ class MemoryStore extends EventEmitter {
     // Reserva disponible = total - (circulating + burned)
     const { total, circulating, burned } = this.supply;
     return Math.max(0, Number(total) - (Number(circulating) + Number(burned)));
+  }
+
+  getDateKey() {
+    const d = new Date();
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
   }
 
   addBurn(amount) {
@@ -117,13 +123,22 @@ class MemoryStore extends EventEmitter {
   addCoins({ userId, amount = 1, userName, reason = 'coin_msg' }) {
     const id = String(userId || '').trim();
     const a = Math.max(0, Math.floor(Number(amount) || 0));
-    if (!id || a <= 0) return null;
+    const cap = Math.max(0, parseInt(process.env.COIN_DAILY_CAP || '100', 10) || 100);
+    if (!id || a <= 0 || cap <= 0) return null;
+    const dateKey = this.getDateKey();
+    let rec = this.coinDaily.get(id);
+    if (!rec || rec.date !== dateKey) rec = { date: dateKey, count: 0 };
+    const remaining = Math.max(0, cap - rec.count);
+    const award = Math.min(a, remaining);
+    if (award <= 0) return null;
     const u = this.ensureUser(id);
     if (userName) u.userName = userName;
-    u.coins = Math.max(0, Number(u.coins || 0)) + a;
-    const tx = this.pushTx({ type: 'coin', toUserId: id, amount: a, reason });
+    u.coins = Math.max(0, Number(u.coins || 0)) + award;
+    rec.count += award;
+    this.coinDaily.set(id, rec);
+    const tx = this.pushTx({ type: 'coin', toUserId: id, amount: award, reason });
     this._addUserTx(id, tx);
-    return { u, tx };
+    return { u, tx, awarded: award, remaining: Math.max(0, cap - rec.count), cap };
   }
 
   grantFromSupply({ toUserId, amount, reason }) {

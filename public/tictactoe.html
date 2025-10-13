@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>La Vieja • Telegram Game Room</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#06e4f9',
+            'background-dark': '#0B0E14',
+            accent: '#22d3ee',
+            card: '#121A2B',
+            text: '#E6EDF3',
+            glass: 'rgba(255,255,255,0.1)'
+          },
+          fontFamily: { display: ['Space Grotesk'] },
+          boxShadow: {
+            gold: '0 0 12px 4px rgba(255, 215, 0, 0.6), 0 0 24px 8px rgba(255, 215, 0, 0.35)'
+          },
+          borderRadius: { DEFAULT: '0.5rem' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { min-height: max(884px, 100dvh); }
+    .cell:hover { box-shadow: 0 0 12px 4px rgba(255, 215, 0, 0.6), 0 0 24px 8px rgba(255, 215, 0, 0.35); border-color: #facc15; }
+    .cell.selected { box-shadow: 0 0 8px 3px rgba(255, 215, 0, 0.5) inset; }
+  </style>
+</head>
+<body class="bg-background-dark font-display text-text">
+<div class="flex flex-col min-h-screen">
+  <main class="flex-1 p-4 pb-24">
+    <div class="max-w-md mx-auto space-y-4">
+      <h1 class="text-3xl font-bold text-center text-accent">La Vieja</h1>
+      <div class="bg-card border border-glass rounded-lg p-4 space-y-2">
+        <div class="flex items-center justify-between text-sm">
+          <div>Tu ID: <span id="me" class="font-mono"></span></div>
+          <div>Tu marca: <span id="myMark" class="font-bold"></span></div>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <div>Room: <a id="roomLink" class="underline text-accent" href="#" target="_blank"></a></div>
+          <div>Turno: <span id="turn" class="font-bold"></span></div>
+        </div>
+        <div class="text-center text-sm">Estado: <span id="status" class="font-semibold"></span></div>
+      </div>
+
+      <div id="grid" class="grid grid-cols-3 gap-2 select-none"></div>
+
+      <div class="flex gap-2">
+        <button id="newBtn" class="flex-1 bg-accent text-background-dark font-bold py-2 rounded-lg">Crear sala</button>
+        <button id="copyBtn" class="flex-1 bg-primary text-background-dark font-bold py-2 rounded-lg">Copiar enlace</button>
+      </div>
+
+      <div class="text-xs text-text/70">
+        - Haz click en una casilla vacía cuando sea tu turno. La jugada válida brillará en dorado.
+      </div>
+    </div>
+  </main>
+
+  <nav class="fixed bottom-0 left-0 right-0 bg-card border-t border-glass px-2 py-1">
+    <div class="flex justify-around text-xs text-center text-text/80">
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee;--tw-bg-background-dark:#0b0e14">
+        <span class="material-symbols-outlined">sports_esports</span>
+        <span>Juegos</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/profile" style="--tw-bg-accent:#22d3ee;--tw-bg-background-dark:#0b0e14">
+        <span class="material-symbols-outlined">person</span>
+        <span>Perfil</span>
+      </a>
+    </div>
+  </nav>
+</div>
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const grid = $('grid');
+  const statusEl = $('status');
+  const turnEl = $('turn');
+  const meEl = $('me');
+  const markEl = $('myMark');
+  const roomLinkEl = $('roomLink');
+  const newBtn = $('newBtn');
+  const copyBtn = $('copyBtn');
+  let myId = null;
+  let roomId = null;
+  let myMark = null;
+  let es = null;
+
+  function getQuery(name){
+    const u = new URL(window.location.href);
+    return u.searchParams.get(name);
+  }
+  function setStatus(t){ statusEl.textContent = t; }
+  function setTurn(t){ turnEl.textContent = t || '-'; }
+  function setMyMark(m){ myMark = m; markEl.textContent = m || '-'; }
+  function setRoom(r){ roomId = r; const link = `${location.origin}/games/tictactoe?room=${encodeURIComponent(r)}`; roomLinkEl.textContent = r; roomLinkEl.href = link; }
+
+  function getUserId(){
+    const tg = window.Telegram && window.Telegram.WebApp;
+    const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (user && user.id) return 'tg:' + String(user.id);
+    let anon = sessionStorage.getItem('anonId');
+    if (!anon) { anon = 'anon:' + Math.random().toString(36).slice(2,10); sessionStorage.setItem('anonId', anon); }
+    return anon;
+  }
+
+  function renderBoard(b){
+    grid.innerHTML = '';
+    for (let i=0;i<9;i++){
+      const v = b[i];
+      const btn = document.createElement('button');
+      btn.className = 'cell bg-card border border-glass rounded-lg w-24 h-24 text-4xl font-bold flex items-center justify-center transition-all duration-150';
+      btn.dataset.idx = String(i);
+      btn.textContent = v ? v : '';
+      if (!v) btn.addEventListener('click', onCell);
+      grid.appendChild(btn);
+    }
+  }
+
+  async function createRoom(){
+    const r = await fetch('/api/games/tictactoe/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: myId }) });
+    const j = await r.json();
+    if (!j.success) throw new Error('create_failed');
+    setRoom(j.state.id);
+    subscribe();
+  }
+  async function joinRoom(id){
+    const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(id)}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: myId }) });
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'join_failed');
+    setRoom(j.state.id);
+    subscribe();
+  }
+
+  function subscribe(){
+    if (!roomId) return;
+    es && es.close && es.close();
+    es = new EventSource(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/stream`);
+    es.addEventListener('state', (ev) => {
+      try{
+        const s = JSON.parse(ev.data);
+        renderBoard(s.board || Array(9).fill(null));
+        setTurn(s.turn);
+        setStatus(s.status + (s.winner ? (s.winner==='draw' ? ' (Empate)' : ` (Ganador: ${s.winner})`) : ''));
+        // define my mark
+        if (!myMark && s.players){
+          if (s.players.X === myId) setMyMark('X');
+          else if (s.players.O === myId) setMyMark('O');
+        }
+      }catch(_){}
+    });
+  }
+
+  async function onCell(e){
+    const idx = Number(e.currentTarget.dataset.idx);
+    if (!Number.isFinite(idx) || roomId===null) return;
+    // intento de jugada
+    try{
+      const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/move`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: myId, index: idx }) });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error||'move_failed');
+      // feedback dorado en la casilla pulsada
+      e.currentTarget.classList.add('selected');
+      setTimeout(()=> e.currentTarget.classList.remove('selected'), 500);
+    }catch(err){
+      setStatus('Movimiento inválido: ' + (err.message||'error'));
+      setTimeout(()=> setStatus(''), 1500);
+    }
+  }
+
+  // init
+  (async function init(){
+    myId = getUserId();
+    meEl.textContent = myId;
+    const rid = getQuery('room');
+    if (rid) await joinRoom(rid).catch(()=>createRoom());
+    else await createRoom();
+  })();
+
+  newBtn.addEventListener('click', ()=>{
+    window.location.href = '/games/tictactoe';
+  });
+  copyBtn.addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(roomLinkEl.href); copyBtn.textContent='Copiado'; setTimeout(()=>copyBtn.textContent='Copiar enlace', 1200);}catch(_){ }
+  });
+})();
+</script>
+</body>
+</html>
