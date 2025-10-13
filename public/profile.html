@@ -115,7 +115,10 @@
       </div>
       <div class="space-y-2">
         <label class="font-semibold text-text/80" for="transaction-ref">Referencia de Transacción</label>
-        <input class="w-full bg-background-dark border border-glass rounded-lg p-3 text-text focus:ring-accent focus:border-accent" id="transaction-ref" placeholder="Ingrese la referencia del pago" type="text"/>
+        <div class="relative">
+          <input class="w-full bg-background-dark border border-glass rounded-lg p-3 text-text focus:ring-accent focus:border-accent" id="transaction-ref" placeholder="Ingrese la referencia del pago" type="text"/>
+          <button id="pasteRef" class="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-glass hover:bg-accent/20 px-2 py-1 rounded-lg">Pegar</button>
+        </div>
       </div>
     </div>
     <div class="p-4 space-y-4">
@@ -380,6 +383,9 @@
     });
     $('pasteAmount')?.addEventListener('click', async ()=>{
       try { const t = await navigator.clipboard.readText(); const n = parseInt(String(t).replace(/[^0-9]/g,''),10); if (!isNaN(n)) { $('fire-amount').value = String(n); } else { alert('El portapapeles no contiene un número'); } } catch(_){ alert('Permiso de portapapeles denegado'); }
+    });
+    $('pasteRef')?.addEventListener('click', async ()=>{
+      try { const t = await navigator.clipboard.readText(); $('transaction-ref').value = String(t||'').trim(); } catch(_){ alert('Permiso de portapapeles denegado'); }
     });
     $('inboxBtn')?.addEventListener('click', openInbox);
     $('closeInbox')?.addEventListener('click', ()=> hide($('inboxOverlay')));

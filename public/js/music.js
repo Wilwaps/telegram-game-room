@@ -37,11 +37,12 @@
     // Styles
     const css = document.createElement('style');
     css.textContent = `
-      .mx-floating { position: fixed; top: 12px; right: 12px; z-index: 1000; }
-      .mx-btn { width: 48px; height: 48px; background: rgba(18,26,43,.9); border-radius: 9999px; border: 2px solid #22d3ee; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px rgba(34,211,238,.2); cursor: pointer; transition: transform .18s ease, background .18s ease; }
+      .mx-floating { position: fixed; top: 4px; right: 10px; z-index: 1000; }
+      .mx-btn { width: 24px; height: 24px; background: rgba(18,26,43,.9); border-radius: 9999px; border: 2px solid #22d3ee; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 12px rgba(34,211,238,.18); cursor: pointer; transition: transform .18s ease, background .18s ease; }
+      .mx-btn .material-symbols-outlined { font-size: 16px; line-height: 1; }
       .mx-btn:hover { transform: translateY(-1px); background: rgba(34,211,238,.15); }
-      .mx-panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 999; transform: translateY(calc(100% - 84px)); height: 82%; background: rgba(11,14,20,.9); backdrop-filter: blur(8px); border-top-left-radius: 14px; border-top-right-radius: 14px; border-top: 1px solid rgba(34,211,238,.35); box-shadow: 0 -12px 25px rgba(34,211,238,.12); color: #e6edf3; display: flex; flex-direction: column; transition: transform .3s ease; }
-      .mx-panel.open { transform: translateY(0); }
+      .mx-panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 999; transform: translateY(100%); height: 82%; background: rgba(11,14,20,.9); backdrop-filter: blur(8px); border-top-left-radius: 14px; border-top-right-radius: 14px; border-top: 1px solid rgba(34,211,238,.35); box-shadow: 0 -12px 25px rgba(34,211,238,.12); color: #e6edf3; display: flex; flex-direction: column; transition: transform .3s ease; pointer-events: none; }
+      .mx-panel.open { transform: translateY(0); pointer-events: auto; }
       .mx-header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
       .mx-cover { width: 56px; height: 56px; border-radius: 10px; background-size: cover; background-position: center; flex-shrink: 0; }
       .mx-title { font-weight: 800; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -79,7 +80,7 @@
             <span id="mxPrev" class="material-symbols-outlined mx-icon">skip_previous</span>
             <span id="mxPlay" class="material-symbols-outlined mx-icon">play_arrow</span>
             <span id="mxNext" class="material-symbols-outlined mx-icon">skip_next</span>
-            <span id="mxToggle" class="material-symbols-outlined mx-icon">expand_less</span>
+            <span id="mxToggle" class="material-symbols-outlined mx-icon">close</span>
           </div>
         </div>
         <div class="mx-progress">
