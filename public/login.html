@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Login</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script id="tailwind-config">tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#4cecfa','background-light':'#f5f8f8','background-dark':'#0f2123'},fontFamily:{display:['Space Grotesk','sans-serif']},borderRadius:{DEFAULT:'0.5rem',lg:'1rem',xl:'1.5rem',full:'9999px'}}}};</script>
+</head>
+<body class="bg-background-dark font-display">
+<div class="relative flex min-h-screen w-full flex-col bg-background-dark overflow-x-hidden">
+  <div class="flex flex-1 justify-center items-center px-4 py-5 sm:px-10 md:px-20 lg:px-40">
+    <div class="flex flex-col max-w-[480px] flex-1">
+      <div class="flex flex-col gap-8">
+        <div class="flex flex-col gap-3 p-4 text-center">
+          <p class="text-white text-4xl font-black tracking-[-0.033em]">Welcome back</p>
+          <p class="text-[#8ec7cc] text-base">Enter your credentials to continue</p>
+        </div>
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-wrap items-end gap-4 px-4 py-3">
+            <label class="flex flex-col min-w-40 flex-1">
+              <p class="text-white text-base font-medium pb-2">Email</p>
+              <input id="email" class="form-input w-full rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary border-none bg-[#21474a] h-14 placeholder:text-[#8ec7cc] p-4 text-base" placeholder="you@example.com" type="email" />
+            </label>
+          </div>
+          <div class="flex flex-wrap items-end gap-4 px-4 py-3">
+            <label class="flex flex-col min-w-40 flex-1">
+              <p class="text-white text-base font-medium pb-2">Password</p>
+              <input id="password" class="form-input w-full rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary border-none bg-[#21474a] h-14 placeholder:text-[#8ec7cc] p-4 text-base" placeholder="Enter your password" type="password" />
+            </label>
+          </div>
+        </div>
+        <div class="flex px-4 py-3">
+          <button id="btnLogin" class="flex h-12 px-5 flex-1 items-center justify-center rounded-xl bg-primary text-[#102223] text-base font-bold hover:shadow-[0_0_20px_theme(colors.primary)] transition-shadow">Login</button>
+        </div>
+        <div class="flex px-4">
+          <button id="btnTelegram" class="flex h-12 px-5 flex-1 items-center justify-center rounded-xl bg-[#1e3a3f] text-white text-base font-bold hover:bg-[#245056] transition-colors">
+            <span class="material-symbols-outlined mr-2">send</span> Login with Telegram
+          </button>
+        </div>
+        <div class="flex justify-between px-4 py-3 gap-3">
+          <a href="/register" class="text-primary text-sm font-bold hover:text-white hover:bg-primary/20 rounded-xl px-4 py-2 transition-colors">Register</a>
+          <a href="#" class="text-primary text-sm font-bold hover:text-white hover:bg-primary/20 rounded-xl px-4 py-2 transition-colors">Forgot Password</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  async function post(url, data){
+    const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})});
+    if(!r.ok){ let e; try{e=await r.json()}catch(_){e={}}; throw new Error(e&&e.error||('HTTP '+r.status)); }
+    return r.json();
+  }
+  document.getElementById('btnLogin').addEventListener('click', async ()=>{
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    if(!email||!password){ alert('Email y contraseña requeridos'); return; }
+    try{
+      await post('/api/auth/login-email',{email,password});
+      window.location.href = '/games';
+    }catch(e){ alert('Login falló: '+e.message); }
+  });
+  document.getElementById('btnTelegram').addEventListener('click', async ()=>{
+    try{
+      const tg = window.Telegram && window.Telegram.WebApp;
+      if (tg && tg.initData) {
+        const initData = tg.initData;
+        await post('/api/auth/login-telegram',{ initData });
+        window.location.href = '/games';
+      } else {
+        alert('Abre esta página desde Telegram para login automático.');
+      }
+    }catch(e){ alert('Login Telegram falló: '+e.message); }
+  });
+  const usp = new URLSearchParams(location.search);
+  if (usp.get('verified')==='1') {
+    setTimeout(()=>alert('Email verificado. Ahora puedes iniciar sesión.'), 200);
+  }
+</script>
+</body>
+</html>

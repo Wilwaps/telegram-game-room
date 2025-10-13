@@ -53,17 +53,23 @@ app.use(helmet({
       "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
       "img-src": ["'self'", "data:", "https:", "blob:"],
       "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
-      "connect-src": ["'self'"],
+      "connect-src": ["'self'", "https://api.telegram.org", "https://*.telegram.org"],
       "media-src": ["'self'", "https://www.soundhelix.com", "https://api.telegram.org", "https://*.telegram.org"],
-      "frame-ancestors": ["'self'", "https://*.telegram.org", "https://web.telegram.org"],
+      "frame-ancestors": ["'self'", "https://*.telegram.org", "https://web.telegram.org", "https://t.me", "https://*.t.me"],
       "upgrade-insecure-requests": []
     }
   },
+  frameguard: false,
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 app.use(cors());
 app.use(express.json());
+// Forzar eliminación del header X-Frame-Options para permitir embed en Telegram WebApp
+app.use((req, res, next) => {
+  try { res.removeHeader('X-Frame-Options'); res.removeHeader('x-frame-options'); } catch (_) {}
+  next();
+});
 // Bootstrap de sesión: asigna un SID invitado si no existe
 app.use((req, res, next) => {
   try {
@@ -77,7 +83,7 @@ app.use((req, res, next) => {
     if (!sess) {
       const { sid: newSid } = authService.createGuestSession({ ua: String(req.headers['user-agent'] || '') });
       const maxAge = 30 * 24 * 3600;
-      res.setHeader('Set-Cookie', [`sid=${newSid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`]);
+      res.setHeader('Set-Cookie', [`sid=${newSid}; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=${maxAge}`]);
     }
   } catch (_) {}
   next();
