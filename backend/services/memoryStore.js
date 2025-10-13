@@ -14,6 +14,9 @@ class MemoryStore extends EventEmitter {
     this.txs = []; // simple list of transactions
     this.coinDaily = new Map(); // userId -> { date: 'YYYY-MM-DD', count: number }
     this.fireRequests = []; // [{ id, userId, amount, reference, status, createdAt, updatedAt }]
+    // Evento de bienvenida (bono por primer login)
+    this.welcomeEvent = { active: false, startsAt: 0, endsAt: 0, coins: 0, fires: 0 };
+    this.welcomeClaims = new Map(); // userId -> ts de entrega
   }
 
   getSupplySummary() {
@@ -24,6 +27,56 @@ class MemoryStore extends EventEmitter {
     // Reserva disponible = total - (circulating + burned)
     const { total, circulating, burned } = this.supply;
     return Math.max(0, Number(total) - (Number(circulating) + Number(burned)));
+  }
+
+  // -------- Evento de Bienvenida --------
+  setWelcomeEventActive({ coins = 100, fires = 10, durationHours = 72, startsAt } = {}) {
+    const now = Date.now();
+    const start = Number(startsAt || now);
+    const ends = start + Math.max(1, Math.floor(Number(durationHours) || 72)) * 3600 * 1000;
+    this.welcomeEvent = {
+      active: true,
+      startsAt: start,
+      endsAt: ends,
+      coins: Math.max(0, parseInt(coins || 0, 10)),
+      fires: Math.max(0, parseInt(fires || 0, 10))
+    };
+    return { ...this.welcomeEvent };
+  }
+
+  disableWelcomeEvent() {
+    this.welcomeEvent = { active: false, startsAt: 0, endsAt: 0, coins: 0, fires: 0 };
+  }
+
+  getWelcomeEvent() {
+    return { ...this.welcomeEvent };
+  }
+
+  _setWelcomeClaim(userId) {
+    const id = String(userId || '').trim();
+    if (!id) return;
+    this.welcomeClaims.set(id, Date.now());
+  }
+
+  hasClaimedWelcome(userId) {
+    const id = String(userId || '').trim();
+    return !!this.welcomeClaims.get(id);
+  }
+
+  awardWelcomeIfEligible(userId) {
+    const id = String(userId || '').trim();
+    if (!id) return { awarded: false };
+    const ev = this.getWelcomeEvent();
+    const now = Date.now();
+    if (!ev.active || now < ev.startsAt || now > ev.endsAt) return { awarded: false };
+    if (this.hasClaimedWelcome(id)) return { awarded: false };
+    // Otorgar: monedas generadas (admin) y fuegos desde la reserva (max supply)
+    if (ev.coins > 0) this.addCoinsAdmin({ userId: id, amount: ev.coins, reason: 'welcome_bonus' });
+    if (ev.fires > 0) this.grantFromSupply({ toUserId: id, amount: ev.fires, reason: 'welcome_bonus' });
+    const tx = this.pushTx({ type: 'welcome_bonus', toUserId: id, coins: ev.coins, fires: ev.fires });
+    this._addUserTx(id, tx);
+    this._setWelcomeClaim(id);
+    return { awarded: true, coinsAwarded: ev.coins, firesAwarded: ev.fires, until: ev.endsAt };
   }
 
   getDateKey() {

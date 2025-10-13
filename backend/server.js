@@ -16,6 +16,7 @@ const bingoRoutes = require('./routes/bingo');
 const fireRequestsRoutes = require('./routes/fire_requests');
 const rafflesRoutes = require('./routes/raffles');
 const messagesRoutes = require('./routes/messages');
+const store = require('./services/memoryStore');
 
 const app = express();
 app.set('trust proxy', true);
@@ -123,6 +124,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   logger.info(`Server listening on port ${PORT}`);
+  try { store.setWelcomeEventActive({ coins: 100, fires: 10, durationHours: 72 }); logger.info('Welcome event activated'); } catch (_) {}
 });
 
 // Ticker para TicTacToe: rota turno por timeout y emite SSE
