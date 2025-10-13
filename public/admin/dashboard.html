@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard • Usuarios</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">tailwind.config={darkMode:'class',theme:{extend:{colors:{accent:'#22d3ee','background-dark':'#0B0E14',card:'#121A2B',glass:'rgba(255,255,255,0.1)',text:'#E6EDF3'},fontFamily:{display:['Space Grotesk']},borderRadius:{DEFAULT:'0.5rem'}}}}</script>
+  <style>body{min-height:100dvh} .badge{border-radius:9999px;padding:2px 8px;font-size:11px} .online{background:#16a34a22;color:#22c55e} .offline{background:#ef444422;color:#ef4444} table{width:100%;border-collapse:separate;border-spacing:0 8px} thead th{font-size:12px;text-align:left;color:#9ba3af} tbody tr{background:#0f1524;border:1px solid rgba(255,255,255,.08)} tbody td{padding:10px 12px;font-size:13px}</style>
+</head>
+<body class="bg-background-dark text-text font-display">
+  <div class="max-w-6xl mx-auto p-4 space-y-4">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold text-accent">Usuarios Conectados</h1>
+      <div class="flex gap-2 items-center">
+        <input id="q" class="bg-card border border-glass rounded-lg px-3 py-1.5" placeholder="Buscar..."/>
+        <label class="text-sm flex items-center gap-1"><input id="onlineOnly" type="checkbox" class="rounded" checked/> Solo Online</label>
+        <button id="refreshBtn" class="bg-accent text-background-dark px-3 py-1.5 rounded-lg font-bold">Refrescar</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Inicio</th>
+            <th>Últ. visto</th>
+            <th>ID Plataforma</th>
+            <th>ID Telegram</th>
+            <th>Teléfono</th>
+            <th>Correo</th>
+            <th>Fuegos</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+  (function(){
+    const $ = (id)=>document.getElementById(id);
+    const rows = $('rows');
+    function fmtTS(t){ if(!t) return '-'; try{ return new Date(Number(t)).toLocaleString(); }catch(_){ return '-'; } }
+    async function load(){
+      const q = $('q').value||''; const onlineOnly = $('onlineOnly').checked;
+      const r = await fetch(`/api/admin/users/list?search=${encodeURIComponent(q)}&onlineOnly=${onlineOnly}`);
+      const j = await r.json();
+      rows.innerHTML='';
+      const arr = (j&&j.success&&Array.isArray(j.items))?j.items:[];
+      for (const u of arr){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${fmtTS(u.createdAt)}</td>
+          <td>${fmtTS(u.lastSeenAt)} <span class="badge ${u.isOnline?'online':'offline'}">${u.isOnline?'online':'offline'}</span></td>
+          <td class="font-mono">${u.userId}</td>
+          <td class="font-mono">${u.telegramId||'-'}</td>
+          <td><input data-id="${u.userId}" data-field="phone" class="bg-card border border-glass rounded px-2 py-1 w-36" value="${u.phone||''}"/></td>
+          <td><input data-id="${u.userId}" data-field="email" class="bg-card border border-glass rounded px-2 py-1 w-52" value="${u.email||''}"/></td>
+          <td class="text-orange-400 font-bold">${u.fires||0}</td>
+          <td><button data-id="${u.userId}" class="save bg-accent text-background-dark px-2 py-1 rounded">Guardar</button></td>
+        `;
+        rows.appendChild(tr);
+      }
+      bind();
+    }
+    function bind(){
+      for (const btn of document.querySelectorAll('button.save')){
+        btn.addEventListener('click', async (e)=>{
+          const id = e.currentTarget.getAttribute('data-id');
+          const email = document.querySelector(`input[data-id="${id}"][data-field="email"]`)?.value||'';
+          const phone = document.querySelector(`input[data-id="${id}"][data-field="phone"]`)?.value||'';
+          try{
+            const r = await fetch('/api/admin/users/set-contact',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId:id, email, phone }) });
+            const j = await r.json();
+            if (j && j.success) { e.currentTarget.textContent='Guardado'; setTimeout(()=> e.currentTarget.textContent='Guardar', 1000); }
+          } catch(_){ alert('No se pudo guardar'); }
+        });
+      }
+    }
+    $('refreshBtn').addEventListener('click', load);
+    $('q').addEventListener('keydown', (e)=>{ if(e.key==='Enter') load(); });
+    $('onlineOnly').addEventListener('change', load);
+    load(); setInterval(load, 10000);
+  })();
+  </script>
+</body>
+</html>

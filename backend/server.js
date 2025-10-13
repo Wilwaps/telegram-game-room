@@ -17,7 +17,9 @@ const fireRequestsRoutes = require('./routes/fire_requests');
 const rafflesRoutes = require('./routes/raffles');
 const messagesRoutes = require('./routes/messages');
 const musicRoutes = require('./routes/music');
+const authRoutes = require('./routes/auth');
 const store = require('./services/memoryStore');
+const authService = require('./services/authStore');
 const welcomeRoutes = require('./routes/welcome');
 const adminWelcomeRoutes = require('./routes/admin_welcome');
 
@@ -28,7 +30,7 @@ app.use(helmet({
     useDefaults: true,
     directives: {
       "default-src": ["'self'"],
-      "script-src": ["'self'", "https://cdn.tailwindcss.com", "https://telegram.org", "'unsafe-inline'"],
+      "script-src": ["'self'", "https://cdn.tailwindcss.com", "https://telegram.org", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
       "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
       "img-src": ["'self'", "data:", "https:", "blob:"],
       "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
@@ -43,7 +45,44 @@ app.use(helmet({
 }));
 app.use(cors());
 app.use(express.json());
+// Bootstrap de sesión: asigna un SID invitado si no existe
+app.use((req, res, next) => {
+  try {
+    const raw = String(req.headers.cookie || '');
+    let sid = '';
+    for (const part of raw.split(/;\s*/)) {
+      const [k, v] = part.split('=');
+      if (k === 'sid') { sid = v; break; }
+    }
+    const sess = sid ? authService.getSession(sid) : null;
+    if (!sess) {
+      const { sid: newSid } = authService.createGuestSession({ ua: String(req.headers['user-agent'] || '') });
+      const maxAge = 30 * 24 * 3600;
+      res.setHeader('Set-Cookie', [`sid=${newSid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`]);
+    }
+  } catch (_) {}
+  next();
+});
 app.use(express.static(path.resolve(__dirname, '../public')));
+
+// Traza de usuarios: si hay sesión, actualizar lastSeenAt
+app.use((req, res, next) => {
+  try {
+    const raw = String(req.headers.cookie || '');
+    let sid = '';
+    for (const part of raw.split(/;\s*/)) {
+      const [k, v] = part.split('=');
+      if (k === 'sid') { sid = v; break; }
+    }
+    if (sid) {
+      const sess = authService.getSession(sid);
+      if (sess && sess.userId) {
+        try { store.touchUser(sess.userId); } catch (_) {}
+      }
+    }
+  } catch (_) {}
+  next();
+});
 
 // Rate limit con bypass endurecido (requiere header + env)
 const limiter = rateLimit({
@@ -82,35 +121,67 @@ app.use('/telegram', telegramRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/games/tictactoe', tttRoutes);
 app.use('/api/games/bingo', bingoRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin/users', require('./routes/admin_users'));
 
 // Rutas Frontend
-app.get('/supply', (req, res) => {
+function requireIdentified(req, res, next) {
+  try {
+    const raw = String(req.headers.cookie || '');
+    let sid = '';
+    for (const part of raw.split(/;\s*/)) {
+      const [k, v] = part.split('=');
+      if (k === 'sid') { sid = v; break; }
+    }
+    const sess = sid ? authService.getSession(sid) : null;
+    if (!sess) return res.redirect(302, '/login');
+    const uid = String(sess.userId || '');
+    if (uid.startsWith('anon:')) return res.redirect(302, '/login');
+    return next();
+  } catch (_) { return res.redirect(302, '/login'); }
+}
+
+app.get('/supply', requireIdentified, (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/supply.html'));
 });
-app.get('/profile', (req, res) => {
+app.get('/profile', requireIdentified, (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/profile.html'));
 });
 
-app.get('/games', (req, res) => {
+app.get('/games', requireIdentified, (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/games.html'));
 });
-app.get('/games/tictactoe', (req, res) => {
+app.get('/games/tictactoe', requireIdentified, (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/tictactoe.html'));
 });
-app.get('/games/bingo', (req, res) => {
+app.get('/games/bingo', requireIdentified, (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/bingo.html'));
 });
-app.get('/raffles', (req, res) => {
+app.get('/raffles', requireIdentified, (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/raffles.html'));
 });
-app.get('/raffles/create', (req, res) => {
+app.get('/raffles/create', requireIdentified, (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/raffle-create.html'));
 });
-app.get('/raffles/room', (req, res) => {
+app.get('/raffles/room', requireIdentified, (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/raffle-room.html'));
 });
-app.get('/fire-requests', (req, res) => {
+app.get('/fire-requests', requireIdentified, (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/fire-requests.html'));
+});
+
+app.get('/admin/dashboard', requireIdentified, (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/admin/dashboard.html'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/login.html'));
+});
+app.get('/register', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/register.html'));
+});
+app.get('/verify', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/verify.html'));
 });
 
 // Healthcheck

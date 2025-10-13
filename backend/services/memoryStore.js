@@ -180,8 +180,12 @@ class MemoryStore extends EventEmitter {
   ensureUser(userId) {
     const id = String(userId || '').trim();
     if (!id) return null;
+    const now = Date.now();
     if (!this.users.has(id)) {
-      this.users.set(id, { userId: id, userName: id, fires: 0, coins: 0 });
+      this.users.set(id, { userId: id, userName: id, fires: 0, coins: 0, createdAt: now, lastSeenAt: now });
+    } else {
+      const u = this.users.get(id);
+      if (u) { u.lastSeenAt = now; this.users.set(id, u); }
     }
     return this.users.get(id);
   }
@@ -198,6 +202,54 @@ class MemoryStore extends EventEmitter {
     const filtered = q ? arr.filter(u => (u.userId || '').toLowerCase().includes(q) || (u.userName || '').toLowerCase().includes(q)) : arr;
     const start = Number(cursor) || 0;
     const end = Math.min(filtered.length, start + Math.max(1, Math.min(100, Number(limit) || 20)));
+    const items = filtered.slice(start, end);
+    const nextCursor = end < filtered.length ? end : null;
+    return { items, nextCursor, total: filtered.length };
+  }
+
+  // --- User tracking & contact metadata ---
+  touchUser(userId) {
+    const u = this.ensureUser(userId);
+    if (u) { u.lastSeenAt = Date.now(); }
+    return u;
+  }
+
+  setUserContact({ userId, email, phone, telegramId }) {
+    const u = this.ensureUser(userId);
+    if (!u) throw new Error('invalid_user');
+    if (typeof email !== 'undefined') u.email = String(email || '').trim() || undefined;
+    if (typeof phone !== 'undefined') u.phone = String(phone || '').trim() || undefined;
+    if (typeof telegramId !== 'undefined') u.telegramId = String(telegramId || '').trim() || undefined;
+    this.users.set(u.userId, u);
+    return u;
+  }
+
+  listUsersDetailed({ search = '', limit = 50, cursor = 0 } = {}) {
+    const arr = Array.from(this.users.values()).map(u => {
+      const tgId = (u.telegramId) ? String(u.telegramId) : (String(u.userId || '').startsWith('tg:') ? String(u.userId).slice(3) : undefined);
+      return {
+        userId: u.userId,
+        userName: u.userName,
+        createdAt: Number(u.createdAt || 0),
+        lastSeenAt: Number(u.lastSeenAt || 0),
+        telegramId: tgId,
+        email: u.email,
+        phone: u.phone,
+        fires: Math.max(0, Number(u.fires || 0)),
+        coins: Math.max(0, Number(u.coins || 0))
+      };
+    });
+    const q = String(search || '').toLowerCase();
+    const filtered = q ? arr.filter(x =>
+      (x.userId||'').toLowerCase().includes(q) ||
+      (x.userName||'').toLowerCase().includes(q) ||
+      (x.email||'').toLowerCase().includes(q) ||
+      (x.phone||'').toLowerCase().includes(q) ||
+      (x.telegramId||'').toLowerCase().includes(q)
+    ) : arr;
+    filtered.sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+    const start = Number(cursor) || 0;
+    const end = Math.min(filtered.length, start + Math.max(1, Math.min(200, Number(limit) || 50)));
     const items = filtered.slice(start, end);
     const nextCursor = end < filtered.length ? end : null;
     return { items, nextCursor, total: filtered.length };
@@ -448,6 +500,50 @@ class MemoryStore extends EventEmitter {
     const tx = this.pushTx({ type: 'fires_admin_add', toUserId: id, amount: a, reason });
     this._addUserTx(id, tx);
     return { ok: true, balance: u.fires, tx };
+  }
+
+  mergeUsers({ primaryId, secondaryId }) {
+    const pId = String(primaryId || '').trim();
+    const sId = String(secondaryId || '').trim();
+    if (!pId || !sId || pId === sId) return { ok: false };
+    const p = this.ensureUser(pId);
+    const s = this.getUser(sId);
+    if (!s) return { ok: true };
+    p.coins = Math.max(0, Number(p.coins || 0)) + Math.max(0, Number(s.coins || 0));
+    p.fires = Math.max(0, Number(p.fires || 0)) + Math.max(0, Number(s.fires || 0));
+    const sTx = this.userTx.get(sId) || [];
+    const pTx = this.userTx.get(pId) || [];
+    const merged = sTx.concat(pTx).slice(0, 200);
+    this.userTx.set(pId, merged);
+    this.userTx.delete(sId);
+    for (const tx of this.txs) {
+      if (!tx) continue;
+      if (tx.toUserId === sId) tx.toUserId = pId;
+      if (tx.fromUserId === sId) tx.fromUserId = pId;
+      if (tx.userId === sId) tx.userId = pId;
+    }
+    this.fireRequests = this.fireRequests.map(r => r && r.userId === sId ? { ...r, userId: pId } : r);
+    const sSponsor = this.sponsors.get(sId);
+    const pSponsor = this.sponsors.get(pId);
+    if (sSponsor && !pSponsor) {
+      const moved = { ...sSponsor, userId: pId };
+      this.sponsors.set(pId, moved);
+    }
+    this.sponsors.delete(sId);
+    this.users.delete(sId);
+    const sDaily = this.coinDaily.get(sId);
+    if (sDaily) {
+      const pDaily = this.coinDaily.get(pId);
+      if (!pDaily || pDaily.date !== sDaily.date) {
+        this.coinDaily.set(pId, sDaily);
+      } else {
+        pDaily.count = Math.max(0, Number(pDaily.count || 0)) + Math.max(0, Number(sDaily.count || 0));
+        this.coinDaily.set(pId, pDaily);
+      }
+      this.coinDaily.delete(sId);
+    }
+    this.emit('supply_changed', this.getSupplySummary());
+    return { ok: true, primaryId: pId };
   }
 }
 
