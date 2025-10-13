@@ -54,6 +54,11 @@
       <div class="text-center text-sm">Solicitudes Pendientes (Host)</div>
       <div id="pendingList" class="mt-2 space-y-2 text-sm"></div>
     </div>
+
+    <div id="docsBox" class="relative bg-card rounded-xl border border-glass p-3 w-full max-w-md" style="display:none">
+      <div class="text-center text-sm">Documentos</div>
+      <div id="docsList" class="mt-2 space-y-2 text-sm"></div>
+    </div>
   </main>
 
   <nav class="fixed bottom-0 left-0 right-0 bg-panel border-t border-glass px-2 py-1">
@@ -149,6 +154,7 @@
     renderMine();
     if (R.mode==='prize' && my.id===R.hostId){ loadPending(); $('pendingBox').style.display='block'; } else { $('pendingBox').style.display='none'; }
     setupCountdown();
+    loadDocuments();
   }
 
   async function loadMyProfile(){

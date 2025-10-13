@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const store = require('../services/memoryStore');
 const raffles = require('../services/raffleStore');
 const messages = require('../services/messageStore');
@@ -144,6 +146,28 @@ router.post('/:id/approve', (req,res)=>{
     if (soldCount>=r.size || (r.endsAt && r.endsAt<=Date.now())){ raffles.closeAndPayout(r); }
     res.json({ success:true });
   }catch(err){ res.status(400).json({ success:false, error:(err&&err.message)||'approve_error' }); }
+});
+
+// Documentos
+router.get('/:id/documents', (req,res)=>{
+  const r = raffles.findById(req.params.id);
+  if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
+  const items = (r.documents||[]).map(d=>({ id:d.id, name:d.name, type:d.type, createdAt:d.createdAt, sizeBytes:d.sizeBytes||0 }));
+  res.json({ success:true, items });
+});
+
+router.get('/:id/documents/:docId/download', (req,res)=>{
+  try{
+    const r = raffles.findById(req.params.id);
+    if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
+    const d = (r.documents||[]).find(x=>x.id===req.params.docId);
+    if (!d || !d.path) return res.status(404).json({ success:false, error:'document_not_found' });
+    const base = path.resolve(__dirname, '../../storage/raffles');
+    const full = path.resolve(d.path);
+    if (!full.startsWith(base)) return res.status(403).json({ success:false, error:'forbidden' });
+    if (!fs.existsSync(full)) return res.status(404).json({ success:false, error:'file_missing' });
+    res.download(full, d.name);
+  }catch(err){ res.status(500).json({ success:false, error:'download_error' }); }
 });
 
 module.exports = router;

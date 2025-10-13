@@ -1,4 +1,6 @@
 const EventEmitter = require('events');
+const fs = require('fs');
+const path = require('path');
 const store = require('./memoryStore');
 const messages = require('./messageStore');
 
@@ -98,7 +100,8 @@ class RaffleStore extends EventEmitter {
       status: 'active',
       winner: null,
       hostMeta: hostMeta || {},
-      prizeMeta: prizeMeta || {}
+      prizeMeta: prizeMeta || {},
+      documents: []
     };
     this.raffles.unshift(rec);
     return rec;
@@ -134,7 +137,8 @@ class RaffleStore extends EventEmitter {
     if (!r) return null;
     this.cleanupExpired(r);
     const mapNumbers = r.numbers.map(n => ({ idx:n.idx, state:n.state }));
-    return { ...this.getPublicInfo(r), numbers: mapNumbers, participants: r.participants, winner: r.winner };
+    const docs = (r.documents||[]).map(d=>({ id:d.id, name:d.name, type:d.type, createdAt:d.createdAt, sizeBytes:d.sizeBytes||0 }));
+    return { ...this.getPublicInfo(r), numbers: mapNumbers, participants: r.participants, winner: r.winner, documents: docs };
   }
 
   reserve({ id, userId, number }){
@@ -216,6 +220,7 @@ class RaffleStore extends EventEmitter {
     }
 
     r.status = 'completed';
+    try { this.generateClosurePDF(r); } catch(_) { }
     try{
       // Notificar a participantes
       const parts = (r.participants||[]).map(p=>p.userId);
@@ -227,6 +232,81 @@ class RaffleStore extends EventEmitter {
       messages.send({ toUserId: r.hostId, text: `Tu rifa ${r.code} ha finalizado. ${win?('Ganador: '+win.userId):'Sin ganador'}.` });
     }catch(_){ }
     this.emit('raffle_completed', { id: r.id, winner: r.winner });
+  }
+
+  generateClosurePDF(r){
+    try{
+      const base = path.resolve(__dirname, '../../storage/raffles');
+      fs.mkdirSync(base, { recursive: true });
+      const fileId = 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+      const filename = `Acta_${r.code}_${new Date().toISOString().slice(0,10)}.pdf`;
+      const fullPath = path.join(base, filename);
+      let ok=false, size=0;
+      try{
+        // Carga condicional de pdfkit para evitar crashear si no está instalado localmente
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const stream = fs.createWriteStream(fullPath);
+        doc.pipe(stream);
+        doc.fontSize(18).text('Acta de Cierre de Rifa', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`Código: ${r.code}`);
+        doc.text(`Nombre: ${r.name||r.code}`);
+        doc.text(`Anfitrión: ${r.hostName||r.hostId}`);
+        doc.text(`Modo: ${r.mode}`);
+        if (r.mode==='fire') doc.text(`Costo/Número: ${r.entryPrice} 🔥`);
+        if (r.prizeMeta && r.prizeMeta.prize) doc.text(`Premio: ${r.prizeMeta.prize}`);
+        doc.text(`Rango: ${r.range} (total ${r.size})`);
+        doc.text(`Creada: ${new Date(r.createdAt).toLocaleString()}`);
+        if (r.endsAt) doc.text(`Cierre: ${new Date(r.endsAt).toLocaleString()}`);
+        doc.moveDown();
+        const potId = this.potUserId(r.id);
+        const potBal = (store.getUser(potId)?.fires)||0;
+        doc.text(`Pozo final: ${potBal} 🔥`);
+        if (r.winner){
+          doc.text(`Ganador: ${r.winner.userId || '-'} con número ${typeof r.winner.number==='number'? String(r.winner.number).padStart(r.range==='000-999'?3:2,'0') : '-'}`);
+        } else {
+          doc.text('Ganador: -');
+        }
+        doc.moveDown();
+        const parts = (r.participants||[]);
+        doc.text(`Participantes: ${parts.length}`);
+        doc.moveDown();
+        doc.text('Resumen de números vendidos:', { underline: true });
+        const sold = r.numbers.filter(n=>n.state===2);
+        for (const n of sold){ doc.text(`• ${String(n.idx).padStart(r.range==='000-999'?3:2,'0')} → ${n.buyer||'-'}`); }
+        doc.end();
+        size = fs.statSync(fullPath).size; ok=true;
+      } catch(e){
+        // Fallback: TXT si falta pdfkit
+        const txt = [
+          'Acta de Cierre de Rifa',
+          `Código: ${r.code}`,
+          `Nombre: ${r.name||r.code}`,
+          `Anfitrión: ${r.hostName||r.hostId}`,
+          `Modo: ${r.mode}`,
+          r.mode==='fire'?`Costo/Número: ${r.entryPrice} 🔥`:'' ,
+          r.prizeMeta&&r.prizeMeta.prize?`Premio: ${r.prizeMeta.prize}`:'',
+          `Rango: ${r.range} (total ${r.size})`,
+          `Creada: ${new Date(r.createdAt).toLocaleString()}`,
+          r.endsAt?`Cierre: ${new Date(r.endsAt).toLocaleString()}`:'',
+          `Pozo final: ${(store.getUser(this.potUserId(r.id))?.fires)||0} 🔥`,
+          r.winner?`Ganador: ${r.winner.userId} #${String(r.winner.number).padStart(r.range==='000-999'?3:2,'0')}`:'Ganador: -'
+        ].filter(Boolean).join('\n');
+        const txtName = `Acta_${r.code}_${new Date().toISOString().slice(0,10)}.txt`;
+        const txtPath = path.join(base, txtName);
+        fs.writeFileSync(txtPath, txt);
+        const stat = fs.statSync(txtPath);
+        size = stat.size;
+        r.documents = r.documents || [];
+        r.documents.push({ id: fileId, name: txtName, type: 'txt', path: txtPath, createdAt: Date.now(), sizeBytes: size });
+        return;
+      }
+      if (ok){
+        r.documents = r.documents || [];
+        r.documents.push({ id: fileId, name: filename, type: 'pdf', path: fullPath, createdAt: Date.now(), sizeBytes: size });
+      }
+    }catch(_){ }
   }
 }
 
