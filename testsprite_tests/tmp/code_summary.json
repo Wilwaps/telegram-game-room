@@ -1,83 +1,99 @@
 {
   "tech_stack": [
-    "JavaScript (Node.js >=16)",
+    "JavaScript (Node.js >= 16)",
     "Express 4",
-    "helmet",
-    "cors",
+    "Helmet (CSP)",
+    "CORS",
     "express-rate-limit",
-    "Winston",
-    "SSE (Server-Sent Events)"
+    "Winston (logger)",
+    "SSE (Server-Sent Events)",
+    "Frontend HTML + Tailwind CDN + Material Symbols"
   ],
   "features": [
     {
       "name": "Health API",
       "description": "Healthcheck del servidor para validar disponibilidad.",
-      "files": [
-        "backend/server.js"
-      ],
-      "api_doc": {
-        "openapi": "3.0.0",
-        "info": { "title": "Health API", "version": "1.0.0" },
-        "servers": [ { "url": "http://localhost:3000" } ],
-        "paths": {
-          "/health": {
-            "get": {
-              "summary": "Healthcheck",
-              "responses": { "200": { "description": "OK" } }
-            }
-          }
-        }
-      }
+      "files": ["backend/server.js"]
     },
     {
-      "name": "Economy API",
-      "description": "Economía en memoria: resumen de supply, lista de transacciones, stream SSE y burn (admin).",
+      "name": "Economy Core",
+      "description": "Resumen de supply, transacciones, stream SSE; cálculo de circulating por suma de saldos, reserve derivada.",
+      "files": ["backend/routes/economy.js", "backend/services/memoryStore.js", "backend/server.js"]
+    },
+    {
+      "name": "Economy Extended",
+      "description": "Usuarios paginados, historial por usuario, sponsors (CRUD + transfer), grants desde supply.",
+      "files": ["backend/routes/economy_ext.js", "backend/services/memoryStore.js", "backend/middleware/adminAuth.js"]
+    },
+    {
+      "name": "Welcome Event",
+      "description": "Config y estado de bienvenida (admin y público).",
+      "files": ["backend/routes/welcome.js", "backend/routes/admin_welcome.js", "backend/services/memoryStore.js"]
+    },
+    {
+      "name": "Profile API",
+      "description": "Perfil de usuario (fires, coins, inbox).",
+      "files": ["backend/routes/profile.js", "backend/services/memoryStore.js"]
+    },
+    {
+      "name": "Messages API",
+      "description": "Mensajería/inbox básica.",
+      "files": ["backend/routes/messages.js", "backend/services/messageStore.js"]
+    },
+    {
+      "name": "TicTacToe API + SSE",
+      "description": "Salas, movimientos, estado por SSE, temporizador de turnos.",
+      "files": ["backend/routes/tictactoe.js", "backend/services/tictactoeStore.js"]
+    },
+    {
+      "name": "Bingo API + SSE",
+      "description": "Salas, opciones, llamados y estado por SSE.",
+      "files": ["backend/routes/bingo.js", "backend/services/bingoStore.js"]
+    },
+    {
+      "name": "Raffles API",
+      "description": "Listado público, por host y por usuario; reservar/confirmar/release números; aprobación del host; documentos por rifa.",
+      "files": ["backend/routes/raffles.js", "backend/services/raffleStore.js"]
+    },
+    {
+      "name": "Fire Requests API",
+      "description": "Solicitudes de 🔥, aprobación y registros.",
+      "files": ["backend/routes/fire_requests.js", "backend/services/memoryStore.js"]
+    },
+    {
+      "name": "XP API",
+      "description": "Configuración y estado de XP.",
+      "files": ["backend/routes/xp.js", "backend/services/memoryStore.js"]
+    },
+    {
+      "name": "Telegram Webhook",
+      "description": "Integración base con Telegram (webhook y utilidades).",
+      "files": ["backend/routes/telegram.js"]
+    },
+    {
+      "name": "Music API",
+      "description": "Playlist simple por ahora (MVP).",
+      "files": ["backend/routes/music.js", "public/js/music.js", "backend/server.js"]
+    },
+    {
+      "name": "Frontend Pages",
+      "description": "Vistas HTML con Tailwind CDN y JS inline; navegación inferior consistente.",
       "files": [
-        "backend/routes/economy.js",
-        "backend/services/memoryStore.js",
-        "backend/middleware/adminAuth.js",
-        "backend/server.js"
-      ],
-      "api_doc": {
-        "openapi": "3.0.0",
-        "info": { "title": "Economy API", "version": "1.0.0" },
-        "servers": [ { "url": "http://localhost:3000" } ],
-        "paths": {
-          "/api/economy/supply": {
-            "get": { "summary": "Obtener resumen de supply", "responses": { "200": { "description": "OK" } } }
-          },
-          "/api/economy/supply/txs": {
-            "get": {
-              "summary": "Listar transacciones de supply",
-              "parameters": [
-                { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
-                { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
-              ],
-              "responses": { "200": { "description": "OK" } }
-            }
-          },
-          "/api/economy/supply/stream": {
-            "get": { "summary": "Stream SSE con snapshots de supply", "responses": { "200": { "description": "SSE stream" } } }
-          },
-          "/api/economy/supply/burn": {
-            "post": {
-              "summary": "Quemar una cantidad del supply (admin)",
-              "requestBody": {
-                "content": {
-                  "application/json": {
-                    "schema": {
-                      "type": "object",
-                      "properties": { "amount": { "type": "integer", "minimum": 1 } },
-                      "required": ["amount"]
-                    }
-                  }
-                }
-              },
-              "responses": { "200": { "description": "OK" }, "400": { "description": "invalid_amount" }, "403": { "description": "admin_required|unauthorized" } }
-            }
-          }
-        }
-      }
+        "public/index.html",
+        "public/supply.html",
+        "public/profile.html",
+        "public/games.html",
+        "public/tictactoe.html",
+        "public/bingo.html",
+        "public/raffles.html",
+        "public/raffle-room.html",
+        "public/raffle-create.html",
+        "public/dashboard.html",
+        "public/fire-requests.html",
+        "public/portal.html",
+        "public/room.html",
+        "public/xyzworld.html"
+      ]
     }
   ]
 }

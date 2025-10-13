@@ -33,7 +33,7 @@ app.use(helmet({
       "img-src": ["'self'", "data:", "https:", "blob:"],
       "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       "connect-src": ["'self'"],
-      "media-src": ["'self'", "https://www.soundhelix.com"],
+      "media-src": ["'self'", "https://www.soundhelix.com", "https://api.telegram.org", "https://*.telegram.org"],
       "frame-ancestors": ["'self'", "https://*.telegram.org", "https://web.telegram.org"],
       "upgrade-insecure-requests": []
     }
