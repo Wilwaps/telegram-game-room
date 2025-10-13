@@ -46,6 +46,8 @@
     .neon-text-accent { text-shadow: 0 0 5px #22d3ee, 0 0 10px #22d3ee, 0 0 15px #22d3ee; }
     .neon-text-violet { text-shadow: 0 0 5px #a78bfa, 0 0 10px #a78bfa, 0 0 15px #a78bfa; }
     .neon-text-gold { text-shadow: 0 0 5px #facc15, 0 0 10px #facc15, 0 0 15px #facc15; }
+    /* Ocultar controles no deseados dentro de sala */
+    #newBtn, #copyBtn { display: none !important; }
   </style>
 </head>
 <body class="bg-background-dark font-display text-text">
@@ -103,10 +105,7 @@
         </div>
         <div id="grid" class="grid grid-cols-3 gap-2 select-none"></div>
 
-        <div class="flex gap-2">
-          <button id="newBtn" class="flex-1 bg-accent text-background-dark font-bold py-2 rounded-lg">Crear sala</button>
-          <button id="copyBtn" class="flex-1 bg-primary text-background-dark font-bold py-2 rounded-lg">Copiar enlace</button>
-        </div>
+        <div class="flex gap-2"></div>
 
         <div class="text-xs text-text/70">
           - Haz click en una casilla vacía cuando sea tu turno. La jugada válida brillará en dorado.
@@ -158,7 +157,7 @@
 <button id="fabCreate" class="fixed bottom-24 right-4 bg-yellow-400 text-background-dark p-4 rounded-full shadow-[0_0_10px_#facc15,0_0_20px_#facc15] hover:bg-yellow-300 transition-all duration-300 transform hover:scale-105 z-30">
   <span class="material-symbols-outlined text-3xl">add</span>
   <span class="sr-only">Crear sala</span>
-</button>
+  </button>
 
 <!-- Overlay creación de sala -->
 <div id="createOverlay" class="hidden fixed inset-0 z-40">
@@ -271,17 +270,27 @@
   let createCostType = 'free';
   let createCostValue = 0;
   let createdRoomId = null;
+  let createES = null;
 
   function getQuery(name){
     const u = new URL(window.location.href);
     return u.searchParams.get(name);
   }
+  function sanitizeCode(c){ return String(c||'').replace(/\D/g,''); }
   function setStatus(t){ statusEl.textContent = t; }
   function setTurn(t){ turnEl.textContent = t || '-'; }
   function setMyMark(m){ myMark = m; markEl.textContent = m || '-'; }
   function setRoom(r){ roomId = r; const link = `${location.origin}/games/tictactoe?room=${encodeURIComponent(r)}`; roomLinkEl.textContent = r; roomLinkEl.href = link; }
-  function showLobby(){ lobby.classList.remove('hidden'); roomView.classList.add('hidden'); }
-  function showRoom(){ roomView.classList.remove('hidden'); lobby.classList.add('hidden'); }
+  function showLobby(){
+    lobby.classList.remove('hidden');
+    roomView.classList.add('hidden');
+    if (fabCreate) fabCreate.style.display = '';
+  }
+  function showRoom(){
+    roomView.classList.remove('hidden');
+    lobby.classList.add('hidden');
+    if (fabCreate) fabCreate.style.display = 'none';
+  }
 
   function getUserId(){
     const tg = window.Telegram && window.Telegram.WebApp;
@@ -401,12 +410,35 @@
     const r = await fetch('/api/games/tictactoe/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const j = await r.json();
     if (!j.success) throw new Error('create_failed');
-    setRoom(j.state.id);
-    subscribe();
-    showRoom();
-    // actualizar modal si abierto
+    // Guardar ID y actualizar overlay
     createdRoomId = j.state.id;
+    setRoom(j.state.id); // sólo para tener el link preparado, pero no mostramos tablero aún
     createCode.textContent = j.state.code || '------';
+    // Aplicar opciones actuales por si el backend creó con defaults distintos
+    await patchOptions().catch(()=>{});
+    // Suscribirse a SSE para mostrar usuarios conectados en overlay
+    subscribeCreate();
+  }
+
+  function renderCreateUsers(s){
+    const box = createUsers; if (!box) return;
+    const x = s?.players?.X || '-';
+    const o = s?.players?.O || '-';
+    const wait = (!o) ? '<div class="text-center text-text/60 text-sm">Esperando contrincante…</div>' : '';
+    box.innerHTML = `<div class="flex items-center justify-between bg-background-dark/60 rounded-lg p-2"><div class="font-mono">X: ${x}</div><div class="font-mono">O: ${o||'-'}</div></div>${wait}`;
+  }
+
+  function subscribeCreate(){
+    try{ createES && createES.close && createES.close(); }catch(_){ }
+    if (!createdRoomId) return;
+    createES = new EventSource(`/api/games/tictactoe/rooms/${encodeURIComponent(createdRoomId)}/stream`);
+    createES.addEventListener('state', (ev)=>{ try{ const s=JSON.parse(ev.data); renderCreateUsers(s); }catch(_){ } });
+  }
+
+  async function patchOptions(){
+    if (!createdRoomId) return;
+    const body = { visibility: createVisibility, costType: createCostType, costValue: createCostValue };
+    await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(createdRoomId)}/options`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   }
   async function joinRoom(id){
     const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(id)}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: myId }) });
@@ -415,6 +447,15 @@
     setRoom(j.state.id);
     subscribe();
     showRoom();
+  }
+
+  async function joinByCode(code){
+    const clean = sanitizeCode(code);
+    if (!clean) throw new Error('invalid_code');
+    const r = await fetch('/api/games/tictactoe/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code: clean, userId: myId }) });
+    const j = await r.json();
+    if (!(j && j.success && j.state && j.state.id)) throw new Error(j && j.error || 'join_code_failed');
+    setRoom(j.state.id); subscribe(); showRoom();
   }
 
   function subscribe(){
@@ -472,63 +513,54 @@
     myId = getUserId();
     meEl.textContent = myId;
     const rid = getQuery('room');
-    if (rid) {
-      await joinRoom(rid).catch(()=>createRoom());
-    } else {
-      await loadLobby();
-    }
+    const codeParam = sanitizeCode(getQuery('code'));
+    if (codeParam) { await joinByCode(codeParam).catch(async ()=>{ setStatus('Sala no encontrada'); await loadLobby(); }); return; }
+    if (rid) { await joinRoom(rid).catch(async ()=>{ setStatus('Sala no disponible'); await loadLobby(); }); return; }
+    await loadLobby();
   })();
 
-  newBtn.addEventListener('click', async ()=>{
-    await createRoom();
-  });
-  copyBtn.addEventListener('click', async ()=>{
-    try{ await navigator.clipboard.writeText(roomLinkEl.href); copyBtn.textContent='Copiado'; setTimeout(()=>copyBtn.textContent='Copiar enlace', 1200);}catch(_){ }
-  });
+  if (newBtn) newBtn.addEventListener('click', async ()=>{ await createRoom(); });
+  if (copyBtn) copyBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(roomLinkEl.href); copyBtn.textContent='Copiado'; setTimeout(()=>copyBtn.textContent='Copiar enlace', 1200);}catch(_){ } });
 
   joinCodeBtn.addEventListener('click', async ()=>{
-    const code = (codeInput.value||'').trim();
+    const code = sanitizeCode(codeInput.value);
     if (!code) return;
-    try{
-      const r = await fetch('/api/games/tictactoe/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) });
-      const j = await r.json();
-      if (j && j.success && j.state && j.state.id) {
-        setRoom(j.state.id); subscribe(); showRoom();
-      }
-    }catch(_){ }
+    try{ await joinByCode(code); }catch(e){ setStatus('No se pudo unir por código'); setTimeout(()=>setStatus(''), 1500); }
   });
+  codeInput.addEventListener('keydown', async (e)=>{ if (e.key==='Enter') { e.preventDefault(); const code=sanitizeCode(codeInput.value); if(code){ try{ await joinByCode(code); }catch(_){ setStatus('No se pudo unir por código'); setTimeout(()=>setStatus(''),1500); } } } });
 
   // Crear sala: handlers
-  function openCreate(){ overlay.classList.remove('hidden'); createdRoomId = null; createCode.textContent='------'; }
-  function closeCreateOverlay(){ overlay.classList.add('hidden'); }
+  function openCreate(){
+    overlay.classList.remove('hidden');
+    // Crear SIEMPRE una sala nueva privada por defecto
+    createdRoomId = null; createCode.textContent='------'; renderCreateUsers({players:{X:'-',O:null}});
+    createVisibility = 'private'; createCostType='free'; createCostValue=0;
+    // actualizar estilos de toggles
+    if (optPrivate && optPublic) { styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); }
+    if (optFree && optFuego) { styleToggle(optFree,optFuego,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); }
+    createRoom().catch(()=>{ setStatus('No se pudo crear la sala'); });
+  }
+  function closeCreateOverlay(){
+    overlay.classList.add('hidden');
+    try{ createES && createES.close && createES.close(); }catch(_){ }
+    createES = null;
+  }
   function styleToggle(btnOn, btnOff, onClasses, offClasses){
     btnOn.className = (btnOn.className.replace(' bg-glass','').replace(' text-text','') + onClasses);
     btnOff.className = (btnOff.className.replace(' bg-accent text-background-dark','').replace(' shadow-[0_0_10px_#22d3ee]','') + offClasses);
   }
-  optPrivate.addEventListener('click', ()=>{ createVisibility='private'; styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); });
-  optPublic.addEventListener('click', ()=>{ createVisibility='public'; styleToggle(optPublic,optPrivate,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); });
-  optFree.addEventListener('click', ()=>{ createCostType='free'; createCostValue=0; styleToggle(optFree,optFuego,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); });
-  optFuego.addEventListener('click', ()=>{ createCostType='fuego'; createCostValue=1; styleToggle(optFuego,optFree,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); });
-  fabCreate.addEventListener('click', openCreate);
-  closeCreate.addEventListener('click', closeCreateOverlay);
-  // Al abrir creación, crear sala inmediatamente con opciones por defecto
-  async function openCreate(){
-    overlay.classList.remove('hidden');
-    if (!createdRoomId) {
-      try { await createRoom(); } catch (_) {}
-    }
-  }
-  function closeCreateOverlay(){ overlay.classList.add('hidden'); }
-  shareCreate.addEventListener('click', async ()=>{
+  if (optPrivate) optPrivate.addEventListener('click', async ()=>{ createVisibility='private'; styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await patchOptions().catch(()=>{}); });
+  if (optPublic) optPublic.addEventListener('click', async ()=>{ createVisibility='public'; styleToggle(optPublic,optPrivate,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await patchOptions().catch(()=>{}); });
+  if (optFree) optFree.addEventListener('click', async ()=>{ createCostType='free'; createCostValue=0; styleToggle(optFree,optFuego,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); await patchOptions().catch(()=>{}); });
+  if (optFuego) optFuego.addEventListener('click', async ()=>{ createCostType='fuego'; createCostValue=1; styleToggle(optFuego,optFree,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); await patchOptions().catch(()=>{}); });
+  if (fabCreate) fabCreate.addEventListener('click', openCreate);
+  if (closeCreate) closeCreate.addEventListener('click', closeCreateOverlay);
+  if (shareCreate) shareCreate.addEventListener('click', async ()=>{
     if (!createdRoomId) return; const link = `${location.origin}/games/tictactoe?room=${encodeURIComponent(createdRoomId)}`; try{ await navigator.clipboard.writeText(link); shareCreate.textContent='Copiado'; setTimeout(()=>shareCreate.textContent='Compartir', 1200);}catch(_){ }
   });
-  startCreate.addEventListener('click', async ()=>{
-    // Si no hay sala creada aún, crearla; luego unirse
+  if (startCreate) startCreate.addEventListener('click', async ()=>{
     if (!createdRoomId) { await createRoom().catch(()=>{}); }
-    if (createdRoomId) {
-      await joinRoom(createdRoomId).catch(()=>{});
-      closeCreateOverlay();
-    }
+    if (createdRoomId) { await joinRoom(createdRoomId).catch(()=>{}); closeCreateOverlay(); }
   });
   if (rematchBtn) rematchBtn.addEventListener('click', async ()=>{
     if (!roomId) return;
@@ -538,13 +570,9 @@
       if (j && j.success) { afterRound.style.display='none'; }
     }catch(_){ }
   });
-  joinFromCreate.addEventListener('click', async ()=>{
-    const code = (joinCodeInput.value||'').trim(); if (!code) return;
-    try{
-      const r = await fetch('/api/games/tictactoe/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) });
-      const j = await r.json();
-      if (j && j.success && j.state && j.state.id) { setRoom(j.state.id); subscribe(); showRoom(); closeCreateOverlay(); }
-    }catch(_){ }
+  if (joinFromCreate) joinFromCreate.addEventListener('click', async ()=>{
+    const code = sanitizeCode(joinCodeInput.value); if (!code) return;
+    try{ await joinByCode(code); closeCreateOverlay(); }catch(_){ }
   });
 })();
 </script>
