@@ -26,9 +26,13 @@
       </div>
       <button id="saveAdm" class="bg-accent text-background-dark font-bold py-2 rounded-lg">Guardar</button>
     </div>
-    <div class="bg-card border border-glass rounded-lg p-3">
-      <div class="flex items-center justify-between mb-2">
-        <h2 class="font-bold">Pendientes</h2>
+    <div class="bg-card border border-glass rounded-lg p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-sm">
+          <button data-st="pending" class="st-btn bg-accent/20 text-accent px-3 py-1 rounded-lg">Pendientes</button>
+          <button data-st="accepted" class="st-btn bg-glass hover:bg-accent/10 px-3 py-1 rounded-lg">Aceptadas</button>
+          <button data-st="rejected" class="st-btn bg-glass hover:bg-accent/10 px-3 py-1 rounded-lg">Rechazadas</button>
+        </div>
         <button id="refresh" class="text-sm bg-glass hover:bg-accent/20 px-3 py-1 rounded-lg">Refrescar</button>
       </div>
       <div id="list" class="space-y-2"></div>
@@ -44,8 +48,10 @@
       if(c) h['x-admin-code']=c;
       return h;
     }
+    let curStatus='pending';
     async function load(){
-      const r=await fetch('/api/economy/fire-requests/pending',{headers:headers()});
+      const path = curStatus==='pending' ? '/api/economy/fire-requests/pending' : `/api/economy/fire-requests/list?status=${encodeURIComponent(curStatus)}`;
+      const r=await fetch(path,{headers:headers()});
       const j=await r.json();
       const cont=$('list');
       cont.innerHTML='';
@@ -81,6 +87,14 @@
       load();
     });
     $('refresh').addEventListener('click',load);
+    for(const b of document.querySelectorAll('.st-btn')){
+      b.addEventListener('click', (e)=>{
+        for(const x of document.querySelectorAll('.st-btn')) x.className='st-btn bg-glass hover:bg-accent/10 px-3 py-1 rounded-lg';
+        e.currentTarget.className='st-btn bg-accent/20 text-accent px-3 py-1 rounded-lg';
+        curStatus = e.currentTarget.getAttribute('data-st')||'pending';
+        load();
+      });
+    }
     window.addEventListener('load',()=>{
       $('admUser').value=sessionStorage.getItem('admUser')||'';
       $('admCode').value=sessionStorage.getItem('admCode')||'';

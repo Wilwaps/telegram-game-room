@@ -14,6 +14,8 @@ const tttRoutes = require('./routes/tictactoe');
 const tttStore = require('./services/tictactoeStore');
 const bingoRoutes = require('./routes/bingo');
 const fireRequestsRoutes = require('./routes/fire_requests');
+const rafflesRoutes = require('./routes/raffles');
+const messagesRoutes = require('./routes/messages');
 
 const app = express();
 app.set('trust proxy', true);
@@ -66,6 +68,8 @@ app.use('/api/economy', economyRoutes);
 app.use('/api/xp', xpRoutes);
 app.use('/api/economy', economyExtRoutes);
 app.use('/api/economy', fireRequestsRoutes);
+app.use('/api/raffles', rafflesRoutes);
+app.use('/api/messages', messagesRoutes);
 app.use('/telegram', telegramRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/games/tictactoe', tttRoutes);
@@ -87,6 +91,15 @@ app.get('/games/tictactoe', (req, res) => {
 });
 app.get('/games/bingo', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/bingo.html'));
+});
+app.get('/raffles', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/raffles.html'));
+});
+app.get('/raffles/create', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/raffle-create.html'));
+});
+app.get('/raffles/room', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/raffle-room.html'));
 });
 app.get('/fire-requests', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/fire-requests.html'));

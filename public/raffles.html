@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Rifas • Telegram Game Room</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#06e4f9','background-light':'#f5f8f8','background-dark':'#0B0E14',violet:'#a78bfa',accent:'#22d3ee',card:'#121A2B',panel:'#0F1524',text:'#E6EDF3',glass:'rgba(255,255,255,0.1)'} ,fontFamily:{display:['Space Grotesk']}, boxShadow:{'neon-gold':'0 0 5px #facc15, 0 0 10px #facc15, 0 0 15px #facc15, 0 0 20px #facc15'}}}};</script>
+  <style>
+    body{min-height:max(884px,100dvh)}
+    .nav-item:hover{background-color:var(--tw-bg-accent);color:var(--tw-bg-background-dark)}
+    .nav-item{transition:background-color .2s,color .2s}
+    .nav-item .material-symbols-outlined{display:block;margin:0 auto .25rem}
+  </style>
+</head>
+<body class="bg-background-dark font-display text-text">
+<div class="flex flex-col min-h-screen">
+  <main class="flex-1 p-4 pb-24 space-y-6">
+    <div class="bg-panel rounded-xl border border-glass p-4">
+      <div class="flex items-center gap-2">
+        <input id="codeInput" class="flex-1 bg-card border border-glass rounded-lg p-3" placeholder="Buscar sala por código (ej: RABCDE)"/>
+        <button id="codeBtn" class="bg-yellow-400 text-background-dark font-bold px-4 py-3 rounded-lg shadow-neon-gold">Buscar</button>
+        <a href="/raffles/create" class="bg-accent text-background-dark font-bold px-4 py-3 rounded-lg">Crear</a>
+      </div>
+    </div>
+
+    <section class="bg-panel rounded-xl border border-glass p-4">
+      <h2 class="text-xl font-bold mb-4 text-center text-accent">Mis Rifas</h2>
+      <div id="myRaffles" class="grid gap-3"></div>
+    </section>
+
+    <section class="bg-panel rounded-xl border border-glass p-4">
+      <h2 class="text-xl font-bold mb-4 text-center text-violet">Participando</h2>
+      <div id="myJoined" class="grid gap-3"></div>
+    </section>
+
+    <section class="bg-panel rounded-xl border border-glass p-4">
+      <h2 class="text-xl font-bold mb-4 text-center text-yellow-400">Rifas Públicas</h2>
+      <div id="publicRaffles" class="grid gap-3"></div>
+    </section>
+  </main>
+
+  <nav class="fixed bottom-0 left-0 right-0 bg-panel border-t border-glass px-2 py-1">
+    <div class="flex justify-around text-xs text-center text-text/80">
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/profile" style="--tw-bg-accent:#facc15; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">person</span>
+        <span>Perfil</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">door_open</span>
+        <span>Lobby</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">sports_esports</span>
+        <span>Juegos</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg bg-yellow-400/20 text-yellow-400 shadow-neon-gold" href="/raffles" style="--tw-bg-accent:#facc15; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">confirmation_number</span>
+        <span>Rifas</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined" style="color:inherit">storefront</span>
+        <span class="text-xs">Mercado</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">groups</span>
+        <span>Rol</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Próximo</span>
+      </a>
+    </div>
+    <div class="mt-1 flex items-center gap-2 p-1">
+      <input id="codeInputNav" class="flex-1 bg-card border border-glass rounded-lg p-2 text-xs" placeholder="Código (ej: RABCDE)"/>
+      <button id="codeBtnNav" class="bg-yellow-400 text-background-dark font-bold px-3 py-2 rounded-lg shadow-neon-gold text-xs">Ir</button>
+    </div>
+  </nav>
+</div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  function me(){ const tg=window.Telegram&&window.Telegram.WebApp; const u=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user; if(!u){let x=localStorage.getItem('anon_uid'); if(!x){x='anon:'+Math.random().toString(36).slice(2,8); localStorage.setItem('anon_uid',x);} return { id:x, name:'Invitado' }; } return { id:'tg:'+u.id, name:(u.username||[u.first_name,u.last_name].filter(Boolean).join(' ')) } }
+  function fmt(n){ try{return new Intl.NumberFormat().format(n||0)}catch(_){return String(n||0)} }
+  function card(r){
+    const host = r.hostName||r.hostId;
+    const when = r.createdAt? new Date(r.createdAt).toLocaleString():'';
+    const prize = r.prize ? `<p>Premio: <b>${r.prize}</b></p>`:'';
+    return `<div class="bg-card rounded-lg p-4 border border-glass">
+      <div class="flex items-center justify-between mb-2"><span class="font-bold text-lg">${r.name||r.code}</span><span class="text-xs text-text/60">#${r.code}</span></div>
+      <div class="text-sm flex justify-between items-start">
+        <div>
+          <p>Anfitrión: <b>${host}</b></p>
+          <p>Creación: <b>${when}</b></p>
+          ${r.mode==='fire'?`<p>Costo: <b>${fmt(r.entryPrice)}</b> 🔥</p>`: prize}
+          <p>Disponibles: <b>${fmt(r.available)}</b> · Vendidos: <b>${fmt(r.sold)}</b></p>
+        </div>
+        <div class="text-right">
+          <p>Pot: <b>${fmt(r.potFires)}</b> 🔥</p>
+          <a href="/raffles/room?code=${encodeURIComponent(r.code)}" class="mt-2 inline-block bg-accent/80 text-background-dark font-bold py-1.5 px-3 rounded-lg hover:bg-accent">Entrar</a>
+        </div>
+      </div>
+    </div>`;
+  }
+  async function load(){
+    const u = me();
+    try{
+      const [pubR,myR,myJ] = await Promise.all([
+        fetch('/api/raffles/public').then(r=>r.json()).catch(()=>null),
+        fetch('/api/raffles/by-host/'+encodeURIComponent(u.id)).then(r=>r.json()).catch(()=>null),
+        fetch('/api/raffles/by-user/'+encodeURIComponent(u.id)).then(r=>r.json()).catch(()=>null)
+      ]);
+      $('publicRaffles').innerHTML = (pubR&&pubR.success?pubR.items:[]).map(card).join('') || '<div class="text-center text-text/60">No hay rifas públicas</div>';
+      $('myRaffles').innerHTML = (myR&&myR.success?myR.items:[]).map(card).join('') || '<div class="text-center text-text/60">No has creado rifas</div>';
+      $('myJoined').innerHTML = (myJ&&myJ.success?myJ.items:[]).map(card).join('') || '<div class="text-center text-text/60">No participas en rifas</div>';
+    }catch(_){ }
+  }
+  $('codeBtn').addEventListener('click', async()=>{
+    const c = String(($('codeInput').value||'').trim()).toUpperCase(); if(!c) return;
+    try{
+      const r = await fetch('/api/raffles/code/'+encodeURIComponent(c));
+      if (r.ok) { window.location.href = '/raffles/room?code='+encodeURIComponent(c); }
+      else { alert('Código no encontrado'); }
+    }catch(_){ alert('Error de red'); }
+  });
+  $('codeBtnNav').addEventListener('click', async()=>{
+    const c = String(($('codeInputNav').value||'').trim()).toUpperCase(); if(!c) return;
+    try{
+      const r = await fetch('/api/raffles/code/'+encodeURIComponent(c));
+      if (r.ok) { window.location.href = '/raffles/room?code='+encodeURIComponent(c); }
+      else { alert('Código no encontrado'); }
+    }catch(_){ alert('Error de red'); }
+  });
+  window.addEventListener('load', load);
+})();
+</script>
+</body>
+</html>

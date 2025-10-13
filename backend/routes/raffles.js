@@ -1,0 +1,149 @@
+const express = require('express');
+const router = express.Router();
+const store = require('../services/memoryStore');
+const raffles = require('../services/raffleStore');
+const messages = require('../services/messageStore');
+const https = require('https');
+const { URL } = require('url');
+
+function postJSON(urlStr, data) {
+  return new Promise((resolve) => {
+    try {
+      const u = new URL(urlStr);
+      const body = Buffer.from(JSON.stringify(data));
+      const opts = { method: 'POST', hostname: u.hostname, path: u.pathname + (u.search||''), headers: { 'Content-Type':'application/json', 'Content-Length': body.length } };
+      const rq = https.request(opts, r => { r.on('data',()=>{}); r.on('end', resolve); });
+      rq.on('error', () => resolve()); rq.write(body); rq.end();
+    } catch(_) { resolve(); }
+  });
+}
+
+async function notifyAdminNewRaffle(req, rec){
+  try{
+    const token = process.env.TELEGRAM_BOT_TOKEN || '';
+    const adminTgId = String(process.env.FIRE_REQUEST_ADMIN_TG_ID || '1417856820');
+    if (!token || !adminTgId) return;
+    const hostUrl = `${req.protocol}://${req.get('host')}`;
+    const text = `Nueva rifa creada\nHost: ${rec.hostId}\nModo: ${rec.mode}\nEntry: ${rec.entryPrice}\nCode: ${rec.code}\n${hostUrl}/raffles/room?code=${rec.code}`;
+    const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+    await postJSON(apiUrl, { chat_id: adminTgId, text });
+  }catch(_){}
+}
+
+router.get('/public', (req,res)=>{
+  const { limit, offset } = req.query||{};
+  const out = raffles.listPublic({ limit, offset });
+  res.json({ success:true, ...out, items: out.items.map(r=>raffles.getPublicInfo(r)) });
+});
+
+router.get('/by-host/:userId', (req,res)=>{
+  const { userId } = req.params; const { limit, offset } = req.query||{};
+  const out = raffles.listByHost(userId, { limit, offset });
+  res.json({ success:true, ...out, items: out.items.map(r=>raffles.getPublicInfo(r)) });
+});
+
+router.get('/by-user/:userId', (req,res)=>{
+  const { userId } = req.params; const { limit, offset } = req.query||{};
+  const out = raffles.listParticipating(userId, { limit, offset });
+  res.json({ success:true, ...out, items: out.items.map(r=>raffles.getPublicInfo(r)) });
+});
+
+router.get('/id/:id', (req,res)=>{
+  const r = raffles.details(req.params.id);
+  if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
+  res.json({ success:true, raffle:r });
+});
+
+router.get('/code/:code', (req,res)=>{
+  const r = raffles.findByCode(req.params.code);
+  if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
+  res.json({ success:true, raffle: raffles.details(r.id) });
+});
+
+router.post('/create', (req,res)=>{
+  try{
+    const { hostId, hostName, mode, entryPrice, visibility, range, time, name, hostMeta, prizeMeta } = req.body||{};
+    const rec = raffles.create({ hostId, hostName, mode, entryPrice, visibility, range, time: (time==='Ganador'?'winner': time==='1 día'?'1d': time==='1 semana'?'1w': time), name, hostMeta, prizeMeta });
+    // notificar admin
+    notifyAdminNewRaffle(req, rec);
+    try{
+      const dep = (rec.mode==='fire') ? Number(rec.entryPrice||0) : 200;
+      messages.send({ toUserId: 'tg:1417856820', text: `Sala de rifa iniciada ${dep} 🔥 (host: ${rec.hostId}, code: ${rec.code})` });
+    }catch(_){ }
+    res.json({ success:true, raffle: raffles.getPublicInfo(rec) });
+  }catch(err){ res.status(400).json({ success:false, error: (err&&err.message)||'create_error' }); }
+});
+
+router.post('/:id/reserve', (req,res)=>{
+  try{
+    const { userId, number } = req.body||{};
+    const out = raffles.reserve({ id: req.params.id, userId, number });
+    res.json({ success:true, ...out });
+  }catch(err){ res.status(400).json({ success:false, error:(err&&err.message)||'reserve_error' }); }
+});
+
+router.post('/:id/release', (req,res)=>{
+  try{
+    const { userId, number } = req.body||{};
+    const out = raffles.release({ id: req.params.id, userId, number });
+    res.json({ success:true, ...out });
+  }catch(err){ res.status(400).json({ success:false, error:(err&&err.message)||'release_error' }); }
+});
+
+router.post('/:id/confirm', (req,res)=>{
+  try{
+    const { userId, number, reference } = req.body||{};
+    const r = raffles.findById(req.params.id);
+    if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
+    if (r.mode === 'fire'){
+      const out = raffles.confirm({ id: r.id, userId, number, reference });
+      // mensaje al usuario
+      messages.send({ toUserId: userId, text: `Te has unido a la rifa ${r.code} con el número ${String(number).padStart(2,'0')}. Te notificaremos al finalizar.` });
+      return res.json({ success:true, ...out });
+    } else {
+      // modo premio: generar solicitud pendiente (simplemente reservar más tiempo y añadir a participants como pending)
+      const idx = Math.max(0, Math.min(r.size-1, Number(number)||0));
+      const cur = r.numbers[idx];
+      if (!(cur.state===0 || (cur.state===1 && cur.reservedBy===String(userId)))) throw new Error('not_available');
+      r.numbers[idx] = { idx, state:1, reservedBy:String(userId), reservedUntil: Date.now()+5*60*1000 };
+      if (!Array.isArray(r.pending)) r.pending = [];
+      r.pending.push({ idx, userId:String(userId), reference:String(reference||'').trim(), ts: Date.now() });
+      messages.send({ toUserId: r.hostId, text: `Solicitud de compra en tu rifa ${r.code} del número ${String(idx).padStart(2,'0')}. Ref: ${String(reference||'')}` });
+      return res.json({ success:true, pending:true });
+    }
+  }catch(err){ res.status(400).json({ success:false, error:(err&&err.message)||'confirm_error' }); }
+});
+
+router.get('/:id/pending', (req,res)=>{
+  const r = raffles.findById(req.params.id);
+  if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
+  res.json({ success:true, items: r.pending||[] });
+});
+
+router.post('/:id/approve', (req,res)=>{
+  try{
+    const r = raffles.findById(req.params.id);
+    if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
+    const { number, approve } = req.body||{};
+    const idx = Math.max(0, Math.min(r.size-1, Number(number)||0));
+    const pidx = (r.pending||[]).findIndex(x=>x.idx===idx);
+    if (pidx<0) throw new Error('pending_not_found');
+    const p = r.pending[pidx];
+    if (approve){
+      r.numbers[idx] = { idx, state:2, buyer: p.userId, ref: p.reference };
+      let pr = r.participants.find(x=>x.userId===p.userId); if (!pr) { pr={ userId:p.userId, numbers:[], refs:[], ts:Date.now() }; r.participants.push(pr); }
+      pr.numbers.push(idx); pr.refs.push(p.reference);
+      messages.send({ toUserId: p.userId, text: `Tu compra del número ${String(idx).padStart(2,'0')} en la rifa ${r.code} fue aprobada.` });
+    } else {
+      r.numbers[idx] = { idx, state:0 };
+      messages.send({ toUserId: p.userId, text: `Tu solicitud del número ${String(idx).padStart(2,'0')} en la rifa ${r.code} fue rechazada.` });
+    }
+    r.pending.splice(pidx,1);
+    // cierre por llenado/tiempo
+    const soldCount = r.numbers.filter(n=>n.state===2).length;
+    if (soldCount>=r.size || (r.endsAt && r.endsAt<=Date.now())){ raffles.closeAndPayout(r); }
+    res.json({ success:true });
+  }catch(err){ res.status(400).json({ success:false, error:(err&&err.message)||'approve_error' }); }
+});
+
+module.exports = router;

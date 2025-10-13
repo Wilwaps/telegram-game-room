@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Sala de Rifa • Telegram Game Room</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#06e4f9','background-dark':'#0B0E14',accent:'#22d3ee',card:'#121A2B',panel:'#0F1524',text:'#E6EDF3',glass:'rgba(255,255,255,0.1)',warning:'#F59E0B',success:'#22C55E',error:'#EF4444'},boxShadow:{'neon-gold':'0 0 5px #facc15, 0 0 10px #facc15, 0 0 15px #facc15','neon-accent':'0 0 10px #22d3ee, 0 0 20px #22d3ee','neon-fire':'0 0 10px rgba(251,191,36,.7), 0 0 20px rgba(251,191,36,.5)'} ,fontFamily:{display:['Space Grotesk']}}}};</script>
+  <style>
+    body{min-height:max(884px,100dvh)}
+    .overlay{position:fixed;inset:0;display:none;z-index:50}
+    .overlay.show{display:flex}
+    .num{transition:transform .15s, box-shadow .15s}
+    .num:hover{transform:translateY(-1px)}
+  </style>
+</head>
+<body class="bg-background-dark font-display text-text">
+<div class="flex flex-col min-h-screen">
+  <main class="flex-1 p-4 pb-24 space-y-6 flex flex-col items-center">
+    <div class="w-full max-w-md text-center mb-2">
+      <div class="bg-panel rounded-xl border border-glass p-3 shadow-neon-fire relative">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-amber-500 text-background-dark font-bold px-3 py-1 rounded-full shadow-neon-gold" id="potBtn">
+          <span class="material-symbols-outlined">local_fire_department</span>
+          <span id="potVal">0</span>
+        </div>
+        <h1 id="raffleName" class="text-xl font-bold mt-4"></h1>
+        <div class="text-xs text-text/70" id="raffleMeta"></div>
+        <div class="mt-2 text-sm" id="countdown"></div>
+        <div class="mt-2">
+          <button id="shareBtn" class="text-xs bg-accent/20 border border-accent/40 text-accent px-3 py-1 rounded-lg">Compartir</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="relative bg-panel rounded-xl border border-glass p-3 w-full max-w-md">
+      <div id="grid" class="grid grid-cols-10 gap-2"></div>
+      <div class="mt-3 flex items-center justify-between text-xs text-text/70">
+        <div>Disponibles: <b id="available">0</b> · Reservados: <b id="reserved">0</b> · Vendidos: <b id="sold">0</b></div>
+        <a id="goRaffles" href="/raffles" class="underline">Volver</a>
+      </div>
+    </div>
+
+    <div class="relative bg-card rounded-xl border border-glass p-3 w-full max-w-md" id="myBox" style="display:none">
+      <div class="text-center text-sm">Tus números</div>
+      <div id="myNums" class="mt-1 text-center font-mono text-accent"></div>
+    </div>
+
+    <div id="pendingBox" class="relative bg-card rounded-xl border border-glass p-3 w-full max-w-md" style="display:none">
+      <div class="text-center text-sm">Solicitudes Pendientes (Host)</div>
+      <div id="pendingList" class="mt-2 space-y-2 text-sm"></div>
+    </div>
+  </main>
+
+  <nav class="fixed bottom-0 left-0 right-0 bg-panel border-t border-glass px-2 py-1">
+    <div class="flex justify-around text-xs text-center text-text/80">
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/profile" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">person</span>
+        <span>Perfil</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">door_open</span>
+        <span>Lobby</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">sports_esports</span>
+        <span>Juegos</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg bg-yellow-400/20 text-yellow-400 shadow-neon-gold" href="/raffles" style="--tw-bg-accent:#facc15; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">confirmation_number</span>
+        <span>Rifas</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined" style="color:inherit">storefront</span>
+        <span class="text-xs">Mercado</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">groups</span>
+        <span>Rol</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Próximo</span>
+      </a>
+    </div>
+  </nav>
+</div>
+
+<!-- Overlay 1: Descargo de responsabilidad -->
+<div id="warnOverlay" class="overlay items-center justify-center bg-black/70 p-4">
+  <div class="bg-card border border-glass rounded-xl p-4 w-full max-w-sm text-center">
+    <span class="material-symbols-outlined text-6xl text-warning mb-2">warning</span>
+    <h2 class="text-xl font-bold mb-2">Atención</h2>
+    <p class="text-sm text-text/80 mb-3">NO SOMOS RESPONSABLES DE ESTE PREMIO, ASEGÚRATE DE CONOCER AL ANFITRIÓN. NO HAY REEMBOLSO.</p>
+    <label class="text-sm inline-flex items-center gap-2 mb-3"><input id="readChk" type="checkbox" class="rounded"> YA LEÍ</label>
+    <div class="flex gap-2">
+      <button id="cancelWarn" class="flex-1 bg-error/20 text-error py-2 rounded-lg border border-error/40">Cancelar</button>
+      <button id="okWarn" class="flex-1 bg-success/20 text-success py-2 rounded-lg border border-success/40">Continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay 2: Confirmación de compra -->
+<div id="confirmOverlay" class="overlay items-center justify-center bg-black/70 p-4">
+  <div class="bg-card border border-glass rounded-xl p-4 w-full max-w-sm">
+    <div class="text-center">
+      <div class="text-sm">Número seleccionado</div>
+      <div id="selNum" class="text-5xl font-bold text-accent my-2"></div>
+      <div id="payInfo" class="text-xs text-text/70 space-y-1" style="display:none">
+        <div class="mt-2">Datos del anfitrión</div>
+        <div id="payData" class="font-mono text-text/80"></div>
+        <button id="copyPay" class="mt-1 bg-accent/20 text-accent text-xs px-2 py-1 rounded">Copiar</button>
+      </div>
+      <input id="refInput" class="mt-3 w-full bg-background-dark border border-glass rounded-lg p-2 text-center" placeholder="Referencia (opcional)"/>
+      <div class="flex gap-2 mt-4">
+        <button id="cancelBuy" class="flex-1 bg-error/20 text-error py-2 rounded-lg border border-error/40">Cancelar</button>
+        <button id="okBuy" class="flex-1 bg-accent text-background-dark py-2 rounded-lg">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  function me(){ const tg=window.Telegram&&window.Telegram.WebApp; const u=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user; if(!u){let x=localStorage.getItem('anon_uid'); if(!x){x='anon:'+Math.random().toString(36).slice(2,8); localStorage.setItem('anon_uid',x);} return { id:x, name:'Invitado' }; } return { id:'tg:'+u.id, name:(u.username||[u.first_name,u.last_name].filter(Boolean).join(' ')) } }
+  function qs(n){ try{ return new URL(window.location.href).searchParams.get(n) }catch(_){ return null } }
+  function fmt(n){ try{return new Intl.NumberFormat().format(n||0)}catch(_){return String(n||0)} }
+  let R=null, my=null, selIdx=null, warnAccepted=false;
+  const refreshMs=5000;
+
+  function show(el){el&&el.classList.add('show')} function hide(el){el&&el.classList.remove('show')}
+
+  async function load(){
+    const code = qs('code'); if(!code){ alert('Falta código'); return; }
+    const r = await fetch('/api/raffles/code/'+encodeURIComponent(code)).then(r=>r.json()).catch(()=>null);
+    if (!(r&&r.success&&r.raffle)){ alert('Sala no encontrada'); return; }
+    R = r.raffle; my = me();
+    $('raffleName').textContent = R.name || R.code;
+    const meta = (R.mode==='fire' ? `Costo: ${fmt(R.entryPrice)} 🔥` : (R.prize?`Premio: ${R.prize}`:'')) + ` · Host: ${R.hostName||R.hostId}`;
+    $('raffleMeta').textContent = meta;
+    $('potVal').textContent = fmt(R.potFires||0);
+    renderGrid();
+    renderStats();
+    renderMine();
+    if (R.mode==='prize' && my.id===R.hostId){ loadPending(); $('pendingBox').style.display='block'; } else { $('pendingBox').style.display='none'; }
+    setupCountdown();
+  }
+
+  async function loadMyProfile(){
+    try{
+      const u = me();
+      const r = await fetch('/api/profile/'+encodeURIComponent(u.id));
+      const j = await r.json();
+      window.__myFires = (j&&j.success&&j.user)? Number(j.user.fires||0) : 0;
+    }catch(_){ window.__myFires = 0; }
+  }
+
+  function renderStats(){ $('available').textContent=fmt(R.available); $('reserved').textContent=fmt(R.reserved); $('sold').textContent=fmt(R.sold); }
+  function renderMine(){
+    const mep = (R.participants||[]).find(p=>p.userId===my.id);
+    if (mep && mep.numbers && mep.numbers.length){
+      $('myBox').style.display='block';
+      $('myNums').textContent = mep.numbers.sort((a,b)=>a-b).map(n=>String(n).padStart(R.range==='000-999'?3:2,'0')).join(', ');
+    }else{ $('myBox').style.display='none'; }
+  }
+
+  function gridCols(){ return 'grid grid-cols-10 gap-2' }
+  function renderGrid(){
+    const g=$('grid'); g.className = gridCols(); g.innerHTML='';
+    const size = R.size;
+    const is3 = R.range==='000-999';
+    for(let i=0;i<size;i++){
+      const n = R.numbers? R.numbers[i] : { idx:i, state:0 };
+      const st = n.state||0; // 0 avail, 1 reserved, 2 sold
+      let cls = 'num flex items-center justify-center h-8 w-8 text-sm font-bold rounded border ';
+      if (st===0){ cls += 'bg-card border-glass hover:bg-accent/20 hover:border-accent cursor-pointer'; }
+      else if (st===1){ cls += 'bg-amber-400/20 text-amber-300 border-amber-400/50 shadow-neon-gold cursor-not-allowed'; }
+      else { cls += 'bg-black/30 text-text/40 border-glass cursor-not-allowed'; }
+      const el=document.createElement('div'); el.className=cls; el.textContent=String(i).padStart(is3?3:2,'0');
+      if (st===0){ el.addEventListener('click', ()=> onPick(i)); }
+      g.appendChild(el);
+    }
+  }
+
+  function setupCountdown(){
+    const el=$('countdown');
+    if (!R.endsAt){ el.textContent='Se cierra al vender todos los números'; return; }
+    function tick(){
+      const d = Math.max(0, R.endsAt - Date.now());
+      const s = Math.floor(d/1000); const h=Math.floor(s/3600); const m=Math.floor((s%3600)/60); const ss=s%60;
+      el.textContent = `Cierra en: ${h}h ${m}m ${ss}s`;
+      if (d<=0) { clearInterval(intv); el.textContent='Cerrada'; }
+    }
+    tick(); const intv=setInterval(tick,1000);
+  }
+
+  async function onPick(idx){
+    try{
+      // Validación de fuegos suficientes (modo fuego)
+      if (R.mode==='fire'){
+        if (typeof window.__myFires !== 'number') { await loadMyProfile(); }
+        if ((window.__myFires||0) < (R.entryPrice||0)) { alert('Necesitas fuego para participar'); return; }
+      }
+      const r = await fetch('/api/raffles/'+encodeURIComponent(R.id)+'/reserve',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: my.id, number: idx }) }).then(r=>r.json());
+      if (!(r&&r.success)){ alert('No disponible'); return; }
+      selIdx = idx; warnAccepted=false; $('readChk').checked=false; $('selNum').textContent = String(idx).padStart(R.range==='000-999'?3:2,'0');
+      // Mostrar advertencia primero
+      show($('warnOverlay'));
+    }catch(_){ alert('Error de red'); }
+  }
+
+  $('cancelWarn').addEventListener('click', async()=>{ await releaseIfNeeded(); hide($('warnOverlay')); });
+  $('okWarn').addEventListener('click', ()=>{ if(!$('readChk').checked) { alert('Debes marcar "YA LEÍ"'); return; } hide($('warnOverlay')); prepareConfirm(); });
+
+  function prepareConfirm(){
+    const isPrize = R.mode==='prize';
+    if (isPrize){
+      const hm = R.hostMeta||{}; const pay = (hm.pay||{});
+      const lines = [ `Cédula: ${pay.id||''}`, `Tel: ${pay.phone||''}`, `Banco: ${pay.bank||''}` ].join('\n');
+      $('payInfo').style.display='block'; $('payData').textContent=lines;
+    } else { $('payInfo').style.display='none'; }
+    show($('confirmOverlay'));
+  }
+
+  $('copyPay').addEventListener('click', async()=>{ try{ await navigator.clipboard.writeText($('payData').textContent||''); alert('Datos copiados'); }catch(_){ alert('No se pudo copiar'); } });
+  $('cancelBuy').addEventListener('click', async()=>{ hide($('confirmOverlay')); await releaseIfNeeded(); });
+  $('okBuy').addEventListener('click', async()=>{
+    try{
+      const ref = String(($('refInput').value||'').trim());
+      const r = await fetch('/api/raffles/'+encodeURIComponent(R.id)+'/confirm',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: my.id, number: selIdx, reference: ref }) }).then(r=>r.json());
+      hide($('confirmOverlay'));
+      if (r&&r.success){ await hardReload(); }
+      else { alert('No se pudo confirmar: '+(r&&r.error||'error')); await hardReload(); }
+    }catch(_){ alert('Error de red'); await hardReload(); }
+  });
+
+  async function releaseIfNeeded(){ if (selIdx==null) return; try{ await fetch('/api/raffles/'+encodeURIComponent(R.id)+'/release',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: my.id, number: selIdx }) }); }catch(_){ } selIdx=null; }
+
+  async function hardReload(){ const code=qs('code'); window.location.href = '/raffles/room?code='+encodeURIComponent(code||''); }
+
+  async function loadPending(){
+    try{
+      const rr = await fetch('/api/raffles/'+encodeURIComponent(R.id)+'/pending').then(r=>r.json());
+      if (!(rr&&rr.success)) return;
+      const cont=$('pendingList'); cont.innerHTML='';
+      for(const it of rr.items){
+        const el = document.createElement('div');
+        el.className='bg-background-dark border border-glass rounded-lg p-2 flex items-center justify-between';
+        el.innerHTML = `<div><div>Número: <b>${String(it.idx).padStart(R.range==='000-999'?3:2,'0')}</b></div><div class='text-xs text-text/70'>Ref: <span class='font-mono'>${it.reference||''}</span></div></div><div class='flex gap-2'><button data-n='${it.idx}' data-a='1' class='btnAp bg-success/20 text-success px-2 py-1 rounded'>Aceptar</button><button data-n='${it.idx}' data-a='0' class='btnAp bg-error/20 text-error px-2 py-1 rounded'>Rechazar</button></div>`;
+        cont.appendChild(el);
+      }
+      for(const b of document.querySelectorAll('.btnAp')){
+        b.addEventListener('click', async(e)=>{
+          const idx = parseInt(e.currentTarget.getAttribute('data-n'),10);
+          const approve = e.currentTarget.getAttribute('data-a')==='1';
+          try{
+            const r = await fetch('/api/raffles/'+encodeURIComponent(R.id)+'/approve',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ number: idx, approve }) }).then(r=>r.json());
+            if (r&&r.success) { await load(); }
+            else { alert('No se pudo procesar'); }
+          }catch(_){ alert('Error de red'); }
+        });
+      }
+    }catch(_){ }
+  }
+
+  $('shareBtn').addEventListener('click', async()=>{
+    const url = window.location.href;
+    try{ if (navigator.share) await navigator.share({ title:'Rifa', url }); else { await navigator.clipboard.writeText(url); alert('Enlace copiado'); } }catch(_){ }
+  });
+
+  async function poll(){ try{ await load(); }catch(_){ } setTimeout(poll, refreshMs); }
+  window.addEventListener('load', ()=>{ load().then(()=>setTimeout(poll, refreshMs)); });
+})();
+</script>
+
+<!-- Overlay 3: Pot detalle -->
+<div id="potOverlay" class="overlay items-center justify-center bg-black/60 p-4">
+  <div class="bg-card border border-glass rounded-xl p-4 w-full max-w-sm text-center">
+    <div class="flex items-center justify-center gap-2 text-amber-300 text-3xl font-bold mb-2">
+      <span class="material-symbols-outlined" style="text-shadow:0 0 10px rgba(251,191,36,.8)">local_fire_department</span>
+      <span id="potBig">0</span>
+    </div>
+    <div id="potMsg" class="text-text/80"></div>
+    <button id="potClose" class="mt-4 w-full bg-amber-500 text-background-dark py-2 rounded-lg">Cerrar</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  function qs(n){ try{ return new URL(window.location.href).searchParams.get(n) }catch(_){ return null } }
+  let R=null;
+  async function fetchR(){ const c=qs('code'); const r=await fetch('/api/raffles/code/'+encodeURIComponent(c||'')); const j=await r.json(); if(j&&j.success){ R=j.raffle; return R; } return null; }
+  async function openPot(){ const rr = R || await fetchR(); if (!rr) return; $('potBig').textContent = new Intl.NumberFormat().format(rr.potFires||0); const isHost = (function(){ const tg=window.Telegram&&window.Telegram.WebApp; const u=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user; const me=u?('tg:'+u.id):(localStorage.getItem('anon_uid')||''); return me===rr.hostId; })(); $('potMsg').textContent = isHost ? `${Math.floor((rr.potFires||0)*0.20)} de 🔥 este fuego te espera!!` : `${Math.floor((rr.potFires||0)*0.70)} de 🔥 que va por el ganador!!`; $('potOverlay').classList.add('show'); }
+  function closePot(){ $('potOverlay').classList.remove('show'); }
+  document.getElementById('potBtn').addEventListener('click', openPot);
+  document.getElementById('potClose').addEventListener('click', closePot);
+})();
+</script>
+</body>
+</html>

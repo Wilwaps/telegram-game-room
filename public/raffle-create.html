@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Crear Rifa • Telegram Game Room</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#06e4f9','background-dark':'#0B0E14',accent:'#22d3ee',card:'#121A2B',text:'#E6EDF3',glass:'rgba(255,255,255,.1)'}}}};</script>
+  <style>body{min-height:max(884px,100dvh)}</style>
+</head>
+<body class="bg-background-dark font-display text-text">
+  <div class="relative min-h-screen flex flex-col">
+    <main class="flex-1 p-4">
+      <div class="max-w-md mx-auto bg-card border border-glass rounded-xl p-4 space-y-4">
+        <h1 class="text-xl font-bold text-center">Crear rifa</h1>
+        <div>
+          <label class="text-sm" for="name">Nombre</label>
+          <input id="name" class="w-full bg-background-dark border border-glass rounded-lg p-3" placeholder="Nombre corto"/>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center justify-center p-3 border border-glass rounded-lg cursor-pointer has-[:checked]:bg-accent/20 has-[:checked]:border-accent">
+            <input type="radio" name="mode" id="mode_fire" value="fire" class="hidden" checked>
+            <span class="font-medium">Fuego</span>
+          </label>
+          <label class="flex items-center justify-center p-3 border border-glass rounded-lg cursor-pointer has-[:checked]:bg-accent/20 has-[:checked]:border-accent">
+            <input type="radio" name="mode" id="mode_prize" value="prize" class="hidden">
+            <span class="font-medium">Premio</span>
+          </label>
+        </div>
+
+        <div id="fireFields" class="space-y-3">
+          <div>
+            <label class="text-sm" for="entry">Fuegos por número (min 10)</label>
+            <input id="entry" type="number" min="10" value="10" class="w-full bg-background-dark border border-glass rounded-lg p-3"/>
+          </div>
+        </div>
+
+        <div id="prizeFields" class="space-y-3 hidden">
+          <div class="text-sm text-text/70">Costo de creación: 200 🔥</div>
+          <div class="grid grid-cols-1 gap-3">
+            <input id="host_name" class="w-full bg-background-dark border border-glass rounded-lg p-3" placeholder="Tu nombre"/>
+            <input id="host_phone" class="w-full bg-background-dark border border-glass rounded-lg p-3" placeholder="Teléfono"/>
+            <input id="host_email" class="w-full bg-background-dark border border-glass rounded-lg p-3" placeholder="Correo"/>
+            <input id="prize_name" class="w-full bg-background-dark border border-glass rounded-lg p-3" placeholder="Premio"/>
+            <div class="grid grid-cols-3 gap-2">
+              <input id="pay_id" class="bg-background-dark border border-glass rounded-lg p-3" placeholder="Cédula"/>
+              <input id="pay_phone" class="bg-background-dark border border-glass rounded-lg p-3" placeholder="Teléfono"/>
+              <select id="pay_bank" class="bg-background-dark border border-glass rounded-lg p-3"><option>Banco</option><option>Banco de Venezuela</option><option>Banesco</option><option>Mercantil</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-sm">Visibilidad</label>
+            <select id="visibility" class="w-full bg-background-dark border border-glass rounded-lg p-3"><option value="public">Pública</option><option value="private">Privada</option></select>
+          </div>
+          <div>
+            <label class="text-sm">Rango</label>
+            <select id="range" class="w-full bg-background-dark border border-glass rounded-lg p-3"><option value="00-99">00-99</option><option value="000-999">000-999</option></select>
+          </div>
+        </div>
+        <div>
+          <label class="text-sm">Tiempo</label>
+          <select id="time" class="w-full bg-background-dark border border-glass rounded-lg p-3"><option>Ganador</option><option>1 día</option><option>1 semana</option></select>
+        </div>
+        <button id="createBtn" class="w-full bg-accent text-background-dark font-bold py-3 rounded-lg">Crear</button>
+      </div>
+    </main>
+  </div>
+<script>
+(function(){
+  function me(){ const tg=window.Telegram&&window.Telegram.WebApp; const u=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user; if(!u){let x=localStorage.getItem('anon_uid'); if(!x){x='anon:'+Math.random().toString(36).slice(2,8); localStorage.setItem('anon_uid',x);} return { id:x, name:'Invitado' }; } return { id:'tg:'+u.id, name:(u.username||[u.first_name,u.last_name].filter(Boolean).join(' ')) } }
+  const fire=document.getElementById('mode_fire'); const prize=document.getElementById('mode_prize');
+  const fireFields=document.getElementById('fireFields'); const prizeFields=document.getElementById('prizeFields');
+  function toggle(){ if (prize.checked){ prizeFields.classList.remove('hidden'); fireFields.classList.add('hidden'); } else { prizeFields.classList.add('hidden'); fireFields.classList.remove('hidden'); } }
+  fire.addEventListener('change',toggle); prize.addEventListener('change',toggle);
+  toggle();
+  document.getElementById('createBtn').addEventListener('click', async()=>{
+    const u=me();
+    const mode = prize.checked ? 'prize' : 'fire';
+    const entryPrice = prize.checked ? 200 : Math.max(10, parseInt(document.getElementById('entry').value||'10',10));
+    const payload = {
+      hostId: u.id, hostName: u.name,
+      name: String(document.getElementById('name').value||'').trim(),
+      mode, entryPrice,
+      visibility: document.getElementById('visibility').value,
+      range: document.getElementById('range').value,
+      time: document.getElementById('time').value
+    };
+    if (mode==='prize'){
+      payload.hostMeta = {
+        name: document.getElementById('host_name').value,
+        phone: document.getElementById('host_phone').value,
+        email: document.getElementById('host_email').value,
+        pay: { id: document.getElementById('pay_id').value, phone: document.getElementById('pay_phone').value, bank: document.getElementById('pay_bank').value }
+      };
+      payload.prizeMeta = { prize: document.getElementById('prize_name').value };
+    }
+    try{
+      const r = await fetch('/api/raffles/create',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const j = await r.json();
+      if (j&&j.success && j.raffle){ window.location.href = '/raffles/room?code=' + encodeURIComponent(j.raffle.code); }
+      else { alert('No se pudo crear la rifa: ' + (j&&j.error||'error')); }
+    }catch(_){ alert('Error de red'); }
+  });
+})();
+</script>
+</body>
+</html>

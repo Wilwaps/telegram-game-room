@@ -281,6 +281,24 @@ class MemoryStore extends EventEmitter {
     return { ok: true, remaining: u.fires, tx };
   }
 
+  // Transferencia entre usuarios (no afecta supply)
+  transferFires({ fromUserId, toUserId, amount = 0, reason = 'transfer' }) {
+    const from = String(fromUserId || '').trim();
+    const to = String(toUserId || '').trim();
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!from || !to || from === to || a <= 0) return { ok: false, error: 'invalid_transfer' };
+    const fu = this.ensureUser(from);
+    const tu = this.ensureUser(to);
+    const cur = Math.max(0, Number(fu.fires || 0));
+    if (cur < a) return { ok: false, error: 'insufficient_fires' };
+    fu.fires = cur - a;
+    tu.fires = Math.max(0, Number(tu.fires || 0)) + a;
+    const tx = this.pushTx({ type: 'transfer', fromUserId: from, toUserId: to, amount: a, reason });
+    this._addUserTx(from, tx);
+    this._addUserTx(to, tx);
+    return { ok: true, from: fu, to: tu, tx };
+  }
+
   // Crédito administrativo de coins (sin cap diario)
   addCoinsAdmin({ userId, amount = 0, reason = 'coins_admin_add' }) {
     const id = String(userId || '').trim();

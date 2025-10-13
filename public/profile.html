@@ -41,6 +41,10 @@
     @keyframes firePulse { 0%,100% { filter: drop-shadow(0 0 6px rgba(251,146,60,.55)); } 50% { filter: drop-shadow(0 0 14px rgba(251,146,60,.9)); } }
     .overlay { position:fixed; inset:0; z-index:50; display:none; }
     .overlay.show { display:flex; }
+    .inbox-btn { position: relative; cursor: pointer; }
+    .inbox-dot { position:absolute; top:-4px; right:-4px; width:10px; height:10px; background:#ef4444; border-radius:9999px; box-shadow:0 0 8px rgba(239,68,68,.8); display:none; }
+    .inbox-btn.blink .material-symbols-outlined { color:#ef4444; filter: drop-shadow(0 0 8px rgba(239,68,68,.8)); animation: inboxPulse 2.2s ease-in-out infinite; }
+    @keyframes inboxPulse { 0%,100% { filter: drop-shadow(0 0 6px rgba(239,68,68,.5)); } 50% { filter: drop-shadow(0 0 14px rgba(239,68,68,.95)); } }
   </style>
 </head>
 <body class="bg-background-dark font-display text-text">
@@ -97,6 +101,17 @@
   </div>
 </div>
 
+<!-- Overlay: Bandeja de entrada -->
+<div id="inboxOverlay" class="overlay items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-card rounded-xl flex flex-col max-w-md mx-auto w-full shadow-lg border border-glass">
+    <div class="p-4 border-b border-glass flex items-center justify-between">
+      <h2 class="text-xl font-bold text-center flex-1">Mensajes</h2>
+      <button id="closeInbox" class="text-text/70 hover:text-text"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div id="inboxList" class="p-4 max-h-[60vh] overflow-y-auto space-y-2 text-sm"></div>
+  </div>
+</div>
+
 <div class="flex flex-col min-h-screen">
   <main class="flex-1 p-4 pb-24">
     <div class="flex flex-col items-center space-y-6">
@@ -118,7 +133,7 @@
           <div class="flex items-center space-x-2">
             <span id="expVal" class="font-bold text-lg">0</span>
             <span class="text-sm">EXP</span>
-            <span class="material-symbols-outlined text-accent ml-1">mail</span>
+            <button id="inboxBtn" class="inbox-btn ml-1"><span class="material-symbols-outlined text-accent">mail</span><span id="inboxDot" class="inbox-dot"></span></button>
           </div>
         </div>
       </div>
@@ -168,7 +183,7 @@
         <span class="material-symbols-outlined">sports_esports</span>
         <span>Juegos</span>
       </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/raffles" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
         <span class="material-symbols-outlined">confirmation_number</span>
         <span>Rifas</span>
       </a>
@@ -193,6 +208,7 @@
     const fmt = (n) => new Intl.NumberFormat().format(n ?? 0);
     let uid = null;
     let profileSnap = null;
+    let unread = 0;
     function show(el){ el && el.classList.add('show'); }
     function hide(el){ el && el.classList.remove('show'); }
     function mapFireTx(item){
@@ -274,6 +290,37 @@
         else { alert('No se pudo crear la solicitud'); }
       } catch(_){ alert('Error de red'); }
     }
+    async function loadInboxUnread(){
+      if (!uid) return;
+      try{
+        const r = await fetch(`/api/messages/unread-count/${encodeURIComponent(uid)}`);
+        const j = await r.json();
+        unread = (j&&j.success) ? Number(j.count||0) : 0;
+      }catch(_){ unread = 0; }
+      const dot = $('inboxDot'); const btn=$('inboxBtn');
+      if (unread>0){ if(dot) dot.style.display='block'; btn&&btn.classList.add('blink'); }
+      else { if(dot) dot.style.display='none'; btn&&btn.classList.remove('blink'); }
+    }
+    async function openInbox(){
+      if (!uid) return;
+      try{
+        const r = await fetch(`/api/messages/inbox/${encodeURIComponent(uid)}?limit=50`);
+        const j = await r.json();
+        const cont = $('inboxList');
+        cont.innerHTML='';
+        const items = (j&&j.success&&Array.isArray(j.items))?j.items:[];
+        if (items.length===0){ cont.innerHTML='<div class="text-center text-text/60">Sin mensajes</div>'; }
+        for (const m of items){
+          const el=document.createElement('div');
+          el.className='bg-background-dark border border-glass rounded-lg p-2';
+          el.innerHTML=`<div class="text-xs text-text/50">${new Date(m.ts).toLocaleString()}</div><div>${m.text||''}</div>`;
+          cont.appendChild(el);
+        }
+        await fetch('/api/messages/read-all',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: uid }) });
+        unread=0; const dot=$('inboxDot'); const btn=$('inboxBtn'); if(dot) dot.style.display='none'; btn&&btn.classList.remove('blink');
+        show($('inboxOverlay'));
+      }catch(_){ }
+    }
     $('fireBtn')?.addEventListener('click', async ()=>{ await loadFireHistory(); show($('firesHistoryOverlay')); });
     $('closeHistory')?.addEventListener('click', ()=> hide($('firesHistoryOverlay')));
     $('buyFiresBtn')?.addEventListener('click', ()=>{ hide($('firesHistoryOverlay')); show($('buyFiresOverlay')); });
@@ -291,7 +338,9 @@
     $('pasteAmount')?.addEventListener('click', async ()=>{
       try { const t = await navigator.clipboard.readText(); const n = parseInt(String(t).replace(/[^0-9]/g,''),10); if (!isNaN(n)) { $('fire-amount').value = String(n); } else { alert('El portapapeles no contiene un número'); } } catch(_){ alert('Permiso de portapapeles denegado'); }
     });
-    window.addEventListener('load', loadProfile);
+    $('inboxBtn')?.addEventListener('click', openInbox);
+    $('closeInbox')?.addEventListener('click', ()=> hide($('inboxOverlay')));
+    window.addEventListener('load', async ()=>{ await loadProfile(); await loadInboxUnread(); setInterval(loadInboxUnread, 10000); });
   })();
   </script>
 </body>
