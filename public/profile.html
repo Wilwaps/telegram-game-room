@@ -45,7 +45,7 @@
 </head>
 <body class="bg-background-dark font-display text-text">
 <!-- Overlay: Historial de Fuegos -->
-<div id="firesHistoryOverlay" class="overlay flex flex-col bg-black/50 backdrop-blur-sm p-4 justify-end">
+<div id="firesHistoryOverlay" class="overlay bg-black/50 backdrop-blur-sm p-4 justify-end">
   <div class="bg-card rounded-xl flex flex-col max-w-md mx-auto w-full border border-glass">
     <div class="p-4 border-b border-glass flex items-center justify-between">
       <h2 class="text-xl font-bold text-center flex-1">Balance de Fuegos</h2>
@@ -209,9 +209,14 @@
     async function loadProfile(){
       const tg = window.Telegram && window.Telegram.WebApp;
       const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
-      if (!user) { ['firesVal','coinsVal','expVal'].forEach(id => { const el=$(id); if(el) el.textContent = '0'; }); return; }
-      uid = 'tg:' + String(user.id);
-      const uname = user.username || [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
+      if (!user) {
+        // Fallback anónimo para QA fuera de Telegram
+        uid = localStorage.getItem('anon_uid');
+        if (!uid) { uid = 'anon:' + Math.random().toString(36).slice(2,8); localStorage.setItem('anon_uid', uid); }
+      } else {
+        uid = 'tg:' + String(user.id);
+      }
+      const uname = (user && (user.username || [user.first_name, user.last_name].filter(Boolean).join(' ').trim())) || 'Invitado';
       const r = await fetch(`/api/profile/${encodeURIComponent(uid)}`);
       const j = await r.json();
       if (j && j.success && j.user) {
@@ -223,7 +228,7 @@
         const fEl = $('firesVal'); if (fEl) fEl.textContent = fmt(fires);
         const cEl = $('coinsVal'); if (cEl) cEl.textContent = fmt(coins);
         const eEl = $('expVal'); if (eEl) eEl.textContent = fmt(exp);
-        const greet = $('greet'); if (greet) { greet.style.display='block'; greet.textContent = `¡Felicidades ${uname}! Has ganado ${fmt(earned)} monedas en el grupo.`; }
+        const greet = $('greet'); if (greet && user) { greet.style.display='block'; greet.textContent = `¡Felicidades ${uname}! Has ganado ${fmt(earned)} monedas en el grupo.`; }
         const cur = $('currentFiresVal'); if (cur) cur.textContent = String(fires);
       }
     }
@@ -236,8 +241,25 @@
       if (mapped.length===0){ cont.innerHTML = '<div class="text-center text-text/60 text-sm">Sin movimientos</div>'; return; }
       for (const it of mapped){
         const row=document.createElement('div');
-        row.className='flex justify-between items-center bg-background-dark p-3 rounded-lg';
-        row.innerHTML = `<div><p class="font-bold ${it.cls}">${it.sign} ${it.amt} Fuegos</p><p class="text-xs text-text/70">${it.label}${it.reason?(' · '+it.reason):''}</p></div><span class="text-sm text-text/50">${relTime(it.ts)}</span>`;
+        row.className='bg-background-dark p-3 rounded-lg';
+        row.innerHTML = `
+          <div class="flex justify-between items-center">
+            <div>
+              <p class="font-bold ${it.cls}">${it.sign} ${it.amt} Fuegos</p>
+              <p class="text-xs text-text/70">${it.label}${it.reason?(' · '+it.reason):''}</p>
+            </div>
+            <span class="text-sm text-text/50">${relTime(it.ts)}</span>
+          </div>
+          <div class="hidden mt-2 text-xs text-text/70">
+            <div>Tipo: ${it.label}</div>
+            <div>Motivo/Ref: ${it.reason||'-'}</div>
+            <div>Fecha: ${new Date(it.ts).toLocaleString()}</div>
+          </div>
+        `;
+        row.addEventListener('click', ()=>{
+          const det = row.querySelector('div.hidden');
+          if (det) { det.classList.toggle('hidden'); }
+        });
         cont.appendChild(row);
       }
     }
