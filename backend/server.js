@@ -17,7 +17,13 @@ const fireRequestsRoutes = require('./routes/fire_requests');
 const rafflesRoutes = require('./routes/raffles');
 const messagesRoutes = require('./routes/messages');
 const musicRoutes = require('./routes/music');
-const authRoutes = require('./routes/auth');
+let authRoutes = null;
+try { authRoutes = require('./routes/auth'); } catch (e) {
+  console.warn('[warn] auth routes not found, disabling /api/auth endpoints');
+  const noop = express.Router();
+  noop.get('/health', (req,res)=> res.json({ success:true, disabled:true }));
+  authRoutes = noop;
+}
 const store = require('./services/memoryStore');
 const authService = require('./services/authStore');
 const welcomeRoutes = require('./routes/welcome');
