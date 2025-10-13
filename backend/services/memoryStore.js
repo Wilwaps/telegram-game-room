@@ -51,13 +51,16 @@ class MemoryStore extends EventEmitter {
   }
 
   getSupplySummary() {
-    return { ...this.supply };
+    const sumBalances = Array.from(this.users.values()).reduce((acc, u) => acc + Math.max(0, Number(u.fires || 0)), 0);
+    const total = Number(this.supply.total);
+    const burned = Math.max(0, Number(this.supply.burned || 0));
+    const reserve = Math.max(0, total - (sumBalances + burned));
+    return { total, circulating: sumBalances, burned, reserve };
   }
 
   getReserve() {
-    // Reserva disponible = total - (circulating + burned)
-    const { total, circulating, burned } = this.supply;
-    return Math.max(0, Number(total) - (Number(circulating) + Number(burned)));
+    const snap = this.getSupplySummary();
+    return Math.max(0, Number(snap.reserve || 0));
   }
 
   // -------- Evento de Bienvenida --------
@@ -135,13 +138,36 @@ class MemoryStore extends EventEmitter {
 
   addBurn(amount) {
     const request = Math.max(0, parseInt(amount || 0, 10));
-    const canBurn = Math.min(request, this.supply.circulating);
+    const reserve = this.getReserve();
+    const canBurn = Math.min(request, reserve);
     if (canBurn > 0) {
       this.supply.burned += canBurn;
-      this.supply.circulating -= canBurn;
       this.emit('supply_changed', this.getSupplySummary());
     }
     return canBurn;
+  }
+
+  getInitialCirculationStatus() {
+    try {
+      const p = path.resolve(__dirname, '../../storage/economy/initial_circulation.json');
+      if (!fs.existsSync(p)) return { assigned: false };
+      const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+      return { assigned: !!j.assigned, ...j };
+    } catch (_) { return { assigned: false }; }
+  }
+
+  assignInitialCirculation({ toUserId, amount, reason = 'initial_circulation' }) {
+    const status = this.getInitialCirculationStatus();
+    if (status.assigned) throw new Error('already_assigned');
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!toUserId || a <= 0) throw new Error('invalid_params');
+    const out = this.grantFromSupply({ toUserId, amount: a, reason });
+    try {
+      const dir = path.resolve(__dirname, '../../storage/economy');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'initial_circulation.json'), JSON.stringify({ assigned: true, ts: Date.now(), toUserId, amount: a }, null, 2));
+    } catch (_) {}
+    return out;
   }
 
   pushTx(tx) {
@@ -250,7 +276,6 @@ class MemoryStore extends EventEmitter {
     if (!u || a <= 0) throw new Error('invalid_grant');
     const reserve = this.getReserve();
     if (a > reserve) throw new Error('insufficient_reserve');
-    this.supply.circulating += a; // Se libera desde la reserva hacia circulación
     u.fires += a;
     const tx = this.pushTx({ type: 'grant', toUserId, amount: a, reason: reason || 'grant' });
     this._addUserTx(toUserId, tx);

@@ -16,6 +16,7 @@ const bingoRoutes = require('./routes/bingo');
 const fireRequestsRoutes = require('./routes/fire_requests');
 const rafflesRoutes = require('./routes/raffles');
 const messagesRoutes = require('./routes/messages');
+const musicRoutes = require('./routes/music');
 const store = require('./services/memoryStore');
 const welcomeRoutes = require('./routes/welcome');
 const adminWelcomeRoutes = require('./routes/admin_welcome');
@@ -32,6 +33,7 @@ app.use(helmet({
       "img-src": ["'self'", "data:", "https:", "blob:"],
       "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       "connect-src": ["'self'"],
+      "media-src": ["'self'", "https://www.soundhelix.com"],
       "frame-ancestors": ["'self'", "https://*.telegram.org", "https://web.telegram.org"],
       "upgrade-insecure-requests": []
     }
@@ -73,6 +75,7 @@ app.use('/api/economy', economyExtRoutes);
 app.use('/api/economy', fireRequestsRoutes);
 app.use('/api/raffles', rafflesRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/music', musicRoutes);
 app.use('/api/welcome', welcomeRoutes);
 app.use('/api/admin/welcome', adminWelcomeRoutes);
 app.use('/telegram', telegramRoutes);

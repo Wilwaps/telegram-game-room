@@ -45,6 +45,10 @@
         <div class="label">Burned</div>
         <div class="kpi" id="burn">-</div>
       </div>
+      <div class="card">
+        <div class="label">Reserva</div>
+        <div class="kpi" id="reserve">-</div>
+      </div>
     </div>
 
     <div class="logs" id="logs"></div>
@@ -63,7 +67,7 @@
       }catch(e){ log('Error snapshot: '+e); $('pill-status').textContent='offline'; }
     }
 
-    function render(s){ if(!s) return; $('total').textContent=fmt(s.total); $('circ').textContent=fmt(s.circulating); $('burn').textContent=fmt(s.burned); }
+    function render(s){ if(!s) return; $('total').textContent=fmt(s.total); $('circ').textContent=fmt(s.circulating); $('burn').textContent=fmt(s.burned); const r=$('reserve'); if(r) r.textContent=fmt(s.reserve||0); }
 
     function startSSE(){
       try{
@@ -78,5 +82,6 @@
     loadSnapshot();
     startSSE();
   </script>
+  <script src="/js/music.js"></script>
 </body>
 </html>
