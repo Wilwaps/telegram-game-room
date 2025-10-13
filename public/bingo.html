@@ -8,6 +8,7 @@
   <link crossorigin href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script id="tailwind-config">
     tailwind.config = {
@@ -54,8 +55,8 @@
       <div class="bg-panel rounded-xl border border-glass p-4">
         <h2 class="text-xl font-bold mb-4 text-center">Salas Activas</h2>
         <div id="activeCard" class="bg-card rounded-lg p-4 flex items-center justify-between hidden">
-          <p class="text-text">Regresa a tu sala</p>
-          <p id="countdown" class="text-danger font-bold text-lg" style="text-shadow: 0 0 8px #EF4444;">00:30 seg</p>
+          <p class="text-text">Sala en curso</p>
+          <p id="activeInfo" class="text-yellow-400 font-bold text-lg" style="text-shadow: 0 0 8px #facc15;"></p>
         </div>
         <div class="mt-4 flex items-center gap-2">
           <input id="codeInput" class="flex-grow bg-card border border-glass rounded-lg px-3 py-2 text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Código de sala" type="text"/>
@@ -115,11 +116,392 @@
   <span class="sr-only">Crear sala</span>
 </button>
 
+<!-- Overlay crear/configurar sala -->
+<div id="createOverlay" class="hidden fixed inset-0 z-40">
+  <div class="absolute inset-0 bg-background-dark/50 backdrop-blur-sm"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-2">
+    <div class="bg-card/90 border border-glass rounded-xl w-[95vw] h-[95vh] max-w-md p-4 flex flex-col space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg">Nueva Sala de Bingo</h3>
+        <button id="closeCreate" class="text-text/70 hover:text-text"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="text-center">
+        <p class="text-text/70 text-sm">Código de la Sala</p>
+        <p id="createCode" class="text-accent text-3xl font-bold tracking-widest" style="text-shadow: 0 0 10px #22d3ee;">------</p>
+        <div class="flex justify-center items-center space-x-4 mt-2 text-sm">
+          <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-orange-500">local_fire_department</span><span>Pozo: <b id="createPot">0</b> 🔥</span></span>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <p class="text-text/70 text-sm">Visibilidad</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="optPrivate" class="bg-accent text-background-dark font-bold py-2 rounded-lg shadow-[0_0_10px_#22d3ee]">Privada</button>
+          <button id="optPublic" class="bg-glass text-text py-2 rounded-lg">Pública</button>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <p class="text-text/70 text-sm">Modo de victoria</p>
+        <div class="grid grid-cols-3 gap-2 text-sm">
+          <button id="modeLinea" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg shadow-[0_0_10px_#facc15]">Línea</button>
+          <button id="mode4c" class="bg-glass text-text py-2 rounded-lg">4 Esquinas</button>
+          <button id="modeCarton" class="bg-glass text-text py-2 rounded-lg">Cartón Lleno</button>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <p class="text-text/70 text-sm">Costo</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="costFree" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]">
+            <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
+            <span>Libre</span>
+          </button>
+          <button id="costFuego" class="bg-glass text-text py-2 rounded-lg flex items-center justify-center space-x-2">
+            <span class="material-symbols-outlined text-orange-500">local_fire_department</span>
+            <span>Fuego</span>
+          </button>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <p class="text-text/70 text-sm">Unirme por código</p>
+        <div class="flex space-x-2">
+          <input id="joinCodeInput" class="bg-glass border-glass rounded-lg w-full text-text placeholder-text/50 px-4 py-2 focus:ring-accent focus:border-accent" placeholder="Código de la sala" type="text"/>
+          <button id="joinFromCreate" class="bg-accent text-background-dark font-bold py-2 px-4 rounded-lg shadow-[0_0_10px_#22d3ee]">Unirme</button>
+        </div>
+      </div>
+      <div class="mt-auto space-y-2">
+        <button id="shareCreate" class="w-full bg-violet text-text font-bold py-3 rounded-lg shadow-[0_0_10px_#a78bfa]">Compartir</button>
+        <button id="startCreate" class="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-text font-bold py-3 rounded-lg shadow-[0_0_15px_rgba(255,165,0,0.6)]">Abrir Sala</button>
+      </div>
+    </div>
+  </div>
+  
+</div>
+
+<!-- Vista de sala -->
+<section id="roomView" class="hidden fixed inset-0 z-30 bg-background-dark">
+  <div class="p-4 pb-24 max-w-4xl mx-auto space-y-4">
+    <div class="flex items-center justify-between">
+      <div class="text-sm">Tu ID: <span id="me" class="font-mono"></span></div>
+      <div class="text-sm">Sala: <span id="roomCode" class="text-accent font-mono"></span></div>
+    </div>
+    <div class="bg-card border border-glass rounded-lg p-3 flex flex-wrap gap-4 items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1 text-sm"><span class="material-symbols-outlined text-orange-500">local_fire_department</span> Pozo: <b id="potVal">0</b> 🔥</span>
+        <span class="inline-flex items-center gap-1 text-sm">Modo: <b id="modeVal">-</b></span>
+      </div>
+      <div class="flex items-center gap-2 text-sm">
+        <span>Último:</span>
+        <span id="lastCall" class="text-yellow-400 font-bold text-lg"></span>
+        <button id="drawBtn" class="hidden bg-accent text-background-dark font-bold py-1 px-3 rounded-lg">Extraer</button>
+      </div>
+    </div>
+    <div class="bg-panel border border-glass rounded-lg p-3">
+      <h3 class="font-bold mb-2">Números llamados</h3>
+      <div id="calledList" class="text-sm flex flex-wrap gap-2"></div>
+    </div>
+    <div id="lobbyPanel" class="bg-panel border border-glass rounded-lg p-3">
+      <h3 class="font-bold mb-2">Lobby</h3>
+      <div class="flex items-center gap-2">
+        <label class="text-sm">Mis cartones:</label>
+        <select id="cardsCount" class="bg-card border border-glass rounded px-2 py-1 text-sm">
+          <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+          <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+        </select>
+        <label class="inline-flex items-center gap-1 text-sm"><input id="readyChk" type="checkbox" class="rounded border-glass"/> Listo</label>
+        <button id="startBtn" class="hidden bg-yellow-400 text-background-dark font-bold py-1 px-3 rounded-lg">Iniciar</button>
+      </div>
+      <div id="playersList" class="mt-3 text-sm text-text/80"></div>
+    </div>
+    <div id="cardsWrap" class="grid md:grid-cols-2 gap-4"></div>
+    <div class="flex gap-2">
+      <button id="claimBtn" class="flex-1 bg-violet text-text font-bold py-2 rounded-lg">Cantar</button>
+      <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Salir</a>
+    </div>
+    <div id="gameOver" class="hidden text-center space-y-2">
+      <p class="text-3xl font-bold">¡BINGO!</p>
+      <p>Ganador: <b id="winnerVal">-</b></p>
+      <div class="flex gap-2 max-w-sm mx-auto">
+        <button id="rematchBtn" class="flex-1 bg-yellow-400 text-background-dark font-bold py-2 rounded-lg hidden">Revancha</button>
+        <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Ir al Lobby</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <script>
-  // TODO: Implementar llamadas a /api/games/bingo: my-rooms, public-rooms, create, join-code, etc.
-  document.getElementById('fabCreate')?.addEventListener('click', () => {
-    alert('Crear sala de Bingo (WIP)');
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const fabCreate = $('fabCreate');
+  const overlay = $('createOverlay');
+  const closeCreate = $('closeCreate');
+  const createCode = $('createCode');
+  const createPot = $('createPot');
+  const optPrivate = $('optPrivate');
+  const optPublic = $('optPublic');
+  const modeLinea = $('modeLinea');
+  const mode4c = $('mode4c');
+  const modeCarton = $('modeCarton');
+  const costFree = $('costFree');
+  const costFuego = $('costFuego');
+  const joinCodeInput = $('joinCodeInput');
+  const joinFromCreate = $('joinFromCreate');
+  const shareCreate = $('shareCreate');
+  const startCreate = $('startCreate');
+  const roomView = $('roomView');
+  const meEl = $('me');
+  const roomCodeEl = $('roomCode');
+  const potVal = $('potVal');
+  const modeVal = $('modeVal');
+  const lastCall = $('lastCall');
+  const calledList = $('calledList');
+  const drawBtn = $('drawBtn');
+  const startBtn = $('startBtn');
+  const cardsCountSel = $('cardsCount');
+  const readyChk = $('readyChk');
+  const lobbyPanel = $('lobbyPanel');
+  const playersList = $('playersList');
+  const cardsWrap = $('cardsWrap');
+  const claimBtn = $('claimBtn');
+  const gameOver = $('gameOver');
+  const winnerVal = $('winnerVal');
+  const roomsList = $('roomsList');
+  const publicRoomsList = $('publicRoomsList');
+  const codeInput = $('codeInput');
+  const joinCodeBtn = $('joinCodeBtn');
+  const activeCard = $('activeCard');
+  const activeInfo = $('activeInfo');
+
+  let myId = null;
+  let roomId = null;
+  let es = null;
+  let createdRoomId = null;
+  let createVisibility = 'private';
+  let createCostType = 'free';
+  let createCostValue = 1; // 1 🔥 por cartón
+  let createMode = 'linea';
+  let selectedCardIdx = 0;
+  let lobbyES = null;
+  let lobbyRoomId = null;
+
+  function getUserId(){
+    const tg = window.Telegram && window.Telegram.WebApp;
+    const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (user && user.id) return 'tg:' + String(user.id);
+    let anon = sessionStorage.getItem('anonId');
+    if (!anon) { anon = 'anon:' + Math.random().toString(36).slice(2,10); sessionStorage.setItem('anonId', anon); }
+    return anon;
+  }
+  function styleToggle(btnOn, btnOff, onClasses, offClasses){
+    btnOn.className = (btnOn.className.replace(' bg-glass','').replace(' text-text','') + onClasses);
+    btnOff.className = (btnOff.className.replace(' bg-accent text-background-dark','').replace(' shadow-[0_0_10px_#22d3ee]','').replace(' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]','') + offClasses);
+  }
+  function openCreate(){ overlay.classList.remove('hidden'); createdRoomId = null; createCode.textContent='------'; createPot.textContent='0'; }
+  function closeCreateOverlay(){ overlay.classList.add('hidden'); }
+
+  async function api(path, opts){ const r = await fetch(path, opts); const j = await r.json(); return j; }
+
+  async function syncOptions(){
+    if (!createdRoomId) return;
+    const payload = { userId: myId, visibility: createVisibility, mode: createMode };
+    if (createCostType === 'fuego') { payload.costType = 'fuego'; payload.costValue = 1; } else { payload.costType = 'free'; payload.costValue = 0; }
+    try { await api(`/api/games/bingo/rooms/${encodeURIComponent(createdRoomId)}/options`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); } catch(_) {}
+  }
+
+  async function loadLobby(){
+    // Mis salas
+    roomsList.innerHTML='';
+    try{
+      const j = await api(`/api/games/bingo/my-rooms?userId=${encodeURIComponent(myId)}`);
+      const arr = (j && j.success && Array.isArray(j.rooms)) ? j.rooms : [];
+      if (!arr.length) {
+        const empty=document.createElement('div'); empty.className='text-center text-text/60'; empty.textContent='No has creado salas'; roomsList.appendChild(empty);
+      } else {
+        for (const rm of arr){
+          const wrap = document.createElement('div');
+          wrap.className='bg-card rounded-lg p-4 border border-glass flex items-center justify-between';
+          wrap.innerHTML = `<span class="text-accent font-mono">#${rm.code||'------'}</span>
+            <a class="underline text-accent" href="#" data-room="${rm.id}">Abrir</a>`;
+          wrap.querySelector('a')?.addEventListener('click', async (e)=>{ e.preventDefault(); await joinRoom(rm.id); });
+          roomsList.appendChild(wrap);
+        }
+      }
+      // Banner de sala activa
+      const playing = arr.find(rm => rm.status==='playing');
+      if (playing) updateActiveRoomBanner(playing); else updateActiveRoomBanner(null);
+    }catch(_){ }
+    // Salas públicas
+    publicRoomsList.innerHTML='';
+    try{
+      const jp = await api('/api/games/bingo/public-rooms');
+      const parr = (jp && jp.success && Array.isArray(jp.rooms)) ? jp.rooms : [];
+      if (!parr.length) { const empty=document.createElement('div'); empty.className='text-center text-text/60'; empty.textContent='Sin salas públicas'; publicRoomsList.appendChild(empty); }
+      else {
+        for (const rm of parr){
+          const wrap = document.createElement('div');
+          wrap.className='bg-card rounded-lg p-4 border border-glass flex items-center justify-between';
+          wrap.innerHTML = `<span class="text-accent font-mono">#${rm.code||'------'}</span>
+            <a class="underline text-accent" href="#" data-room="${rm.id}">Abrir</a>`;
+          wrap.querySelector('a')?.addEventListener('click', async (e)=>{ e.preventDefault(); await joinRoom(rm.id); });
+          publicRoomsList.appendChild(wrap);
+        }
+      }
+    }catch(_){ }
+  }
+
+  async function createRoom(){
+    const payload = { userId: myId, visibility: createVisibility, costType: createCostType, costValue: createCostValue, mode: createMode };
+    const j = await api('/api/games/bingo/rooms', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if (!j || !j.success) throw new Error('create_failed');
+    createdRoomId = j.state.id; createCode.textContent = j.state.code || '------'; createPot.textContent = String(j.state.potFires||0);
+    await joinRoom(createdRoomId);
+    await syncOptions();
+  }
+  async function joinRoom(id){
+    const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(id)}/join`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) });
+    if (!j || !j.success) throw new Error(j && j.error || 'join_failed');
+    roomId = j.state.id; roomCodeEl.textContent = j.state.code || '------';
+    subscribe();
+    roomView.classList.remove('hidden');
+  }
+
+  function renderCalled(arr){
+    calledList.innerHTML='';
+    for (const n of arr||[]){
+      const b = document.createElement('span'); b.className='px-2 py-1 rounded bg-card border border-glass'; b.textContent=String(n); calledList.appendChild(b);
+    }
+  }
+  function renderPlayers(players){
+    playersList.innerHTML='';
+    for (const p of players||[]){
+      const div = document.createElement('div');
+      div.textContent = `${p.userId} • ${p.ready ? 'Listo' : 'No listo'} • cartones: ${p.cardsCount||1}`;
+      playersList.appendChild(div);
+    }
+  }
+  function renderCards(myCards, called){
+    cardsWrap.innerHTML='';
+    if (!Array.isArray(myCards) || !myCards.length) return;
+    const cset = new Set(called||[]);
+    myCards.forEach((card, idx)=>{
+      const box = document.createElement('div'); box.className='bg-card border border-glass rounded-lg p-3'; box.dataset.idx=String(idx);
+      const title = document.createElement('div'); title.className='text-sm mb-2 flex items-center justify-between'; title.innerHTML = `<b>Cartón ${idx+1}</b>`; box.appendChild(title);
+      const grid = document.createElement('div'); grid.className='grid grid-cols-5 gap-1';
+      for (let r=0;r<5;r++){
+        for (let c=0;c<5;c++){
+          const v = card[r][c];
+          const cell = document.createElement('div');
+          const isFree = (r===2 && c===2 && v==='FREE');
+          const calledOk = isFree || cset.has(v);
+          cell.className='text-center text-sm px-2 py-2 rounded border ' + (calledOk ? 'bg-yellow-400/20 border-yellow-400 text-yellow-300' : 'bg-panel border-glass');
+          cell.textContent = isFree ? '★' : String(v);
+          grid.appendChild(cell);
+        }
+      }
+      box.appendChild(grid);
+      box.addEventListener('click', ()=>{
+        selectedCardIdx = idx;
+        const boxes = cardsWrap.querySelectorAll('[data-idx]');
+        boxes.forEach(el=>{ el.className = el.className.replace(' ring-2 ring-accent',''); });
+        box.className += ' ring-2 ring-accent';
+      });
+      if (idx === selectedCardIdx) { box.className += ' ring-2 ring-accent'; }
+      cardsWrap.appendChild(box);
+    });
+  }
+
+  function subscribe(){
+    if (!roomId) return; try{ es && es.close && es.close(); }catch(_){ }
+    es = new EventSource(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/stream`);
+    es.addEventListener('state', (ev)=>{
+      try{
+        const s = JSON.parse(ev.data);
+        potVal.textContent = String(s.potFires||0);
+        modeVal.textContent = (s.mode==='4c' ? '4 Esquinas' : (s.mode==='carton' ? 'Cartón Lleno' : 'Línea'));
+        lastCall.textContent = String(s.lastCall||'');
+        renderCalled(s.called||[]);
+        renderPlayers(s.players||[]);
+        // host controls
+        const isHost = (s.hostId === myId);
+        drawBtn.classList.toggle('hidden', !(isHost && s.status==='playing'));
+        startBtn.classList.toggle('hidden', !(isHost && s.status==='lobby'));
+        lobbyPanel.style.display = (s.status==='lobby') ? 'block' : 'none';
+        // ocultar Cantar si no está en juego
+        claimBtn.style.display = (s.status==='playing') ? 'block' : 'none';
+        // my cards
+        const me = (s.players||[]).find(p=> p.userId===myId);
+        const myCards = me && me.cards ? me.cards : [];
+        renderCards(myCards, s.called||[]);
+        // game over
+        if (s.status==='finished'){
+          gameOver.classList.remove('hidden');
+          const w = (s.winners && s.winners[0] && s.winners[0].userId) || '-';
+          winnerVal.textContent = w;
+          // botón Revancha solo para host
+          const isHost2 = (s.hostId === myId);
+          const rematchBtn = document.getElementById('rematchBtn');
+          if (rematchBtn) rematchBtn.classList.toggle('hidden', !isHost2);
+        } else { gameOver.classList.add('hidden'); }
+      }catch(_){ }
+    });
+  }
+
+  function updateActiveRoomBanner(room){
+    if (room && (room.status==='playing')){
+      activeCard.classList.remove('hidden');
+      const txt = room.lastCall ? `Último: ${room.lastCall}` : 'Jugando';
+      activeInfo.textContent = txt;
+      // Suscribirse por SSE a la sala para mantener banner en vivo
+      if (lobbyRoomId !== room.id){
+        try { lobbyES && lobbyES.close && lobbyES.close(); } catch(_){ }
+        lobbyRoomId = room.id;
+        lobbyES = new EventSource(`/api/games/bingo/rooms/${encodeURIComponent(lobbyRoomId)}/stream`);
+        lobbyES.addEventListener('state', (ev)=>{
+          try { const s = JSON.parse(ev.data); updateActiveRoomBanner(s); } catch(_){ }
+        });
+      }
+    } else {
+      activeCard.classList.add('hidden');
+      try { lobbyES && lobbyES.close && lobbyES.close(); } catch(_){ }
+      lobbyES = null; lobbyRoomId = null;
+    }
+  }
+
+  // Handlers
+  fabCreate.addEventListener('click', openCreate);
+  closeCreate.addEventListener('click', closeCreateOverlay);
+  optPrivate.addEventListener('click', ()=>{ createVisibility='private'; styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); syncOptions(); });
+  optPublic.addEventListener('click', ()=>{ createVisibility='public'; styleToggle(optPublic,optPrivate,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); syncOptions(); });
+  modeLinea.addEventListener('click', ()=>{ createMode='linea'; styleToggle(modeLinea,mode4c,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(modeLinea,modeCarton,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
+  mode4c.addEventListener('click', ()=>{ createMode='4c'; styleToggle(mode4c,modeLinea,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(mode4c,modeCarton,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
+  modeCarton.addEventListener('click', ()=>{ createMode='carton'; styleToggle(modeCarton,modeLinea,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(modeCarton,mode4c,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
+  costFree.addEventListener('click', ()=>{ createCostType='free'; styleToggle(costFree,costFuego,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
+  costFuego.addEventListener('click', ()=>{ createCostType='fuego'; styleToggle(costFuego,costFree,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
+  shareCreate.addEventListener('click', async ()=>{
+    if (!createdRoomId) return; const link = `${location.origin}/games/bingo?room=${encodeURIComponent(createdRoomId)}`; try{ await navigator.clipboard.writeText(link); shareCreate.textContent='Copiado'; setTimeout(()=>shareCreate.textContent='Compartir', 1200);}catch(_){ }
   });
+  startCreate.addEventListener('click', async ()=>{ if (!createdRoomId) { await createRoom().catch(()=>{}); } if (createdRoomId) { closeCreateOverlay(); } });
+  joinFromCreate.addEventListener('click', async ()=>{
+    const code = (joinCodeInput.value||'').trim(); if (!code) return;
+    try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); closeCreateOverlay(); } }catch(_){ }
+  });
+  joinCodeBtn.addEventListener('click', async ()=>{
+    const code = (codeInput.value||'').trim(); if (!code) return;
+    try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); } }catch(_){ }
+  });
+  startBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { /* ok */ } }catch(_){ } });
+  drawBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/draw`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); }catch(_){ } });
+  cardsCountSel.addEventListener('change', async ()=>{ if (!roomId) return; const n = Number(cardsCountSel.value||'1')||1; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardsCount: n }) }); }catch(_){ } });
+  readyChk.addEventListener('change', async ()=>{ if (!roomId) return; const r = !!readyChk.checked; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, ready: r, cardsCount: Number(cardsCountSel.value||'1') }) }); }catch(_){ } });
+  claimBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/claim`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardIndex: selectedCardIdx }) }); if (!(j && j.success)) { /* no-op */ } }catch(_){ } });
+  document.getElementById('rematchBtn')?.addEventListener('click', async ()=>{
+    if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { /* vuelve a lobby */ } }catch(_){ }
+  });
+
+  // init
+  (async function init(){
+    myId = getUserId(); meEl.textContent = myId;
+    await loadLobby();
+  })();
+})();
 </script>
 </body>
 </html>

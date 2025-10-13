@@ -221,6 +221,23 @@ class BingoStore extends EventEmitter {
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;
   }
 
+  rematch(roomId, userId) {
+    const r = this.rooms.get(String(roomId)); if (!r) throw new Error('room_not_found');
+    // Solo el anfitrión puede forzar revancha
+    if (String(userId) !== String(r.hostId)) throw new Error('not_host');
+    if (r.status !== 'finished') throw new Error('not_finished');
+    // Reset de estado a lobby, conservar opciones
+    r.status = 'lobby';
+    r.potFires = 0;
+    r.drawQueue = [];
+    r.called = [];
+    r.lastCall = null;
+    r.winners = [];
+    // Limpiar cartas y marcar no ready para todos, mantener cardsCount elegido
+    for (const p of r.players.values()) { p.ready = false; p.cards = []; }
+    const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;
+  }
+
   onRoom(roomId, fn) { const ev = 'room_update_' + String(roomId); this.on(ev, fn); return () => this.off(ev, fn); }
 }
 

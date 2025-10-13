@@ -165,6 +165,20 @@ router.post('/rooms/:id/claim', (req, res) => {
   }
 });
 
+// Revancha (reiniciar a lobby)
+router.post('/rooms/:id/rematch', (req, res) => {
+  try {
+    const roomId = String(req.params.id || '').trim();
+    const userId = String(req.body && req.body.userId || '').trim();
+    const state = store.rematch(roomId, userId);
+    res.json({ success: true, state });
+  } catch (e) {
+    const msg = e && e.message || 'rematch_error';
+    const code = (msg === 'room_not_found') ? 404 : 400;
+    res.status(code).json({ success: false, error: msg });
+  }
+});
+
 // Estado actual de la sala
 router.get('/rooms/:id/state', (req, res) => {
   try {

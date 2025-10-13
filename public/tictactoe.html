@@ -265,6 +265,8 @@
   let myMark = null;
   let es = null;
   let countdownTimer = null;
+  let lobbyES = null;
+  let lobbyRoomId = null;
   let createVisibility = 'private';
   let createCostType = 'free';
   let createCostValue = 0;
@@ -357,7 +359,22 @@
 
     // si hay sala con mi turno, mostrar countdown
     const playingMine = arr.find(rm=> (rm.players&& (rm.players.X===myId||rm.players.O===myId)) && rm.status==='playing');
-    if (playingMine) updateActiveCard(playingMine); else activeCard.classList.add('hidden');
+    if (playingMine) {
+      updateActiveCard(playingMine);
+      // Suscripción SSE a la sala activa para countdown en vivo
+      if (lobbyRoomId !== playingMine.id) {
+        try { lobbyES && lobbyES.close && lobbyES.close(); } catch(_){}
+        lobbyRoomId = playingMine.id;
+        lobbyES = new EventSource(`/api/games/tictactoe/rooms/${encodeURIComponent(lobbyRoomId)}/stream`);
+        lobbyES.addEventListener('state', (ev) => {
+          try { const s = JSON.parse(ev.data); updateActiveCard(s); } catch(_){}
+        });
+      }
+    } else {
+      activeCard.classList.add('hidden');
+      try { lobbyES && lobbyES.close && lobbyES.close(); } catch(_){}
+      lobbyES = null; lobbyRoomId = null;
+    }
 
     // listar salas públicas
     try {
