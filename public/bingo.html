@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-  <title>Juegos • Telegram Game Room</title>
+  <title>Bingo • Telegram Game Room</title>
   <link href="https://fonts.googleapis.com" rel="preconnect"/>
   <link crossorigin href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
@@ -21,15 +21,18 @@
             violet: '#a78bfa',
             accent: '#22d3ee',
             card: '#121A2B',
+            panel: '#0F1524',
             text: '#E6EDF3',
-            glass: 'rgba(255,255,255,0.1)'
+            glass: 'rgba(255,255,255,0.1)',
+            danger: '#EF4444',
           },
           fontFamily: { display: ['Space Grotesk'] },
           borderRadius: { DEFAULT: '0.5rem', lg: '0.75rem', xl: '1rem', full: '9999px' },
           boxShadow: {
             fire: '0 0 15px 5px rgba(255, 165, 0, 0.6), 0 0 25px 10px rgba(255, 255, 0, 0.4)',
             'neon-violet': '0 0 10px #a78bfa, 0 0 20px #a78bfa, 0 0 30px #a78bfa',
-            'neon-accent': '0 0 10px #22d3ee, 0 0 20px #22d3ee, 0 0 30px #22d3ee'
+            'neon-accent': '0 0 10px #22d3ee, 0 0 20px #22d3ee, 0 0 30px #22d3ee',
+            'neon-gold': '0 0 5px #facc15, 0 0 10px #facc15, 0 0 15px #facc15'
           }
         }
       }
@@ -45,51 +48,31 @@
 <body class="bg-background-dark font-display text-text">
 <div class="flex flex-col min-h-screen">
   <main class="flex-1 p-4 pb-24">
-    <h1 class="text-3xl font-bold text-center mb-8 text-accent">Juegos</h1>
-    <div class="space-y-6">
-      <!-- La Vieja -->
-      <div class="bg-card rounded-xl border border-glass p-6 flex flex-col items-center text-center">
-        <div class="relative w-24 h-24 mb-4 flex items-center justify-center">
-          <svg class="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <filter id="neon-glow-violet" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-              </filter>
-            </defs>
-            <g style="filter:url(#neon-glow-violet)">
-              <path d="M20 20 L50 50 M50 20 L20 50" stroke="#a78bfa" stroke-width="8" stroke-linecap="round"/>
-              <circle cx="70" cy="70" r="15" fill="none" stroke="#a78bfa" stroke-width="8"/>
-            </g>
-          </svg>
+    <h1 class="text-3xl font-bold text-center mb-8 text-accent">Bingo</h1>
+
+    <section class="space-y-6">
+      <div class="bg-panel rounded-xl border border-glass p-4">
+        <h2 class="text-xl font-bold mb-4 text-center">Salas Activas</h2>
+        <div id="activeCard" class="bg-card rounded-lg p-4 flex items-center justify-between hidden">
+          <p class="text-text">Regresa a tu sala</p>
+          <p id="countdown" class="text-danger font-bold text-lg" style="text-shadow: 0 0 8px #EF4444;">00:30 seg</p>
         </div>
-        <h2 class="text-2xl font-bold text-violet mb-4">La Vieja</h2>
-        <button id="play-ttt" class="w-full max-w-xs bg-gradient-to-r from-orange-500 to-yellow-400 text-text font-bold py-3 rounded-lg hover:opacity-90 transition-opacity shadow-fire">Jugar Ahora</button>
+        <div class="mt-4 flex items-center gap-2">
+          <input id="codeInput" class="flex-grow bg-card border border-glass rounded-lg px-3 py-2 text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Código de sala" type="text"/>
+          <button id="joinCodeBtn" class="bg-accent/80 text-background-dark font-bold py-2 px-4 rounded-lg shadow-[0_0_10px_rgba(34,211,238,0.5)] hover:bg-accent transition-all duration-300">Unirme</button>
+        </div>
       </div>
 
-      <!-- Bingo (placeholder) -->
-      <div class="bg-card rounded-xl border border-glass p-6 flex flex-col items-center text-center">
-        <div class="relative w-24 h-24 mb-4 flex items-center justify-center">
-          <svg class="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <filter id="neon-glow-accent" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
-                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-              </filter>
-              <pattern id="mesh" width="10" height="10" patternUnits="userSpaceOnUse">
-                <path d="M-1,1 l2,-2 M0,10 l10,-10 M9,11 l2,-2" stroke="#22d3ee80" stroke-width="1"/>
-              </pattern>
-            </defs>
-            <g style="filter:url(#neon-glow-accent)">
-              <circle cx="50" cy="50" r="40" fill="url(#mesh)" stroke="#22d3ee" stroke-width="4"/>
-              <circle cx="50" cy="50" r="40" fill="none" stroke="#22d3ee" stroke-width="4"/>
-            </g>
-          </svg>
-        </div>
-        <h2 class="text-2xl font-bold text-accent mb-4">Bingo</h2>
-        <button id="play-bingo" class="w-full max-w-xs bg-gradient-to-r from-orange-500 to-yellow-400 text-text font-bold py-3 rounded-lg hover:opacity-90 transition-opacity shadow-fire">Jugar Ahora</button>
+      <div class="bg-panel rounded-xl border border-glass p-4">
+        <h2 class="text-xl font-bold mb-4 text-center">Salas Creadas</h2>
+        <div id="roomsList" class="space-y-4"></div>
       </div>
-    </div>
+
+      <div class="bg-panel rounded-xl border border-glass p-4">
+        <h2 class="text-xl font-bold mb-4 text-center">Salas Públicas</h2>
+        <div id="publicRoomsList" class="space-y-4"></div>
+      </div>
+    </section>
   </main>
 
   <nav class="fixed bottom-0 left-0 right-0 bg-card border-t border-glass px-2 py-1">
@@ -125,12 +108,18 @@
     </div>
   </nav>
 </div>
+
+<!-- FAB crear sala -->
+<button id="fabCreate" class="fixed bottom-24 right-4 bg-yellow-400 text-background-dark p-4 rounded-full shadow-[0_0_10px_#facc15,0_0_20px_#facc15] hover:bg-yellow-300 transition-all duration-300 transform hover:scale-105 z-30">
+  <span class="material-symbols-outlined text-3xl">add</span>
+  <span class="sr-only">Crear sala</span>
+</button>
+
 <script>
-  document.getElementById('play-ttt').addEventListener('click', () => {
-    window.location.href = '/games/tictactoe';
+  // TODO: Implementar llamadas a /api/games/bingo: my-rooms, public-rooms, create, join-code, etc.
+  document.getElementById('fabCreate')?.addEventListener('click', () => {
+    alert('Crear sala de Bingo (WIP)');
   });
-  const pb = document.getElementById('play-bingo');
-  if (pb) pb.addEventListener('click', ()=> { window.location.href = '/games/bingo'; });
 </script>
 </body>
 </html>

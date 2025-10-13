@@ -11,6 +11,8 @@ const economyExtRoutes = require('./routes/economy_ext');
 const telegramRoutes = require('./routes/telegram');
 const profileRoutes = require('./routes/profile');
 const tttRoutes = require('./routes/tictactoe');
+const tttStore = require('./services/tictactoeStore');
+const bingoRoutes = require('./routes/bingo');
 
 const app = express();
 app.set('trust proxy', true);
@@ -65,6 +67,7 @@ app.use('/api/economy', economyExtRoutes);
 app.use('/telegram', telegramRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/games/tictactoe', tttRoutes);
+app.use('/api/games/bingo', bingoRoutes);
 
 // Rutas Frontend
 app.get('/supply', (req, res) => {
@@ -79,6 +82,9 @@ app.get('/games', (req, res) => {
 });
 app.get('/games/tictactoe', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/tictactoe.html'));
+});
+app.get('/games/bingo', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/bingo.html'));
 });
 
 // Healthcheck
@@ -100,3 +106,8 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   logger.info(`Server listening on port ${PORT}`);
 });
+
+// Ticker para TicTacToe: rota turno por timeout y emite SSE
+setInterval(() => {
+  try { tttStore.tick(); } catch (_) {}
+}, Math.max(500, Math.min(2000, parseInt(process.env.TTT_TICK_MS || '1000', 10) || 1000)));

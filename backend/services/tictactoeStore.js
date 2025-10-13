@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const mem = require('./memoryStore');
 
 class TTTStore extends EventEmitter {
   constructor() {
@@ -13,7 +14,7 @@ class TTTStore extends EventEmitter {
   makeCode() {
     return String(Math.floor(100000 + Math.random() * 900000));
   }
-  createRoom(hostId) {
+  createRoom(hostId, opts = {}) {
     const id = this.newId();
     const state = {
       id,
@@ -25,7 +26,14 @@ class TTTStore extends EventEmitter {
       status: 'waiting',
       lastMoveAt: null,
       turnDeadline: null,
-      code: this.makeCode()
+      code: this.makeCode(),
+      visibility: (opts.visibility === 'public' ? 'public' : 'private'),
+      costType: (['free','coins','fuego'].includes(opts.costType) ? opts.costType : 'free'),
+      costValue: Math.max(0, Number(opts.costValue || 0) || 0),
+      score: { X: 0, O: 0 },
+      round: 1,
+      lastWinner: null,
+      paidFlags: { X: false, O: false }
     };
     this.rooms.set(id, state);
     this.codeIndex.set(state.code, id);
@@ -44,7 +52,12 @@ class TTTStore extends EventEmitter {
       status: r.status,
       lastMoveAt: r.lastMoveAt,
       turnDeadline: r.turnDeadline,
-      code: r.code
+      code: r.code,
+      visibility: r.visibility,
+      costType: r.costType,
+      costValue: r.costValue,
+      score: { ...r.score },
+      round: r.round
     };
   }
   listRoomsByUser(userId) {
@@ -61,6 +74,14 @@ class TTTStore extends EventEmitter {
     if (!id) return null;
     return this.getState(id);
   }
+  listPublicRooms() {
+    const out = [];
+    for (const r of this.rooms.values()) {
+      if (r.visibility === 'public') out.push(this.getState(r.id));
+    }
+    out.sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+    return out;
+  }
   joinRoom(roomId, userId) {
     const r = this.rooms.get(String(roomId));
     if (!r) throw new Error('room_not_found');
@@ -69,9 +90,52 @@ class TTTStore extends EventEmitter {
     else if (!r.players.O && r.players.X !== uid) r.players.O = uid;
     const both = r.players.X && r.players.O;
     if (both && r.status !== 'finished') {
-      r.status = 'playing';
-      if (!r.lastMoveAt) r.lastMoveAt = Date.now();
-      r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
+      // Cobro de entrada si aplica
+      let canStart = true;
+      if (r.costType !== 'free' && r.costValue > 0) {
+        const charge = (pid) => {
+          if (pid === 'X' && r.paidFlags.X) return true;
+          if (pid === 'O' && r.paidFlags.O) return true;
+          const targetId = (pid === 'X') ? r.players.X : r.players.O;
+          if (!targetId) return false;
+          if (r.costType === 'coins') {
+            const rs = mem.trySpendCoins({ userId: targetId, amount: r.costValue, reason: 'ttt_entry' });
+            if (rs && rs.ok) { r.paidFlags[pid] = true; return true; }
+            return false;
+          } else if (r.costType === 'fuego') {
+            const rs = mem.trySpendFires({ userId: targetId, amount: r.costValue, reason: 'ttt_entry' });
+            if (rs && rs.ok) { r.paidFlags[pid] = true; return true; }
+            return false;
+          }
+          return true;
+        };
+        const xok = charge('X');
+        const ook = charge('O');
+        canStart = xok && ook;
+      }
+      if (canStart) {
+        r.status = 'playing';
+        if (!r.lastMoveAt) r.lastMoveAt = Date.now();
+        r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
+      } else {
+        r.status = 'waiting';
+      }
+    }
+    const s = this.getState(roomId);
+    this.emit('room_update_' + r.id, s);
+    return s;
+  }
+  setOptions(roomId, opts = {}) {
+    const r = this.rooms.get(String(roomId));
+    if (!r) throw new Error('room_not_found');
+    if (typeof opts.visibility !== 'undefined') {
+      r.visibility = (opts.visibility === 'public' ? 'public' : 'private');
+    }
+    if (typeof opts.costType !== 'undefined') {
+      r.costType = (['free','coins','fuego'].includes(opts.costType) ? opts.costType : r.costType);
+    }
+    if (typeof opts.costValue !== 'undefined') {
+      r.costValue = Math.max(0, Number(opts.costValue || 0) || 0);
     }
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);
@@ -122,6 +186,12 @@ class TTTStore extends EventEmitter {
       r.winner = w === 'draw' ? null : w;
       r.status = 'finished';
       r.turnDeadline = null;
+      if (r.winner) {
+        r.lastWinner = r.winner;
+        if (r.winner === 'X') r.score.X += 1; else if (r.winner === 'O') r.score.O += 1;
+      } else {
+        r.lastWinner = null;
+      }
     } else {
       r.turn = r.turn === 'X' ? 'O' : 'X';
       r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
@@ -129,6 +199,35 @@ class TTTStore extends EventEmitter {
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);
     return s;
+  }
+  rematch(roomId) {
+    const r = this.rooms.get(String(roomId));
+    if (!r) throw new Error('room_not_found');
+    if (r.status !== 'finished') throw new Error('not_finished');
+    r.round += 1;
+    r.board = Array(9).fill(null);
+    r.winner = null;
+    r.lastMoveAt = Date.now();
+    r.turn = (r.turn === 'X') ? 'O' : 'X';
+    const both = r.players.X && r.players.O;
+    r.status = both ? 'playing' : 'waiting';
+    r.turnDeadline = both ? (r.lastMoveAt + this.turnTimeoutMs) : null;
+    const s = this.getState(roomId);
+    this.emit('room_update_' + r.id, s);
+    return s;
+  }
+  tick() {
+    const now = Date.now();
+    for (const r of this.rooms.values()) {
+      if (r && r.status === 'playing' && r.turnDeadline && now > r.turnDeadline) {
+        // Rota turno por timeout
+        r.turn = r.turn === 'X' ? 'O' : 'X';
+        r.lastMoveAt = now;
+        r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
+        const s = this.getState(r.id);
+        this.emit('room_update_' + r.id, s);
+      }
+    }
   }
   onRoom(roomId, fn) {
     const ev = 'room_update_' + String(roomId);

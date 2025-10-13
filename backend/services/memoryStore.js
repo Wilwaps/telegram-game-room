@@ -184,6 +184,58 @@ class MemoryStore extends EventEmitter {
     const o = Math.max(0, Number(offset) || 0);
     return { items: arr.slice(o, o + l), total: arr.length, limit: l, offset: o };
   }
+
+  // Gasto de monedas (coins): descuenta si hay saldo suficiente
+  trySpendCoins({ userId, amount = 0, reason = 'coins_spend' }) {
+    const id = String(userId || '').trim();
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!id || a <= 0) return { ok: false, error: 'invalid_amount' };
+    const u = this.ensureUser(id);
+    const cur = Math.max(0, Number(u.coins || 0));
+    if (cur < a) return { ok: false, error: 'insufficient_coins' };
+    u.coins = cur - a;
+    const tx = this.pushTx({ type: 'coins_spend', fromUserId: id, amount: a, reason });
+    this._addUserTx(id, tx);
+    return { ok: true, remaining: u.coins, tx };
+  }
+
+  // Gasto de fuegos (fires): descuenta si hay saldo suficiente
+  trySpendFires({ userId, amount = 0, reason = 'fires_spend' }) {
+    const id = String(userId || '').trim();
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!id || a <= 0) return { ok: false, error: 'invalid_amount' };
+    const u = this.ensureUser(id);
+    const cur = Math.max(0, Number(u.fires || 0));
+    if (cur < a) return { ok: false, error: 'insufficient_fires' };
+    u.fires = cur - a;
+    const tx = this.pushTx({ type: 'fires_spend', fromUserId: id, amount: a, reason });
+    this._addUserTx(id, tx);
+    return { ok: true, remaining: u.fires, tx };
+  }
+
+  // Crédito administrativo de coins (sin cap diario)
+  addCoinsAdmin({ userId, amount = 0, reason = 'coins_admin_add' }) {
+    const id = String(userId || '').trim();
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!id || a <= 0) return { ok: false, error: 'invalid_amount' };
+    const u = this.ensureUser(id);
+    u.coins = Math.max(0, Number(u.coins || 0)) + a;
+    const tx = this.pushTx({ type: 'coins_admin_add', toUserId: id, amount: a, reason });
+    this._addUserTx(id, tx);
+    return { ok: true, balance: u.coins, tx };
+  }
+
+  // Crédito administrativo de fires (sin tocar supply)
+  addFiresAdmin({ userId, amount = 0, reason = 'fires_admin_add' }) {
+    const id = String(userId || '').trim();
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!id || a <= 0) return { ok: false, error: 'invalid_amount' };
+    const u = this.ensureUser(id);
+    u.fires = Math.max(0, Number(u.fires || 0)) + a;
+    const tx = this.pushTx({ type: 'fires_admin_add', toUserId: id, amount: a, reason });
+    this._addUserTx(id, tx);
+    return { ok: true, balance: u.fires, tx };
+  }
 }
 
 module.exports = new MemoryStore();

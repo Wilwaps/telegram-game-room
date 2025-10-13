@@ -43,6 +43,9 @@
     body { min-height: max(884px, 100dvh); }
     .cell:hover { box-shadow: 0 0 12px 4px rgba(255, 215, 0, 0.6), 0 0 24px 8px rgba(255, 215, 0, 0.35); border-color: #facc15; }
     .cell.selected { box-shadow: 0 0 8px 3px rgba(255, 215, 0, 0.5) inset; }
+    .neon-text-accent { text-shadow: 0 0 5px #22d3ee, 0 0 10px #22d3ee, 0 0 15px #22d3ee; }
+    .neon-text-violet { text-shadow: 0 0 5px #a78bfa, 0 0 10px #a78bfa, 0 0 15px #a78bfa; }
+    .neon-text-gold { text-shadow: 0 0 5px #facc15, 0 0 10px #facc15, 0 0 15px #facc15; }
   </style>
 </head>
 <body class="bg-background-dark font-display text-text">
@@ -69,10 +72,24 @@
           <h2 class="text-xl font-bold mb-4 text-center">Salas Creadas</h2>
           <div id="roomsList" class="space-y-4"></div>
         </div>
+        <div class="bg-panel rounded-xl border border-glass p-4">
+          <h2 class="text-xl font-bold mb-4 text-center">Salas Públicas</h2>
+          <div id="publicRoomsList" class="space-y-4"></div>
+        </div>
       </section>
 
       <!-- Room/Board View -->
       <section id="roomView" class="space-y-4 hidden">
+        <div class="w-full flex flex-col items-center space-y-2">
+          <div class="flex items-center justify-center space-x-4 text-2xl font-bold">
+            <span id="scoreXVal" class="text-accent">0</span>
+            <span class="material-symbols-outlined text-3xl text-text">swords</span>
+            <span id="scoreOVal" class="text-violet">0</span>
+          </div>
+          <div class="text-center">
+            <p id="timerVal" class="text-3xl font-bold text-yellow-400">00:30</p>
+          </div>
+        </div>
         <div class="bg-card border border-glass rounded-lg p-4 space-y-2">
           <div class="flex items-center justify-between text-sm">
             <div>Tu ID: <span id="me" class="font-mono"></span></div>
@@ -94,22 +111,117 @@
         <div class="text-xs text-text/70">
           - Haz click en una casilla vacía cuando sea tu turno. La jugada válida brillará en dorado.
         </div>
+
+        <div class="w-full max-w-sm mx-auto flex gap-2" id="afterRound" style="display:none">
+          <button id="rematchBtn" class="flex-1 bg-yellow-400 text-background-dark py-2 rounded-lg font-bold">Revancha</button>
+          <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Salir</a>
+        </div>
       </section>
     </div>
   </main>
 
   <nav class="fixed bottom-0 left-0 right-0 bg-card border-t border-glass px-2 py-1">
     <div class="flex justify-around text-xs text-center text-text/80">
-      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee;--tw-bg-background-dark:#0b0e14">
-        <span class="material-symbols-outlined">sports_esports</span>
-        <span>Juegos</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="/profile" style="--tw-bg-accent:#22d3ee;--tw-bg-background-dark:#0b0e14">
+      <a class="nav-item flex-1 p-2 rounded-lg" href="/profile" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
         <span class="material-symbols-outlined">person</span>
         <span>Perfil</span>
       </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">door_open</span>
+        <span>Lobby</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg bg-orange-500/20 shadow-fire text-orange-400" href="/games" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">sports_esports</span>
+        <span>Juegos</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #22d3ee; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">confirmation_number</span>
+        <span>Rifas</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #a78bfa; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined" style="color: inherit">storefront</span>
+        <span class="text-xs">Mercado</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #a78bfa; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">groups</span>
+        <span>Rol</span>
+      </a>
+      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent: #a78bfa; --tw-bg-background-dark: #0B0E14;">
+        <span class="material-symbols-outlined">schedule</span>
+        <span>Próximo</span>
+      </a>
     </div>
   </nav>
+</div>
+
+<!-- FAB crear sala -->
+<button id="fabCreate" class="fixed bottom-24 right-4 bg-yellow-400 text-background-dark p-4 rounded-full shadow-[0_0_10px_#facc15,0_0_20px_#facc15] hover:bg-yellow-300 transition-all duration-300 transform hover:scale-105 z-30">
+  <span class="material-symbols-outlined text-3xl">add</span>
+  <span class="sr-only">Crear sala</span>
+</button>
+
+<!-- Overlay creación de sala -->
+<div id="createOverlay" class="hidden fixed inset-0 z-40">
+  <div class="absolute inset-0 bg-background-dark/50 backdrop-blur-sm"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-2">
+    <div class="bg-card/90 border border-glass rounded-xl w-[95vw] h-[95vh] max-w-md p-4 flex flex-col space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg">Nueva Sala</h3>
+        <button id="closeCreate" class="text-text/70 hover:text-text"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="text-center">
+        <p class="text-text/70 text-sm">Código de la Sala</p>
+        <p id="createCode" class="text-accent text-3xl font-bold tracking-widest" style="text-shadow: 0 0 10px #22d3ee;">------</p>
+        <div class="text-xs text-text/70 mt-1">V: <span id="scoreX">0</span> / E: <span id="scoreD">0</span> / D: <span id="scoreO">0</span></div>
+        <div class="flex justify-center items-center space-x-4 mt-2">
+          <div class="flex items-center space-x-1">
+            <span class="material-symbols-outlined text-yellow-400 text-base">monetization_on</span>
+            <span class="text-sm" id="costCoins">0</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <span class="material-symbols-outlined text-orange-500 text-base">local_fire_department</span>
+            <span class="text-sm" id="costFuego">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <p class="text-text/70 text-sm">Modo de juego</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="optPrivate" class="bg-accent text-background-dark font-bold py-2 rounded-lg shadow-[0_0_10px_#22d3ee]">Privada</button>
+          <button id="optPublic" class="bg-glass text-text py-2 rounded-lg">Pública</button>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <p class="text-text/70 text-sm">Costo de la partida</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="optFree" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]">
+            <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
+            <span>Libre</span>
+          </button>
+          <button id="optFuego" class="bg-glass text-text py-2 rounded-lg flex items-center justify-center space-x-2">
+            <span class="material-symbols-outlined text-orange-500">local_fire_department</span>
+            <span>Fuego</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-grow space-y-2 flex flex-col">
+        <p class="text-text/70 text-sm">Usuarios conectados</p>
+        <div id="createUsers" class="flex-grow bg-glass rounded-lg p-2 min-h-[100px] flex flex-col space-y-2 overflow-y-auto"></div>
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex space-x-2">
+          <input id="joinCodeInput" class="bg-glass border-glass rounded-lg w-full text-text placeholder-text/50 px-4 py-2 focus:ring-accent focus:border-accent" placeholder="Código de la sala" type="text"/>
+          <button id="joinFromCreate" class="bg-accent text-background-dark font-bold py-2 px-4 rounded-lg shadow-[0_0_10px_#22d3ee]">Unirme</button>
+        </div>
+        <button id="shareCreate" class="w-full bg-violet text-text font-bold py-3 rounded-lg shadow-[0_0_10px_#a78bfa] mt-2">Compartir</button>
+        <button id="startCreate" class="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-text font-bold py-3 rounded-lg shadow-[0_0_15px_rgba(255,165,0,0.6)] mt-2">Iniciar Partida</button>
+      </div>
+    </div>
+  </div>
 </div>
 <script>
 (function(){
@@ -129,11 +241,34 @@
   const codeInput = $('codeInput');
   const joinCodeBtn = $('joinCodeBtn');
   const roomsList = $('roomsList');
+  const publicRoomsList = $('publicRoomsList');
+  // Crear sala: UI
+  const fabCreate = $('fabCreate');
+  const overlay = $('createOverlay');
+  const closeCreate = $('closeCreate');
+  const createCode = $('createCode');
+  const optPrivate = $('optPrivate');
+  const optPublic = $('optPublic');
+  const optFree = $('optFree');
+  const optFuego = $('optFuego');
+  const joinCodeInput = $('joinCodeInput');
+  const joinFromCreate = $('joinFromCreate');
+  const shareCreate = $('shareCreate');
+  const startCreate = $('startCreate');
+  const timerValEl = $('timerVal');
+  const scoreXVal = $('scoreXVal');
+  const scoreOVal = $('scoreOVal');
+  const afterRound = $('afterRound');
+  const rematchBtn = document.getElementById('rematchBtn');
   let myId = null;
   let roomId = null;
   let myMark = null;
   let es = null;
   let countdownTimer = null;
+  let createVisibility = 'private';
+  let createCostType = 'free';
+  let createCostValue = 0;
+  let createdRoomId = null;
 
   function getQuery(name){
     const u = new URL(window.location.href);
@@ -223,15 +358,38 @@
     // si hay sala con mi turno, mostrar countdown
     const playingMine = arr.find(rm=> (rm.players&& (rm.players.X===myId||rm.players.O===myId)) && rm.status==='playing');
     if (playingMine) updateActiveCard(playingMine); else activeCard.classList.add('hidden');
+
+    // listar salas públicas
+    try {
+      const rp = await fetch('/api/games/tictactoe/public-rooms');
+      const jp = await rp.json();
+      publicRoomsList.innerHTML = '';
+      const parr = (jp && jp.success && Array.isArray(jp.rooms)) ? jp.rooms : [];
+      if (!parr.length) {
+        const empty = document.createElement('div'); empty.className='text-center text-text/60'; empty.textContent='Sin salas públicas'; publicRoomsList.appendChild(empty);
+      } else {
+        for (const rm of parr){
+          const wrap = document.createElement('div');
+          wrap.className = 'bg-card rounded-lg p-4 border border-glass flex items-center justify-between';
+          wrap.innerHTML = `<span class="text-accent font-mono">#${rm.code||'------'}</span>
+            <a class="underline text-accent" href="/games/tictactoe?room=${encodeURIComponent(rm.id)}">Abrir</a>`;
+          publicRoomsList.appendChild(wrap);
+        }
+      }
+    } catch (_) {}
   }
 
   async function createRoom(){
-    const r = await fetch('/api/games/tictactoe/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: myId }) });
+    const payload = { userId: myId, visibility: createVisibility, costType: createCostType, costValue: createCostValue };
+    const r = await fetch('/api/games/tictactoe/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const j = await r.json();
     if (!j.success) throw new Error('create_failed');
     setRoom(j.state.id);
     subscribe();
     showRoom();
+    // actualizar modal si abierto
+    createdRoomId = j.state.id;
+    createCode.textContent = j.state.code || '------';
   }
   async function joinRoom(id){
     const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(id)}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: myId }) });
@@ -259,6 +417,18 @@
         }
         // actualizar countdown visible si volvemos al lobby
         updateActiveCard(s);
+        // actualizar temporizador en vista de sala
+        if (s.turnDeadline && timerValEl) {
+          const left = Number(s.turnDeadline) - Date.now();
+          timerValEl.textContent = fmtTime(left);
+        }
+        // marcador
+        if (s.score) {
+          if (scoreXVal) scoreXVal.textContent = String(s.score.X||0);
+          if (scoreOVal) scoreOVal.textContent = String(s.score.O||0);
+        }
+        // controles de revancha
+        if (afterRound) afterRound.style.display = (s.status === 'finished') ? 'flex' : 'none';
       }catch(_){}
     });
   }
@@ -308,6 +478,55 @@
       if (j && j.success && j.state && j.state.id) {
         setRoom(j.state.id); subscribe(); showRoom();
       }
+    }catch(_){ }
+  });
+
+  // Crear sala: handlers
+  function openCreate(){ overlay.classList.remove('hidden'); createdRoomId = null; createCode.textContent='------'; }
+  function closeCreateOverlay(){ overlay.classList.add('hidden'); }
+  function styleToggle(btnOn, btnOff, onClasses, offClasses){
+    btnOn.className = (btnOn.className.replace(' bg-glass','').replace(' text-text','') + onClasses);
+    btnOff.className = (btnOff.className.replace(' bg-accent text-background-dark','').replace(' shadow-[0_0_10px_#22d3ee]','') + offClasses);
+  }
+  optPrivate.addEventListener('click', ()=>{ createVisibility='private'; styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); });
+  optPublic.addEventListener('click', ()=>{ createVisibility='public'; styleToggle(optPublic,optPrivate,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); });
+  optFree.addEventListener('click', ()=>{ createCostType='free'; createCostValue=0; styleToggle(optFree,optFuego,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); });
+  optFuego.addEventListener('click', ()=>{ createCostType='fuego'; createCostValue=1; styleToggle(optFuego,optFree,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); });
+  fabCreate.addEventListener('click', openCreate);
+  closeCreate.addEventListener('click', closeCreateOverlay);
+  // Al abrir creación, crear sala inmediatamente con opciones por defecto
+  async function openCreate(){
+    overlay.classList.remove('hidden');
+    if (!createdRoomId) {
+      try { await createRoom(); } catch (_) {}
+    }
+  }
+  function closeCreateOverlay(){ overlay.classList.add('hidden'); }
+  shareCreate.addEventListener('click', async ()=>{
+    if (!createdRoomId) return; const link = `${location.origin}/games/tictactoe?room=${encodeURIComponent(createdRoomId)}`; try{ await navigator.clipboard.writeText(link); shareCreate.textContent='Copiado'; setTimeout(()=>shareCreate.textContent='Compartir', 1200);}catch(_){ }
+  });
+  startCreate.addEventListener('click', async ()=>{
+    // Si no hay sala creada aún, crearla; luego unirse
+    if (!createdRoomId) { await createRoom().catch(()=>{}); }
+    if (createdRoomId) {
+      await joinRoom(createdRoomId).catch(()=>{});
+      closeCreateOverlay();
+    }
+  });
+  if (rematchBtn) rematchBtn.addEventListener('click', async ()=>{
+    if (!roomId) return;
+    try{
+      const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST' });
+      const j = await r.json();
+      if (j && j.success) { afterRound.style.display='none'; }
+    }catch(_){ }
+  });
+  joinFromCreate.addEventListener('click', async ()=>{
+    const code = (joinCodeInput.value||'').trim(); if (!code) return;
+    try{
+      const r = await fetch('/api/games/tictactoe/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) });
+      const j = await r.json();
+      if (j && j.success && j.state && j.state.id) { setRoom(j.state.id); subscribe(); showRoom(); closeCreateOverlay(); }
     }catch(_){ }
   });
 })();

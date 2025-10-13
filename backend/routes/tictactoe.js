@@ -5,8 +5,11 @@ const store = require('../services/tictactoeStore');
 router.post('/rooms', (req, res) => {
   try {
     const userId = String(req.body && req.body.userId || '').trim();
+    const visibility = (req.body && req.body.visibility) || undefined;
+    const costType = (req.body && req.body.costType) || undefined;
+    const costValue = (req.body && req.body.costValue) || undefined;
     if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
-    const state = store.createRoom(userId);
+    const state = store.createRoom(userId, { visibility, costType, costValue });
     res.json({ success: true, state });
   } catch (e) {
     res.status(500).json({ success: false, error: 'create_error' });
@@ -109,6 +112,45 @@ router.get('/rooms/:id/stream', (req, res) => {
   const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) {} }, 15000);
 
   req.on('close', () => { clearInterval(hb); off(); });
+});
+
+// PATCH /api/games/tictactoe/rooms/:id/options
+router.patch('/rooms/:id/options', (req, res) => {
+  try {
+    const roomId = String(req.params.id || '').trim();
+    const visibility = (req.body && req.body.visibility);
+    const costType = (req.body && req.body.costType);
+    const costValue = (req.body && req.body.costValue);
+    const state = store.setOptions(roomId, { visibility, costType, costValue });
+    res.json({ success: true, state });
+  } catch (e) {
+    const msg = e && e.message || 'options_error';
+    const code = (msg === 'room_not_found') ? 404 : 400;
+    res.status(code).json({ success: false, error: msg });
+  }
+});
+
+// GET /api/games/tictactoe/public-rooms
+router.get('/public-rooms', (req, res) => {
+  try {
+    const rooms = store.listPublicRooms();
+    res.json({ success: true, rooms });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'public_list_error' });
+  }
+});
+
+// POST /api/games/tictactoe/rooms/:id/rematch
+router.post('/rooms/:id/rematch', (req, res) => {
+  try {
+    const roomId = String(req.params.id || '').trim();
+    const state = store.rematch(roomId);
+    res.json({ success: true, state });
+  } catch (e) {
+    const msg = e && e.message || 'rematch_error';
+    const code = (msg === 'room_not_found') ? 404 : 400;
+    res.status(code).json({ success: false, error: msg });
+  }
 });
 
 module.exports = router;
