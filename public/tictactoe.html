@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   <script id="tailwind-config">
     tailwind.config = {
       darkMode: 'class',
@@ -222,6 +223,34 @@
     </div>
   </div>
 </div>
+<!-- Overlay fin de partida / celebración -->
+<div id="celebrateOverlay" class="hidden fixed inset-0 z-40">
+  <div class="absolute inset-0 bg-background-dark/60 backdrop-blur-sm"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-2">
+    <div class="relative bg-card/95 border border-glass rounded-xl w-[95vw] max-w-md p-6 space-y-4 text-center">
+      <button id="celebrateClose" class="absolute top-3 right-3 text-text/70 hover:text-text"><span class="material-symbols-outlined">close</span></button>
+      <div class="flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-4xl text-yellow-400">emoji_events</span>
+        <h3 id="celebrateTitle" class="text-2xl font-bold neon-text-gold">¡Victoria!</h3>
+      </div>
+      <p id="celebrateSubtitle" class="text-text/70">Ronda finalizada</p>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="bg-background-dark/60 rounded-lg p-3">
+          <div class="text-sm text-text/70">Puntos X</div>
+          <div id="celebrateScoreX" class="text-2xl font-bold text-accent">0</div>
+        </div>
+        <div class="bg-background-dark/60 rounded-lg p-3">
+          <div class="text-sm text-text/70">Puntos O</div>
+          <div id="celebrateScoreO" class="text-2xl font-bold text-violet">0</div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button id="celebrateRematch" class="flex-1 bg-yellow-400 text-background-dark py-2 rounded-lg font-bold">Revancha</button>
+        <a id="celebrateExit" href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Salir</a>
+      </div>
+    </div>
+  </div>
+  </div>
 <script>
 (function(){
   const $ = (id) => document.getElementById(id);
@@ -250,6 +279,7 @@
   const optPublic = $('optPublic');
   const optFree = $('optFree');
   const optFuego = $('optFuego');
+  const createUsers = $('createUsers');
   const joinCodeInput = $('joinCodeInput');
   const joinFromCreate = $('joinFromCreate');
   const shareCreate = $('shareCreate');
@@ -259,6 +289,14 @@
   const scoreOVal = $('scoreOVal');
   const afterRound = $('afterRound');
   const rematchBtn = document.getElementById('rematchBtn');
+  // Celebración
+  const celebrateOverlay = $('celebrateOverlay');
+  const celebrateClose = $('celebrateClose');
+  const celebrateTitle = $('celebrateTitle');
+  const celebrateSubtitle = $('celebrateSubtitle');
+  const celebrateScoreX = $('celebrateScoreX');
+  const celebrateScoreO = $('celebrateScoreO');
+  const celebrateRematch = $('celebrateRematch');
   let myId = null;
   let roomId = null;
   let myMark = null;
@@ -271,6 +309,7 @@
   let createCostValue = 0;
   let createdRoomId = null;
   let createES = null;
+  let celebrateKey = '';
 
   function getQuery(name){
     const u = new URL(window.location.href);
@@ -487,7 +526,39 @@
         }
         // controles de revancha
         if (afterRound) afterRound.style.display = (s.status === 'finished') ? 'flex' : 'none';
-      }catch(_){}
+
+        // celebración al finalizar
+        const k = `${roomId}|${s.round||0}|${s.winner||'draw'}|${s.status}`;
+        if (s.status === 'finished') {
+          if (celebrateKey !== k) {
+            celebrateKey = k;
+            try{
+              if (celebrateTitle) {
+                if (s.winner === 'X') { celebrateTitle.textContent = '¡Gana X!'; }
+                else if (s.winner === 'O') { celebrateTitle.textContent = '¡Gana O!'; }
+                else { celebrateTitle.textContent = '¡Empate!'; }
+              }
+              if (celebrateSubtitle) celebrateSubtitle.textContent = `Ronda ${s.round||1} finalizada`;
+              if (celebrateScoreX) celebrateScoreX.textContent = String(s.score?.X ?? 0);
+              if (celebrateScoreO) celebrateScoreO.textContent = String(s.score?.O ?? 0);
+              if (celebrateOverlay) celebrateOverlay.classList.remove('hidden');
+              // confeti
+              try {
+                const duration = 1200; const end = Date.now() + duration;
+                const colors = ['#facc15','#22d3ee','#a78bfa','#ffffff'];
+                (function frame(){
+                  confetti({ particleCount: 40, spread: 60, startVelocity: 45, gravity: 0.9, origin:{ y: 0.2 }, colors });
+                  if (Date.now() < end) requestAnimationFrame(frame);
+                })();
+              } catch (_){ }
+            } catch(_){ }
+          }
+        } else {
+          // si vuelve a playing/espera, ocultar overlay
+          try { if (celebrateOverlay) celebrateOverlay.classList.add('hidden'); } catch(_){ }
+          celebrateKey = '';
+        }
+      }catch(_){ }
     });
   }
 
@@ -567,8 +638,15 @@
     try{
       const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST' });
       const j = await r.json();
-      if (j && j.success) { afterRound.style.display='none'; }
+      if (j && j.success) { afterRound.style.display='none'; try{ if (celebrateOverlay) celebrateOverlay.classList.add('hidden'); }catch(_){ } }
     }catch(_){ }
+  });
+  if (celebrateClose) celebrateClose.addEventListener('click', ()=>{ try{ celebrateOverlay.classList.add('hidden'); }catch(_){ } });
+  if (celebrateRematch) celebrateRematch.addEventListener('click', async ()=>{
+    if (!roomId) return; try {
+      const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST' });
+      const j = await r.json(); if (j && j.success) { try{ celebrateOverlay.classList.add('hidden'); }catch(_){ } if (afterRound) afterRound.style.display='none'; }
+    } catch(_){ }
   });
   if (joinFromCreate) joinFromCreate.addEventListener('click', async ()=>{
     const code = sanitizeCode(joinCodeInput.value); if (!code) return;
