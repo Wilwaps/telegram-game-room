@@ -28,6 +28,11 @@
     .btn { display:inline-flex; align-items:center; gap:8px; background: rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.35); color:#e6fbff; padding:10px 14px; border-radius:10px; cursor:pointer; text-decoration:none; transition:.18s ease; }
     .btn:hover { transform: translateY(-1px); background: rgba(34,211,238,0.16); }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px }
+    .tbl { width:100%; border-collapse:separate; border-spacing:0 6px; }
+    .tbl th { text-align:left; font-size:12px; color: var(--muted); }
+    .tbl td { padding:8px 10px; font-size:12px; }
+    .ok { color:#34d399; font-weight:700 }
+    .bad { color:#ef4444; font-weight:700 }
   </style>
 </head>
 <body>
@@ -93,8 +98,29 @@
         <div id="txs" class="list"></div>
       </div>
       <div class="card">
-        <div class="label">Usuarios (sample)</div>
-        <div id="users" class="list"></div>
+        <div class="label">Usuarios conectados</div>
+        <div style="display:flex; gap:8px; align-items:center; margin:8px 0 10px;">
+          <input id="au-q" type="text" placeholder="Buscar..." style="flex:1; padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.04); color: var(--fg);"/>
+          <label class="muted" style="display:flex; gap:6px; align-items:center;"><input id="au-online" type="checkbox" checked/> Solo online</label>
+          <button id="au-refresh" class="btn">Refrescar</button>
+        </div>
+        <div style="max-height:320px; overflow:auto;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Inicio</th>
+                <th>Últ. visto</th>
+                <th>ID</th>
+                <th>TG</th>
+                <th>Correo</th>
+                <th>Tel</th>
+                <th>Fuegos</th>
+                <th>OK</th>
+              </tr>
+            </thead>
+            <tbody id="au-rows"></tbody>
+          </table>
+        </div>
       </div>
       <div class="card">
         <div class="label">XP thresholds (config)</div>
@@ -144,6 +170,7 @@
         $('burn').textContent  = fmt(j.supply.burned);
         const rv=$('reserve'); if(rv) rv.textContent=fmt(j.supply.reserve||0);
       }
+    }
 
     async function fetchWelcomeStatus(){
       try{
@@ -197,12 +224,39 @@
         else { alertEl.textContent='Error: '+(j&&j.error||'disable_error'); }
       }catch(e){ alertEl.textContent='Error de red'; }
     }
-    }
     function startSSE(){
       const es = new EventSource('/api/economy/supply/stream');
       es.addEventListener('supply', (ev) => {
         try { const d = JSON.parse(ev.data); const s=d.value; if(s){ $('total').textContent=fmt(s.total); $('circ').textContent=fmt(s.circulating); $('burn').textContent=fmt(s.burned); const rv=$('reserve'); if(rv) rv.textContent=fmt(s.reserve||0); } } catch(_){ }
       });
+    }
+
+    function fmtTS(t){ if(!t) return '-'; try{ return new Date(Number(t)).toLocaleString(); }catch(_){ return '-'; } }
+    async function loadAdminUsers(){
+      try{
+        const q = (document.getElementById('au-q')?.value||'');
+        const onlineOnly = !!document.getElementById('au-online')?.checked;
+        const r = await fetch(`/api/admin/users/list?search=${encodeURIComponent(q)}&onlineOnly=${onlineOnly}`);
+        const j = await r.json();
+        const rows = document.getElementById('au-rows');
+        rows.innerHTML='';
+        const arr = (j && j.items) ? j.items : [];
+        for (const u of arr){
+          const tr = document.createElement('tr');
+          const ok = (u.idMatch===true);
+          tr.innerHTML = `
+            <td>${fmtTS(u.createdAt)}</td>
+            <td>${fmtTS(u.lastSeenAt)}</td>
+            <td style="font-family:monospace">${u.userId||'-'}</td>
+            <td style="font-family:monospace">${u.telegramId||'-'}</td>
+            <td>${u.email||'-'}</td>
+            <td>${u.phone||'-'}</td>
+            <td>${fmt(u.fires||0)}</td>
+            <td class="${ok?'ok':'bad'}">${ok?'OK':'NO'}</td>
+          `;
+          rows.appendChild(tr);
+        }
+      }catch(_){ const rows=document.getElementById('au-rows'); if(rows) rows.innerHTML='<tr><td colspan="8">Error de red</td></tr>'; }
     }
 
     async function loadTxs(){
@@ -250,16 +304,22 @@
     loadSupply();
     startSSE();
     loadTxs();
-    loadUsers();
     loadXP();
+    loadAdminUsers();
     fetchWelcomeStatus();
     document.getElementById('wel-refresh').addEventListener('click', fetchWelcomeStatus);
     document.getElementById('wel-activate').addEventListener('click', activateWelcome);
     document.getElementById('wel-disable').addEventListener('click', disableWelcome);
-    fetchCircInitStatus();
-    document.getElementById('circ-refresh').addEventListener('click', fetchCircInitStatus);
-    document.getElementById('circ-assign').addEventListener('click', assignInitial);
-    document.getElementById('circ-reconcile').addEventListener('click', doReconcile);
+    if (typeof fetchCircInitStatus === 'function') {
+      fetchCircInitStatus();
+      const cr=document.getElementById('circ-refresh'); if(cr){ cr.addEventListener('click', fetchCircInitStatus); }
+      const ca=document.getElementById('circ-assign'); if(ca){ ca.addEventListener('click', assignInitial); }
+      const cc=document.getElementById('circ-reconcile'); if(cc){ cc.addEventListener('click', doReconcile); }
+    }
+    const aq=document.getElementById('au-q'); if(aq){ aq.addEventListener('keydown', (e)=>{ if(e.key==='Enter') loadAdminUsers(); }); }
+    const ao=document.getElementById('au-online'); if(ao){ ao.addEventListener('change', loadAdminUsers); }
+    const ar=document.getElementById('au-refresh'); if(ar){ ar.addEventListener('click', loadAdminUsers); }
+    setInterval(loadAdminUsers, 10000);
   </script>
   <script src="/js/music.js"></script>
 </body>
