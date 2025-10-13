@@ -13,6 +13,7 @@ const profileRoutes = require('./routes/profile');
 const tttRoutes = require('./routes/tictactoe');
 const tttStore = require('./services/tictactoeStore');
 const bingoRoutes = require('./routes/bingo');
+const fireRequestsRoutes = require('./routes/fire_requests');
 
 const app = express();
 app.set('trust proxy', true);
@@ -64,6 +65,7 @@ app.use(limiter);
 app.use('/api/economy', economyRoutes);
 app.use('/api/xp', xpRoutes);
 app.use('/api/economy', economyExtRoutes);
+app.use('/api/economy', fireRequestsRoutes);
 app.use('/telegram', telegramRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/games/tictactoe', tttRoutes);
@@ -85,6 +87,9 @@ app.get('/games/tictactoe', (req, res) => {
 });
 app.get('/games/bingo', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/bingo.html'));
+});
+app.get('/fire-requests', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/fire-requests.html'));
 });
 
 // Healthcheck

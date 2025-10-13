@@ -36,9 +36,67 @@
     .nav-item:hover { background-color: var(--tw-bg-accent); color: var(--tw-bg-background-dark); }
     .nav-item { transition: background-color 0.2s, color 0.2s; }
     .nav-item .material-symbols-outlined { display:block; margin:0 auto 0.25rem; }
+    .fire-btn { cursor:pointer; display:inline-flex; align-items:center; gap:0.5rem; padding:0.25rem 0.5rem; border-radius:9999px; }
+    .fire-btn .material-symbols-outlined { color:#fb923c; filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.55)); animation: firePulse 2.8s ease-in-out infinite; }
+    @keyframes firePulse { 0%,100% { filter: drop-shadow(0 0 6px rgba(251,146,60,.55)); } 50% { filter: drop-shadow(0 0 14px rgba(251,146,60,.9)); } }
+    .overlay { position:fixed; inset:0; z-index:50; display:none; }
+    .overlay.show { display:flex; }
   </style>
 </head>
 <body class="bg-background-dark font-display text-text">
+<!-- Overlay: Historial de Fuegos -->
+<div id="firesHistoryOverlay" class="overlay flex flex-col bg-black/50 backdrop-blur-sm p-4 justify-end">
+  <div class="bg-card rounded-xl flex flex-col max-w-md mx-auto w-full border border-glass">
+    <div class="p-4 border-b border-glass flex items-center justify-between">
+      <h2 class="text-xl font-bold text-center flex-1">Balance de Fuegos</h2>
+      <button id="closeHistory" class="text-text/70 hover:text-text"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="flex-1 p-4 space-y-3 overflow-y-auto" id="firesHistoryList">
+      <!-- items dinamicos -->
+    </div>
+    <div class="p-4 grid grid-cols-3 gap-3 items-center">
+      <button id="sendFiresBtn" class="w-full bg-violet/80 text-text font-bold py-3 rounded-lg hover:bg-violet transition-colors">Enviar</button>
+      <button id="buyFiresBtn" class="w-full bg-accent text-background-dark font-bold py-4 rounded-lg hover:opacity-90 transition-opacity">Comprar</button>
+      <button id="receiveFiresBtn" class="w-full bg-violet/80 text-text font-bold py-3 rounded-lg hover:bg-violet transition-colors">Recibir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay: Comprar Fuegos -->
+<div id="buyFiresOverlay" class="overlay items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="bg-card rounded-xl flex flex-col max-w-md mx-auto w-full shadow-lg border border-glass">
+    <div class="p-4 border-b border-glass flex items-center justify-between">
+      <h2 class="text-xl font-bold text-center text-accent flex-1">Comprar Fuegos</h2>
+      <button id="closeBuy" class="text-text/70 hover:text-text"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="p-6 space-y-6">
+      <div class="bg-background-dark rounded-lg p-3 text-center border border-glass">
+        <p class="text-sm text-text/70 mb-1">Balance Actual de Fuegos</p>
+        <div class="flex items-center justify-center space-x-2">
+          <span id="currentFiresVal" class="text-2xl font-bold text-orange-400">0</span>
+          <span class="material-symbols-outlined text-orange-400 text-2xl" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <label class="font-semibold text-text/80" for="fire-amount">Cantidad de Fuegos</label>
+        <div class="relative">
+          <input class="w-full bg-background-dark border border-glass rounded-lg p-3 pl-10 text-text focus:ring-accent focus:border-accent" id="fire-amount" placeholder="0" type="number"/>
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-orange-400" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+          <button id="pasteAmount" class="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-glass hover:bg-accent/20 px-2 py-1 rounded-lg">Pegar</button>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <label class="font-semibold text-text/80" for="transaction-ref">Referencia de Transacción</label>
+        <input class="w-full bg-background-dark border border-glass rounded-lg p-3 text-text focus:ring-accent focus:border-accent" id="transaction-ref" placeholder="Ingrese la referencia del pago" type="text"/>
+      </div>
+    </div>
+    <div class="p-4 space-y-4">
+      <button id="copyData" class="w-full bg-violet text-background-dark font-bold py-3 rounded-lg hover:opacity-90 transition-opacity">Copiar Datos</button>
+      <button id="acceptBuy" class="w-full bg-accent text-background-dark font-bold py-3 rounded-lg hover:opacity-90 transition-opacity">Aceptar</button>
+    </div>
+  </div>
+</div>
+
 <div class="flex flex-col min-h-screen">
   <main class="flex-1 p-4 pb-24">
     <div class="flex flex-col items-center space-y-6">
@@ -49,10 +107,10 @@
 
       <div class="bg-card rounded-lg p-4 w-full max-w-md bg-gradient-to-br from-card to-accent/10">
         <div class="flex justify-around items-center">
-          <div class="flex items-center space-x-2">
-            <span class="material-symbols-outlined text-accent" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+          <button id="fireBtn" class="fire-btn">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
             <span id="firesVal" class="font-bold text-lg">0</span>
-          </div>
+          </button>
           <div class="flex items-center space-x-2">
             <span class="material-symbols-outlined text-violet">monetization_on</span>
             <span id="coinsVal" class="font-bold text-lg">0</span>
@@ -130,37 +188,89 @@
   </nav>
 </div>
 <script>
-  (async () => {
+  (function(){
     const $ = (id) => document.getElementById(id);
     const fmt = (n) => new Intl.NumberFormat().format(n ?? 0);
-    try {
+    let uid = null;
+    let profileSnap = null;
+    function show(el){ el && el.classList.add('show'); }
+    function hide(el){ el && el.classList.remove('show'); }
+    function mapFireTx(item){
+      const t=item?.type||''; const amt=Number(item?.amount||0);
+      let sign=''; let cls='text-text/80'; let label='';
+      if (t==='fires_spend') { sign='-'; cls='text-error'; label='Gasto'; }
+      else if (t==='grant' || t==='transfer' || t==='fire_request_accept') { sign='+'; cls='text-success'; label=t==='transfer'?'Transferencia':'Crédito'; }
+      else if (t==='fire_request_create') { sign=''; cls='text-text/70'; label='Solicitud'; }
+      else if (t==='fire_request_reject') { sign=''; cls='text-error'; label='Rechazada'; }
+      else { return null; }
+      return { sign, cls, label, amt, reason: item?.reason||item?.reference||'', ts: item?.ts||Date.now() };
+    }
+    function relTime(ts){ try{ const d=Date.now()-Number(ts||0); if (d<60000) return 'Ahora'; if (d<3600000) return Math.floor(d/60000)+' min'; if (d<86400000) return Math.floor(d/3600000)+' h'; return new Date(ts).toLocaleDateString(); }catch(_){ return '' } }
+    async function loadProfile(){
       const tg = window.Telegram && window.Telegram.WebApp;
       const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
-      if (!user) {
-        // Sin sesión Telegram: mostrar 0s
-        ['firesVal','coinsVal','expVal'].forEach(id => { const el=$(id); if(el) el.textContent = '0'; });
-        return;
-      }
-      const uid = 'tg:' + String(user.id);
+      if (!user) { ['firesVal','coinsVal','expVal'].forEach(id => { const el=$(id); if(el) el.textContent = '0'; }); return; }
+      uid = 'tg:' + String(user.id);
       const uname = user.username || [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
       const r = await fetch(`/api/profile/${encodeURIComponent(uid)}`);
       const j = await r.json();
       if (j && j.success && j.user) {
-        const u = j.user;
-        const fires = Number(u.fires||0);
-        const coins = Number(u.coins||0);
-        const earned = Number(u.earnedCoins||0);
-        const exp = Number(u.exp||0);
+        profileSnap = j.user;
+        const fires = Number(j.user.fires||0);
+        const coins = Number(j.user.coins||0);
+        const earned = Number(j.user.earnedCoins||0);
+        const exp = Number(j.user.exp||0);
         const fEl = $('firesVal'); if (fEl) fEl.textContent = fmt(fires);
         const cEl = $('coinsVal'); if (cEl) cEl.textContent = fmt(coins);
         const eEl = $('expVal'); if (eEl) eEl.textContent = fmt(exp);
-        const greet = $('greet');
-        if (greet) { greet.style.display='block'; greet.textContent = `¡Felicidades ${uname}! Has ganado ${fmt(earned)} monedas en el grupo.`; }
+        const greet = $('greet'); if (greet) { greet.style.display='block'; greet.textContent = `¡Felicidades ${uname}! Has ganado ${fmt(earned)} monedas en el grupo.`; }
+        const cur = $('currentFiresVal'); if (cur) cur.textContent = String(fires);
       }
-    } catch (e) {
-      // Fallback silencioso
     }
+    async function loadFireHistory(){
+      if (!uid) return;
+      const cont = $('firesHistoryList'); if (!cont) return; cont.innerHTML='';
+      let j=null; try { const r=await fetch(`/api/economy/history/${encodeURIComponent(uid)}?limit=50`); j=await r.json(); } catch(_){ }
+      const items=(j&&j.success&&Array.isArray(j.items))?j.items:[];
+      const mapped = items.map(mapFireTx).filter(Boolean);
+      if (mapped.length===0){ cont.innerHTML = '<div class="text-center text-text/60 text-sm">Sin movimientos</div>'; return; }
+      for (const it of mapped){
+        const row=document.createElement('div');
+        row.className='flex justify-between items-center bg-background-dark p-3 rounded-lg';
+        row.innerHTML = `<div><p class="font-bold ${it.cls}">${it.sign} ${it.amt} Fuegos</p><p class="text-xs text-text/70">${it.label}${it.reason?(' · '+it.reason):''}</p></div><span class="text-sm text-text/50">${relTime(it.ts)}</span>`;
+        cont.appendChild(row);
+      }
+    }
+    async function createFireRequest(){
+      const amt = Number(($('fire-amount')?.value||'0'))||0;
+      const ref = String(($('transaction-ref')?.value||'').trim());
+      if (!uid || amt<=0 || !ref){ alert('Ingresa cantidad y referencia válidas'); return; }
+      try {
+        const r = await fetch('/api/economy/fire-requests/create',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: uid, amount: amt, reference: ref }) });
+        const j = await r.json();
+        if (j && j.success){ alert('Solicitud enviada. Espera aprobación.'); hide($('buyFiresOverlay')); show($('firesHistoryOverlay')); await loadFireHistory(); }
+        else { alert('No se pudo crear la solicitud'); }
+      } catch(_){ alert('Error de red'); }
+    }
+    $('fireBtn')?.addEventListener('click', async ()=>{ await loadFireHistory(); show($('firesHistoryOverlay')); });
+    $('closeHistory')?.addEventListener('click', ()=> hide($('firesHistoryOverlay')));
+    $('buyFiresBtn')?.addEventListener('click', ()=>{ hide($('firesHistoryOverlay')); show($('buyFiresOverlay')); });
+    $('closeBuy')?.addEventListener('click', ()=> hide($('buyFiresOverlay')));
+    $('acceptBuy')?.addEventListener('click', createFireRequest);
+    $('copyData')?.addEventListener('click', async ()=>{
+      const txt = [
+        '0102 Venezuela',
+        '20827955',
+        '04122250016',
+        'Pago'
+      ].join('\n');
+      try { await navigator.clipboard.writeText(txt); alert('Datos copiados'); } catch(_){ alert('No se pudo copiar'); }
+    });
+    $('pasteAmount')?.addEventListener('click', async ()=>{
+      try { const t = await navigator.clipboard.readText(); const n = parseInt(String(t).replace(/[^0-9]/g,''),10); if (!isNaN(n)) { $('fire-amount').value = String(n); } else { alert('El portapapeles no contiene un número'); } } catch(_){ alert('Permiso de portapapeles denegado'); }
+    });
+    window.addEventListener('load', loadProfile);
   })();
-</script>
+  </script>
 </body>
 </html>

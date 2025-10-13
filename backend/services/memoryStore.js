@@ -13,6 +13,7 @@ class MemoryStore extends EventEmitter {
     this.userTx = new Map(); // userId -> [tx]
     this.txs = []; // simple list of transactions
     this.coinDaily = new Map(); // userId -> { date: 'YYYY-MM-DD', count: number }
+    this.fireRequests = []; // [{ id, userId, amount, reference, status, createdAt, updatedAt }]
   }
 
   getSupplySummary() {
@@ -183,6 +184,73 @@ class MemoryStore extends EventEmitter {
     const l = Math.max(1, Math.min(100, Number(limit) || 20));
     const o = Math.max(0, Number(offset) || 0);
     return { items: arr.slice(o, o + l), total: arr.length, limit: l, offset: o };
+  }
+
+  // ----- Fire Requests (compras de fuegos) -----
+  createFireRequest({ userId, amount, reference }) {
+    const uid = String(userId || '').trim();
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
+    const ref = String(reference || '').trim();
+    if (!uid || a <= 0 || !ref) throw new Error('invalid_request');
+    this.ensureUser(uid);
+    const rec = {
+      id: 'fr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      userId: uid,
+      amount: a,
+      reference: ref,
+      status: 'pending',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    this.fireRequests.unshift(rec);
+    const tx = this.pushTx({ type: 'fire_request_create', userId: uid, amount: a, reference: ref });
+    this._addUserTx(uid, tx);
+    return rec;
+  }
+
+  listFireRequests({ status, limit = 20, offset = 0 } = {}) {
+    let arr = this.fireRequests.slice();
+    if (status) arr = arr.filter(r => r.status === status);
+    const l = Math.max(1, Math.min(100, Number(limit) || 20));
+    const o = Math.max(0, Number(offset) || 0);
+    return { items: arr.slice(o, o + l), total: arr.length, limit: l, offset: o };
+  }
+
+  listFireRequestsByUser(userId, { limit = 20, offset = 0 } = {}) {
+    const uid = String(userId || '').trim();
+    const all = this.fireRequests.filter(r => r.userId === uid);
+    const l = Math.max(1, Math.min(100, Number(limit) || 20));
+    const o = Math.max(0, Number(offset) || 0);
+    return { items: all.slice(o, o + l), total: all.length, limit: l, offset: o };
+  }
+
+  getFireRequest(id) {
+    const rid = String(id || '').trim();
+    return this.fireRequests.find(r => r.id === rid) || null;
+  }
+
+  acceptFireRequest({ id, adminUserName }) {
+    const rec = this.getFireRequest(id);
+    if (!rec) throw new Error('request_not_found');
+    if (rec.status !== 'pending') throw new Error('request_not_pending');
+    rec.status = 'accepted';
+    rec.updatedAt = Date.now();
+    // Aceptar: otorgar desde la reserva hacia el usuario
+    const out = this.grantFromSupply({ toUserId: rec.userId, amount: rec.amount, reason: 'fire_request_accept' });
+    const tx = this.pushTx({ type: 'fire_request_accept', requestId: rec.id, toUserId: rec.userId, amount: rec.amount, admin: adminUserName });
+    this._addUserTx(rec.userId, tx);
+    return { request: rec, grant: out };
+  }
+
+  rejectFireRequest({ id, adminUserName }) {
+    const rec = this.getFireRequest(id);
+    if (!rec) throw new Error('request_not_found');
+    if (rec.status !== 'pending') throw new Error('request_not_pending');
+    rec.status = 'rejected';
+    rec.updatedAt = Date.now();
+    const tx = this.pushTx({ type: 'fire_request_reject', requestId: rec.id, userId: rec.userId, amount: rec.amount, admin: adminUserName });
+    this._addUserTx(rec.userId, tx);
+    return { request: rec };
   }
 
   // Gasto de monedas (coins): descuenta si hay saldo suficiente
