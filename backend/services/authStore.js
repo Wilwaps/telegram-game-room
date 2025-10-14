@@ -95,7 +95,8 @@ class AuthStore {
     const e = toLower(email);
     const rec = this.getUserByEmail(e);
     if (!rec) throw new Error('user_not_found');
-    if (!rec.verified) throw new Error('email_not_verified');
+    const allowUnv = String(process.env.ALLOW_UNVERIFIED_EMAIL_LOGIN || '').toLowerCase() === 'true';
+    if (!rec.verified && !allowUnv) throw new Error('email_not_verified');
     if (!verifyPassword(password, rec.passwordHash)) throw new Error('invalid_credentials');
     const sid = uid(18);
     this.sessions.set(sid, { userId: rec.internalId, ua: String(ua || ''), createdAt: now() });
