@@ -142,6 +142,14 @@ const limiter = rateLimit({
       if (req.path && req.path.startsWith('/telegram/webhook')) return true;
       const ua = String(req.headers['user-agent'] || '');
       const hx = String(req.headers['x-test-runner'] || '');
+      // Omitir rate limit para clientes Telegram WebApp y rutas de login (QA)
+      const isTelegramUA = /Telegram/i.test(ua);
+      if (isTelegramUA) return true;
+      if (req.path && (
+        req.path === '/login' ||
+        req.path === '/games' || req.path.startsWith('/games') ||
+        req.path.startsWith('/api/auth')
+      )) return true;
       const allowEnv = process.env.ALLOW_TEST_RUNNER === 'true' || (process.env.NODE_ENV !== 'production');
       const isTestUA = /testsprite|chrome-devtools|chrome devtools/i.test(ua);
       const isTestHX = /testsprite/i.test(hx);

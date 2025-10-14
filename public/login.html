@@ -144,6 +144,20 @@
         try { if (typeof tg.ready === 'function') tg.ready(); } catch(_) {}
         const out = await post('/api/auth/login-telegram',{ initData: raw });
         dbgLog('tg login ok', out);
+        // Confirmar que la cookie quedó establecida
+        try {
+          const r = await fetch('/api/auth/me', { credentials:'include' });
+          dbgLog('me check', { status: r.status, ok: r.ok });
+          if (r.ok) { window.location.href = '/games'; return; }
+        } catch(ex) { dbgLog('me check error', String(ex && ex.message || ex)); }
+        // Fallback con ?sid=
+        try {
+          if (out && out.sid) {
+            dbgLog('fallback redirect with sid');
+            window.location.href = '/games?sid=' + encodeURIComponent(out.sid);
+            return;
+          }
+        } catch(_) {}
         window.location.href = '/games';
       } else {
         dbgLog('tg data missing', { auto, hasTG: !!tg, rawLen: raw ? raw.length : 0 });
