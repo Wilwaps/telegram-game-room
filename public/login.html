@@ -174,7 +174,11 @@
     if (!disableAuto && tg) {
       try { if (typeof tg.ready === 'function') tg.ready(); } catch(_) {}
       // Ping previo para diagnosticar conectividad del WebView
-      try { const pr = await fetch('/api/auth/ping',{ credentials:'include' }); dbgLog('ping', { status: pr.status, ok: pr.ok }); } catch(ex){ dbgLog('ping error', String(ex && ex.message || ex)); }
+      try {
+        fetch('/api/auth/ping',{ credentials:'include' })
+          .then(pr => { dbgLog('ping', { status: pr.status, ok: pr.ok }); })
+          .catch(ex => { dbgLog('ping error', String(ex && ex.message || ex)); });
+      } catch(ex){ dbgLog('ping error', String(ex && ex.message || ex)); }
       let retries = 12; // ~3s a 250ms
       let loggedOnce = false;
       const attempt = () => {
