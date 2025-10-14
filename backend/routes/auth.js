@@ -49,6 +49,7 @@ router.post('/register-simple', (req, res) => {
     if (p1 !== p2) return res.status(400).json({ success: false, error: 'mismatch_password' });
     const created = auth.createEmailUser({ name: nm || e1, email: e1, password: p1 });
     created.verified = true;
+    try { auth.usersByEmail.set(created.email, created); } catch(_){}
     try { store.setUserContact({ userId: created.internalId, email: created.email, telegramId: telegramId ? String(telegramId).trim() : undefined }); } catch (_) {}
     return res.json({ success: true, userId: created.internalId });
   } catch (err) {
@@ -211,6 +212,36 @@ router.post('/logout', (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: 'logout_error' });
+  }
+});
+
+// Debug: estado de email (existe / verificado)
+router.get('/debug-email', (req, res) => {
+  try {
+    const email = String(req.query.email || '').trim();
+    if (!email) return res.status(400).json({ success:false, error:'invalid_email' });
+    const rec = auth.getUserByEmail(email);
+    if (!rec) return res.json({ success:true, exists:false, verified:false });
+    return res.json({ success:true, exists:true, verified: !!rec.verified, internalId: rec.internalId });
+  } catch (err) {
+    res.status(500).json({ success:false, error:'debug_email_error' });
+  }
+});
+
+// Admin: forzar verificación de email (uso temporal para QA)
+router.post('/force-verify', (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const e = String(email || '').trim();
+    if (!e) return res.status(400).json({ success:false, error:'invalid_email' });
+    const rec = auth.getUserByEmail(e);
+    if (!rec) return res.status(404).json({ success:false, error:'user_not_found' });
+    rec.verified = true;
+    try { auth.usersByEmail.set(rec.email, rec); } catch(_){}
+    try { store.setUserContact({ userId: rec.internalId, email: rec.email }); } catch(_){}
+    return res.json({ success:true, verified: true, internalId: rec.internalId });
+  } catch (err) {
+    res.status(500).json({ success:false, error:'force_verify_error' });
   }
 });
 
