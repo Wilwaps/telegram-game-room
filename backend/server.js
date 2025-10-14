@@ -239,12 +239,10 @@ function requireIdentified(req, res, next) {
         }
       } catch(_) {}
     }
-    const sess = sid ? authService.getSession(sid) : null;
-    if (!sess) return res.redirect(302, '/login');
-    const uid = String(sess.userId || '');
-    if (uid.startsWith('anon:') && !AUTH_STUB) return res.redirect(302, '/login');
+    // Permitir acceso aun si no hay sesión o si es anónima (sin redirigir a /login)
+    // El bootstrap anterior ya crea sesión invitada si no existe
     return next();
-  } catch (_) { return res.redirect(302, '/login'); }
+  } catch (_) { return next(); }
 }
 
 app.get('/supply', requireIdentified, (req, res) => {
@@ -281,7 +279,8 @@ app.get('/admin/dashboard', requireIdentified, (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-  res.sendFile(path.resolve(__dirname, '../public/login.html'));
+  // Autenticación de frontend eliminada: redirigir a juegos
+  return res.redirect(302, '/games');
 });
 app.get('/register', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/register.html'));
