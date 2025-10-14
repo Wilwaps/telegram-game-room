@@ -43,6 +43,13 @@ const welcomeRoutes = require('./routes/welcome');
 const adminWelcomeRoutes = require('./routes/admin_welcome');
 
 const app = express();
+// QA: permitir login sin verificación de email por defecto (puede desactivarse con ALLOW_UNVERIFIED_EMAIL_LOGIN=false)
+if (!('ALLOW_UNVERIFIED_EMAIL_LOGIN' in process.env)) {
+  process.env.ALLOW_UNVERIFIED_EMAIL_LOGIN = 'true';
+}
+if (!('ALLOW_UNVERIFIED_TG_INIT' in process.env)) {
+  process.env.ALLOW_UNVERIFIED_TG_INIT = 'true';
+}
 app.set('trust proxy', true);
 // Bloquear cualquier intento de establecer X-Frame-Options en respuestas
 app.use((req, res, next) => {
@@ -159,6 +166,7 @@ app.use('/api/games/tictactoe', tttRoutes);
 app.use('/api/games/bingo', bingoRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/users', require('./routes/admin_users'));
+try { app.use('/api/roles', require('./routes/roles')); } catch(_) {}
 
 // Rutas Frontend
 function requireIdentified(req, res, next) {
@@ -264,6 +272,14 @@ app.listen(PORT, () => {
       }
     }
   } catch (e) { logger.warn('Seed QA user failed', e); }
+  // Seed roles de Tote/Admin desde env si están presentes
+  try {
+    const roles = require('./services/roles');
+    const parse = (s)=> String(s||'').split(/[;,\s]+/).map(x=>x.trim()).filter(Boolean);
+    const addAll = (ids, role)=>{ for(const id of ids){ try{ roles.grant(id, role);}catch(_){} } };
+    addAll(parse(process.env.ROLE_TOTE_USER_IDS || process.env.TOTE_ID), 'tote');
+    addAll(parse(process.env.ROLE_ADMIN_USER_IDS), 'admin');
+  } catch(_) {}
 });
 
 // Ticker para TicTacToe: rota turno por timeout y emite SSE

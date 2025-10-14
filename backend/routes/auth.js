@@ -3,14 +3,15 @@ const crypto = require('crypto');
 const router = express.Router();
 const auth = require('../services/authStore');
 const store = require('../services/memoryStore');
+let roles = null; try { roles = require('../services/roles'); } catch(_) { roles = { getRoles: ()=> ['general'] }; }
 
 function setSessionCookie(res, sid) {
   const maxAge = 30 * 24 * 3600; // 30 días
-  const cookie = [`sid=${sid}`, 'Path=/', 'HttpOnly', 'SameSite=None', 'Secure', `Max-Age=${maxAge}`].join('; ');
+  const cookie = [`sid=${sid}`, 'Path=/', 'HttpOnly', 'SameSite=None', 'Secure', 'Partitioned', `Max-Age=${maxAge}`].join('; ');
   res.setHeader('Set-Cookie', cookie);
 }
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', ['sid=; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=0']);
+  res.setHeader('Set-Cookie', ['sid=; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=0']);
 }
 function getSidFromReq(req) {
   const raw = String(req.headers.cookie || '');
@@ -139,15 +140,15 @@ function verifyTelegramInitData(initData, botToken) {
 router.post('/login-telegram', (req, res) => {
   try {
     const { initData } = req.body || {};
-    const token = process.env.TELEGRAM_BOT_TOKEN || '';
-    if (!token) {
-      return res.status(500).json({ success: false, error: 'telegram_token_missing' });
-    }
     const rawInit = String(initData || '');
     if (!rawInit) {
       return res.status(400).json({ success: false, error: 'no_init_data' });
     }
     const allowUnverified = String(process.env.ALLOW_UNVERIFIED_TG_INIT || '').toLowerCase() === 'true';
+    const token = process.env.TELEGRAM_BOT_TOKEN || '';
+    if (!token && !allowUnverified) {
+      return res.status(500).json({ success: false, error: 'telegram_token_missing' });
+    }
     let parsed = null;
     if (allowUnverified) {
       try {
@@ -159,7 +160,7 @@ router.post('/login-telegram', (req, res) => {
         }
       } catch (_) { /* ignore */ }
     }
-    if (!parsed) {
+    if (!parsed && token) {
       parsed = verifyTelegramInitData(rawInit, token);
     }
     if (!parsed || !parsed.user || !parsed.user.id) {
@@ -198,7 +199,8 @@ router.get('/me', (req, res) => {
     const sess = auth.getSession(sid);
     if (!sess) return res.status(401).json({ success: false, error: 'invalid_session' });
     const u = store.getUser(sess.userId) || store.ensureUser(sess.userId);
-    res.json({ success: true, user: { userId: u.userId, userName: u.userName, fires: u.fires || 0, coins: u.coins || 0 } });
+    const myRoles = (roles && typeof roles.getRoles==='function') ? roles.getRoles(u.userId) : ['general'];
+    res.json({ success: true, user: { userId: u.userId, userName: u.userName, fires: u.fires || 0, coins: u.coins || 0, roles: myRoles } });
   } catch (err) {
     res.status(500).json({ success: false, error: 'me_error' });
   }

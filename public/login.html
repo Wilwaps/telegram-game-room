@@ -55,6 +55,21 @@
     if(!r.ok){ let e; try{e=await r.json()}catch(_){e={}}; throw new Error(e&&e.error||('HTTP '+r.status)); }
     return r.json();
   }
+  function buildInitDataString(tg){
+    try{
+      if (tg && tg.initData && tg.initData.length>0) return tg.initData;
+      const u = tg && tg.initDataUnsafe;
+      if (u && u.user) {
+        const qs = new URLSearchParams();
+        try { qs.set('user', JSON.stringify(u.user)); } catch(_) {}
+        if (u.auth_date) qs.set('auth_date', String(u.auth_date));
+        if (u.query_id) qs.set('query_id', String(u.query_id));
+        if (u.start_param) qs.set('start_param', String(u.start_param));
+        return qs.toString();
+      }
+    }catch(_){}
+    return '';
+  }
   document.getElementById('btnLogin').addEventListener('click', async ()=>{
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
@@ -67,10 +82,10 @@
   async function loginWithTelegram(auto=false){
     try{
       const tg = window.Telegram && window.Telegram.WebApp;
-      if (tg && tg.initData) {
+      const raw = buildInitDataString(tg);
+      if (tg && raw) {
         try { if (typeof tg.ready === 'function') tg.ready(); } catch(_) {}
-        const initData = tg.initData;
-        await post('/api/auth/login-telegram',{ initData });
+        await post('/api/auth/login-telegram',{ initData: raw });
         window.location.href = '/games';
       } else {
         if (!auto) alert('Abre esta página desde Telegram para login automático.');
@@ -97,8 +112,17 @@
   const disableAuto = usp.get('no_auto_tg')==='1';
   try {
     const tg = window.Telegram && window.Telegram.WebApp;
-    if (!disableAuto && tg && tg.initData) {
-      setTimeout(()=> loginWithTelegram(true), 50);
+    if (!disableAuto && tg) {
+      try { if (typeof tg.ready === 'function') tg.ready(); } catch(_) {}
+      let retries = 12; // ~3s a 250ms
+      const attempt = () => {
+        try {
+          const raw = buildInitDataString(tg);
+          if (raw) { loginWithTelegram(true); return; }
+        } catch(_) {}
+        if (retries-- > 0) setTimeout(attempt, 250);
+      };
+      setTimeout(attempt, 50);
     }
   } catch(_) {}
 </script>
