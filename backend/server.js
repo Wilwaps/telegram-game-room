@@ -198,8 +198,8 @@ function requireIdentified(req, res, next) {
           if (sess) {
             const maxAge = 30 * 24 * 3600;
             res.setHeader('Set-Cookie', [`sid=${qsid}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`]);
-            const cleanUrl = req.path; // limpia query
-            return res.redirect(302, cleanUrl);
+            // Continuar sin redirigir: servimos el recurso en esta misma respuesta
+            return next();
           }
         }
       } catch(_) {}
