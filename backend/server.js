@@ -53,7 +53,8 @@ if (!('ALLOW_UNVERIFIED_TG_INIT' in process.env)) {
 if (!('ALLOW_SID_QUERY_LOGIN' in process.env)) {
   process.env.ALLOW_SID_QUERY_LOGIN = 'true';
 }
-app.set('trust proxy', true);
+// Configurar trust proxy con hops numéricos (evita ValidationError de express-rate-limit)
+app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
 // Bloquear cualquier intento de establecer X-Frame-Options en respuestas
 app.use((req, res, next) => {
   try {
