@@ -44,6 +44,17 @@ const adminWelcomeRoutes = require('./routes/admin_welcome');
 
 const app = express();
 app.set('trust proxy', true);
+// Bloquear cualquier intento de establecer X-Frame-Options en respuestas
+app.use((req, res, next) => {
+  try {
+    const original = res.setHeader;
+    res.setHeader = function(name, value) {
+      if (String(name || '').toLowerCase() === 'x-frame-options') { return; }
+      return original.call(this, name, value);
+    };
+  } catch (_) {}
+  next();
+});
 app.use(helmet({
   contentSecurityPolicy: {
     useDefaults: true,
@@ -83,7 +94,7 @@ app.use((req, res, next) => {
     if (!sess) {
       const { sid: newSid } = authService.createGuestSession({ ua: String(req.headers['user-agent'] || '') });
       const maxAge = 30 * 24 * 3600;
-      res.setHeader('Set-Cookie', [`sid=${newSid}; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=${maxAge}`]);
+      res.setHeader('Set-Cookie', [`sid=${newSid}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`]);
     }
   } catch (_) {}
   next();
@@ -236,6 +247,23 @@ app.listen(PORT, () => {
       logger.info('Welcome event already active, skip activation');
     }
   } catch (_) {}
+  // Seed usuario de prueba para QA: pruebatote / pruebatote
+  try {
+    if (authService && typeof authService.getUserByEmail === 'function' && typeof authService.createEmailUser === 'function') {
+      const email = 'pruebatote@example.com';
+      const exist = authService.getUserByEmail(email);
+      if (!exist) {
+        const rec = authService.createEmailUser({ name: 'pruebatote', email, password: 'pruebatote' });
+        rec.verified = true;
+        try { store.setUserContact({ userId: rec.internalId, email }); } catch (_) {}
+        logger.info('Seed QA user created: pruebatote@example.com / pruebatote');
+      } else if (!exist.verified) {
+        exist.verified = true;
+        try { store.setUserContact({ userId: exist.internalId, email }); } catch (_) {}
+        logger.info('Seed QA user verified: pruebatote@example.com');
+      }
+    }
+  } catch (e) { logger.warn('Seed QA user failed', e); }
 });
 
 // Ticker para TicTacToe: rota turno por timeout y emite SSE

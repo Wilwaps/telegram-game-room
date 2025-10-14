@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Create Account</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <script>tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#4cecfa','background-light':'#f5f8f8','background-dark':'#0f2123'},fontFamily:{display:['Space Grotesk','sans-serif']},borderRadius:{DEFAULT:'0.75rem',lg:'1rem',xl:'1.5rem',full:'9999px'}}}};</script>
+  <style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}</style>
+</head>
+<body class="bg-background-dark font-display">
+<div class="relative flex min-h-screen w-full flex-col items-center justify-center bg-[#0f2123] overflow-x-hidden p-4 sm:p-6 md:p-8">
+  <div class="flex h-full grow flex-col w-full max-w-md">
+    <div class="flex flex-col items-center justify-center flex-1">
+      <div class="flex flex-col w-full gap-8">
+        <div class="flex flex-wrap justify-center gap-3 p-4">
+          <p class="text-white text-4xl font-black tracking-[-0.033em] text-center">Create Your Account</p>
+        </div>
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-wrap items-end gap-4">
+            <label class="flex flex-col w-full flex-1">
+              <p class="text-white text-base font-medium pb-2">Full Name</p>
+              <input id="name" class="form-input w-full rounded-xl text-white focus:outline-0 focus:ring-2 focus:ring-primary border-none bg-[#21474a] h-14 placeholder:text-[#8ec7cc] p-4 text-base" placeholder="Your name" />
+            </label>
+          </div>
+          <div class="flex flex-wrap items-end gap-4">
+            <label class="flex flex-col w-full flex-1">
+              <p class="text-white text-base font-medium pb-2">Email Address</p>
+              <input id="email" class="form-input w-full rounded-xl text-white focus:outline-0 focus:ring-2 focus:ring-primary border-none bg-[#21474a] h-14 placeholder:text-[#8ec7cc] p-4 text-base" placeholder="you@example.com" type="email" />
+            </label>
+          </div>
+          <div class="flex flex-wrap items-end gap-4">
+            <label class="flex flex-col w-full flex-1">
+              <p class="text-white text-base font-medium pb-2">Confirm Email</p>
+              <input id="email2" class="form-input w-full rounded-xl text-white focus:outline-0 focus:ring-2 focus:ring-primary border-none bg-[#21474a] h-14 placeholder:text-[#8ec7cc] p-4 text-base" placeholder="Confirm your email" type="email" />
+            </label>
+          </div>
+          <div class="flex flex-wrap items-end gap-4">
+            <label class="flex flex-col w-full flex-1">
+              <p class="text-white text-base font-medium pb-2">Telegram ID (opcional)</p>
+              <input id="tgid" class="form-input w-full rounded-xl text-white focus:outline-0 focus:ring-2 focus:ring-primary border-none bg-[#21474a] h-14 placeholder:text-[#8ec7cc] p-4 text-base" placeholder="Ej: 1417856820" />
+            </label>
+          </div>
+          <div class="flex flex-wrap items-end gap-4">
+            <label class="flex flex-col w-full flex-1 relative">
+              <p class="text-white text-base font-medium pb-2">Password</p>
+              <input id="pwd" class="form-input w-full rounded-xl text-white focus:outline-0 focus:ring-2 focus:ring-primary border-none bg-[#21474a] h-14 placeholder:text-[#8ec7cc] p-4 pr-12 text-base" placeholder="Enter your password" type="password" />
+              <button type="button" class="absolute right-4 top-11 text-white/50 hover:text-white" onclick="togglePwd('pwd',this)"><span class="material-symbols-outlined">visibility</span></button>
+            </label>
+          </div>
+          <div class="flex flex-wrap items-end gap-4">
+            <label class="flex flex-col w-full flex-1 relative">
+              <p class="text-white text-base font-medium pb-2">Confirm Password</p>
+              <input id="pwd2" class="form-input w-full rounded-xl text-white focus:outline-0 focus:ring-2 focus:ring-primary border-none bg-[#21474a] h-14 placeholder:text-[#8ec7cc] p-4 pr-12 text-base" placeholder="Confirm your password" type="password" />
+              <button type="button" class="absolute right-4 top-11 text-white/50 hover:text-white" onclick="togglePwd('pwd2',this)"><span class="material-symbols-outlined">visibility_off</span></button>
+            </label>
+          </div>
+          <div class="flex flex-col items-center justify-center pt-6">
+            <button id="btnRegister" class="flex items-center justify-center w-full h-14 px-8 rounded-xl bg-primary text-background-dark text-base font-bold transition-transform duration-200 hover:scale-105">Register</button>
+            <p class="text-sm text-[#8ec7cc] mt-4">Already have an account? <a class="font-semibold text-primary hover:underline" href="/login">Log in</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function togglePwd(id,btn){ const el=document.getElementById(id); if(!el) return; el.type = el.type==='password'?'text':'password'; }
+  async function post(url, data){ const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})}); if(!r.ok){let e;try{e=await r.json()}catch(_){e={}}; throw new Error(e&&e.error||('HTTP '+r.status));} return r.json(); }
+  document.getElementById('btnRegister').addEventListener('click', async ()=>{
+    const name=document.getElementById('name').value.trim();
+    const email=document.getElementById('email').value.trim();
+    const email2=document.getElementById('email2').value.trim();
+    const pwd=document.getElementById('pwd').value;
+    const pwd2=document.getElementById('pwd2').value;
+    const tgid=document.getElementById('tgid').value.trim();
+    if(!email||!pwd){ alert('Email y contraseña requeridos'); return; }
+    if(email!==email2){ alert('El email no coincide'); return; }
+    if(pwd!==pwd2){ alert('La contraseña no coincide'); return; }
+    try{
+      await post('/api/auth/register-simple',{ name, email, confirmEmail: email2, password: pwd, confirmPassword: pwd2, telegramId: tgid });
+      window.location.href = '/login?created=1&email='+encodeURIComponent(email);
+    }catch(e){ alert('Registro falló: '+e.message); }
+  });
+</script>
+</body>
+</html>

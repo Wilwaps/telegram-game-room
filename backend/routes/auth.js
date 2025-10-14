@@ -36,6 +36,28 @@ router.post('/register-email', (req, res) => {
   }
 });
 
+router.post('/register-simple', (req, res) => {
+  try {
+    const { name, email, confirmEmail, password, confirmPassword, telegramId } = req.body || {};
+    const nm = String(name || '').trim();
+    const e1 = String(email || '').trim();
+    const e2 = String(confirmEmail || '').trim();
+    const p1 = String(password || '');
+    const p2 = String(confirmPassword || '');
+    if (!e1 || !p1) return res.status(400).json({ success: false, error: 'invalid_params' });
+    if (e1.toLowerCase() !== e2.toLowerCase()) return res.status(400).json({ success: false, error: 'mismatch_email' });
+    if (p1 !== p2) return res.status(400).json({ success: false, error: 'mismatch_password' });
+    const created = auth.createEmailUser({ name: nm || e1, email: e1, password: p1 });
+    created.verified = true;
+    try { store.setUserContact({ userId: created.internalId, email: created.email, telegramId: telegramId ? String(telegramId).trim() : undefined }); } catch (_) {}
+    return res.json({ success: true, userId: created.internalId });
+  } catch (err) {
+    const msg = (err && err.message) || 'register_error';
+    const code = (msg === 'invalid_params' || msg === 'email_exists' || msg === 'mismatch_email' || msg === 'mismatch_password') ? 400 : 500;
+    return res.status(code).json({ success: false, error: msg });
+  }
+});
+
 // Verificación de email con código
 router.post('/verify-email', (req, res) => {
   try {
@@ -189,6 +211,62 @@ router.post('/logout', (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: 'logout_error' });
+  }
+});
+
+// Diagnóstico de Telegram WebApp initData (sin exponer datos sensibles)
+router.post('/debug-telegram-init', (req, res) => {
+  try {
+    const { initData } = req.body || {};
+    const token = process.env.TELEGRAM_BOT_TOKEN || '';
+    const tokenLoaded = !!token;
+    const raw = String(initData || '');
+    const base = { success: true, tokenLoaded, initPresent: !!raw, initLen: raw.length };
+    if (!raw) return res.json({ ...base, error: 'no_init_data' });
+
+    const qs = new URLSearchParams(raw);
+    const keys = Array.from(qs.keys());
+    const userStr = qs.get('user');
+    const authDateStr = qs.get('auth_date') || '';
+    let userId = null, username = null;
+    try { if (userStr) { const u = JSON.parse(userStr); userId = String(u.id || ''); username = u.username || null; } } catch (_) {}
+
+    // Validación de firma si hay token
+    let hashValid = null; let reason = null;
+    if (tokenLoaded) {
+      try {
+        const params = new URLSearchParams(raw);
+        const hash = params.get('hash') || '';
+        params.delete('hash');
+        const dataCheckString = Array.from(params.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => `${k}=${v}`)
+          .join('\n');
+        const secretKey = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
+        const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+        hashValid = (hmac === hash);
+        if (!hashValid) reason = 'hash_mismatch';
+      } catch (_) { hashValid = false; reason = 'verify_exception'; }
+    } else {
+      reason = 'telegram_token_missing';
+    }
+
+    const maskedUserId = userId ? (userId.length <= 4 ? '****' : (userId.slice(0,2) + '***' + userId.slice(-2))) : null;
+    const skewSec = authDateStr ? Math.floor(Date.now()/1000 - Number(authDateStr)) : null;
+    return res.json({
+      ...base,
+      keys,
+      hasUser: !!userStr,
+      authDatePresent: !!authDateStr,
+      username,
+      userIdMasked: maskedUserId,
+      hashValid,
+      reason,
+      skewSec,
+      now: Date.now()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'debug_error' });
   }
 });
 

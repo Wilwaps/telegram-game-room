@@ -77,8 +77,13 @@
     }catch(e){ alert('Login Telegram falló: '+e.message); }
   });
   const usp = new URLSearchParams(location.search);
+  const created = usp.get('created')==='1';
+  const pre = usp.get('email'); if (pre) { const ei=document.getElementById('email'); if (ei) ei.value = pre; }
   if (usp.get('verified')==='1') {
     setTimeout(()=>alert('Email verificado. Ahora puedes iniciar sesión.'), 200);
+  }
+  if (created) {
+    setTimeout(()=>alert('Cuenta creada. Ahora puedes iniciar sesión.'), 200);
   }
 </script>
 </body>
