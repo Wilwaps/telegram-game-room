@@ -49,11 +49,65 @@
     </div>
   </div>
 </div>
+<button id="dbgToggle" style="display:none" class="fixed bottom-4 right-4 z-50 bg-primary text-[#102223] font-bold text-xs px-3 py-2 rounded-md shadow-lg">DBG</button>
+<div id="dbgPanel" style="display:none" class="fixed bottom-16 right-4 z-50 w-[90vw] max-w-[380px] bg-black/80 text-white rounded-lg border border-white/10 shadow-2xl backdrop-blur">
+  <div class="flex items-center justify-between px-3 py-2 border-b border-white/10">
+    <div class="text-xs font-bold">Debug Log</div>
+    <div class="flex items-center gap-2">
+      <button id="dbgMin" class="text-xs px-2 py-1 bg-white/10 rounded hover:bg-white/20">–</button>
+      <button id="dbgClear" class="text-xs px-2 py-1 bg-white/10 rounded hover:bg-white/20">Clear</button>
+    </div>
+  </div>
+  <div id="dbgBody" class="max-h-[50vh] overflow-auto p-2 text-[11px] leading-4 font-mono whitespace-pre-wrap"></div>
+  <div class="p-2 text-[10px] text-white/60">Tap DBG para ocultar/mostrar</div>
+  </div>
 <script>
+  // Debug helpers
+  window.__DBG_ON = (new URLSearchParams(location.search).get('dbg') === '1');
+  function dbgSafe(v){ try{ return typeof v==='string' ? v : JSON.stringify(v); }catch(_){ try{ return String(v); }catch(__){ return '[unserializable]'; } } }
+  function dbgLog(msg, data){ try{ if(!window.__DBG_ON) return; const el=document.getElementById('dbgBody'); if(!el) return; const ts=new Date().toISOString().slice(11,19); const line='['+ts+'] '+String(msg||''); const row=document.createElement('div'); row.textContent = (data===undefined) ? line : (line+' '+dbgSafe(data)); el.appendChild(row); while(el.childNodes.length>200){ el.removeChild(el.firstChild); } el.scrollTop=el.scrollHeight; console.log('[DBG]', msg, data); }catch(_){} }
+  function dbgSetupUI(){ try{ if(!window.__DBG_ON) return; const t=document.getElementById('dbgToggle'); const p=document.getElementById('dbgPanel'); const b=document.getElementById('dbgBody'); const min=document.getElementById('dbgMin'); const clr=document.getElementById('dbgClear'); if(!t||!p||!b) return; t.style.display='block'; p.style.display='block'; let hidden=false; const apply=()=>{ p.style.display = hidden ? 'none' : 'block'; }; t.onclick=()=>{ hidden=!hidden; apply(); }; if(min) min.onclick=()=>{ hidden=!hidden; apply(); }; if(clr) clr.onclick=()=>{ b.innerHTML=''; }; apply(); }catch(_){} }
+  if (window.__DBG_ON) { dbgSetupUI(); dbgLog('dbg enabled', { ua: navigator.userAgent }); }
   async function post(url, data){
-    const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})});
-    if(!r.ok){ let e; try{e=await r.json()}catch(_){e={}}; throw new Error(e&&e.error||('HTTP '+r.status)); }
-    return r.json();
+    try{
+      dbgLog('fetch POST', { url, len: JSON.stringify(data||{}).length });
+      const r = await fetch(url,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        credentials: 'include',
+        body: JSON.stringify(data||{})
+      });
+      dbgLog('fetch resp', { url, status: r.status, ok: r.ok });
+      if(!r.ok){ let e; try{e=await r.json()}catch(_){e={}}; throw new Error(e&&e.error||('HTTP '+r.status)); }
+      const j = await r.json();
+      dbgLog('fetch ok', { url });
+      return j;
+    }catch(err){
+      dbgLog('fetch error', String(err && err.message || err));
+      // Fallback XHR
+      try{
+        dbgLog('xhr fallback start', { url });
+        const resp = await new Promise((resolve,reject)=>{
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', url, true);
+          xhr.withCredentials = true;
+          xhr.setRequestHeader('Content-Type','application/json');
+          xhr.onreadystatechange = function(){
+            if(xhr.readyState===4){
+              if(xhr.status>=200 && xhr.status<300){
+                try{ const j = JSON.parse(xhr.responseText||'{}'); resolve(j); dbgLog('xhr ok', { url, status:xhr.status }); } catch(e){ resolve({}); dbgLog('xhr ok (nojson)', { url }); }
+              } else {
+                try{ const j = JSON.parse(xhr.responseText||'{}'); dbgLog('xhr error json', j); reject(new Error(j && j.error || ('HTTP '+xhr.status))); }
+                catch(_){ dbgLog('xhr error', 'HTTP '+xhr.status); reject(new Error('HTTP '+xhr.status)); }
+              }
+            }
+          };
+          xhr.onerror = ()=> { dbgLog('xhr net_error'); reject(new Error('net_error')); };
+          xhr.send(JSON.stringify(data||{}));
+        });
+        return resp;
+      }catch(e2){ dbgLog('xhr fallback failed', String(e2 && e2.message || e2)); throw err; }
+    }
   }
   function buildInitDataString(tg){
     try{
@@ -75,24 +129,29 @@
     const password = document.getElementById('password').value;
     if(!email||!password){ alert('Email y contraseña requeridos'); return; }
     try{
+      dbgLog('email login attempt', { email });
       await post('/api/auth/login-email',{email,password});
+      dbgLog('email login ok');
       window.location.href = '/games';
-    }catch(e){ alert('Login falló: '+e.message); }
+    }catch(e){ dbgLog('email login error', String(e && e.message || e)); alert('Login falló: '+e.message); }
   });
   async function loginWithTelegram(auto=false){
     try{
       const tg = window.Telegram && window.Telegram.WebApp;
       const raw = buildInitDataString(tg);
+      dbgLog('tg login start', { auto, hasTG: !!tg, rawLen: raw ? raw.length : 0 });
       if (tg && raw) {
         try { if (typeof tg.ready === 'function') tg.ready(); } catch(_) {}
-        await post('/api/auth/login-telegram',{ initData: raw });
+        const out = await post('/api/auth/login-telegram',{ initData: raw });
+        dbgLog('tg login ok', out);
         window.location.href = '/games';
       } else {
+        dbgLog('tg data missing', { auto, hasTG: !!tg, rawLen: raw ? raw.length : 0 });
         if (!auto) alert('Abre esta página desde Telegram para login automático.');
       }
-    }catch(e){ if (!auto) alert('Login Telegram falló: '+e.message); }
+    }catch(e){ dbgLog('tg login error', String(e && e.message || e)); if (!auto) alert('Login Telegram falló: '+e.message); }
   }
-  document.getElementById('btnTelegram').addEventListener('click', ()=>{ loginWithTelegram(false); });
+  document.getElementById('btnTelegram').addEventListener('click', ()=>{ dbgLog('tg btn click'); loginWithTelegram(false); });
   const usp = new URLSearchParams(location.search);
   const created = usp.get('created')==='1';
   const pre = usp.get('email'); if (pre) { const ei=document.getElementById('email'); if (ei) ei.value = pre; }
@@ -114,17 +173,23 @@
     const tg = window.Telegram && window.Telegram.WebApp;
     if (!disableAuto && tg) {
       try { if (typeof tg.ready === 'function') tg.ready(); } catch(_) {}
+      // Ping previo para diagnosticar conectividad del WebView
+      try { const pr = await fetch('/api/auth/ping',{ credentials:'include' }); dbgLog('ping', { status: pr.status, ok: pr.ok }); } catch(ex){ dbgLog('ping error', String(ex && ex.message || ex)); }
       let retries = 12; // ~3s a 250ms
+      let loggedOnce = false;
       const attempt = () => {
         try {
           const raw = buildInitDataString(tg);
-          if (raw) { loginWithTelegram(true); return; }
+          if (!loggedOnce) { dbgLog('auto tg check', { rawLen: raw ? raw.length : 0 }); loggedOnce = true; }
+          if (raw) { dbgLog('auto tg initData ready', { len: raw.length }); loginWithTelegram(true); return; }
         } catch(_) {}
         if (retries-- > 0) setTimeout(attempt, 250);
       };
       setTimeout(attempt, 50);
     }
   } catch(_) {}
+  // Mostrar UI de debug si está activo
+  if (window.__DBG_ON) { dbgSetupUI(); }
 </script>
 </body>
 </html>
