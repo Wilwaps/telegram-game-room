@@ -217,6 +217,25 @@ router.post('/logout', (req, res) => {
   }
 });
 
+// Ping de salud para WebView/Telegram
+router.get('/ping', (req, res) => {
+  try {
+    res.json({ success: true, now: Date.now(), ua: String(req.headers['user-agent']||'') });
+  } catch (_) {
+    res.status(500).json({ success:false, error:'ping_error' });
+  }
+});
+
+// Echo simple para verificar POST JSON
+router.post('/echo', (req, res) => {
+  try {
+    const body = req.body || {};
+    res.json({ success:true, received: body, len: JSON.stringify(body||{}).length });
+  } catch(_) {
+    res.status(500).json({ success:false, error:'echo_error' });
+  }
+});
+
 // Debug: estado de email (existe / verificado)
 router.get('/debug-email', (req, res) => {
   try {

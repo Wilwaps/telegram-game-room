@@ -50,6 +50,9 @@ if (!('ALLOW_UNVERIFIED_EMAIL_LOGIN' in process.env)) {
 if (!('ALLOW_UNVERIFIED_TG_INIT' in process.env)) {
   process.env.ALLOW_UNVERIFIED_TG_INIT = 'true';
 }
+if (!('ALLOW_SID_QUERY_LOGIN' in process.env)) {
+  process.env.ALLOW_SID_QUERY_LOGIN = 'true';
+}
 app.set('trust proxy', true);
 // Bloquear cualquier intento de establecer X-Frame-Options en respuestas
 app.use((req, res, next) => {
@@ -71,7 +74,7 @@ app.use(helmet({
       "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
       "img-src": ["'self'", "data:", "https:", "blob:"],
       "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
-      "connect-src": ["'self'", "https://api.telegram.org", "https://*.telegram.org"],
+      "connect-src": ["'self'", "https:", "wss:", "https://api.telegram.org", "https://*.telegram.org"],
       "media-src": ["'self'", "https://www.soundhelix.com", "https://api.telegram.org", "https://*.telegram.org"],
       "frame-ancestors": ["'self'", "https://*.telegram.org", "https://web.telegram.org", "https://t.me", "https://*.t.me"],
       "upgrade-insecure-requests": []
@@ -176,6 +179,21 @@ function requireIdentified(req, res, next) {
     for (const part of raw.split(/;\s*/)) {
       const [k, v] = part.split('=');
       if (k === 'sid') { sid = v; break; }
+    }
+    // Fallback QA: aceptar ?sid= para ambientes que bloquean cookies 3P
+    if (!sid && String(process.env.ALLOW_SID_QUERY_LOGIN||'').toLowerCase()==='true') {
+      try {
+        const qsid = String(req.query && req.query.sid || '').trim();
+        if (qsid) {
+          const sess = authService.getSession(qsid);
+          if (sess) {
+            const maxAge = 30 * 24 * 3600;
+            res.setHeader('Set-Cookie', [`sid=${qsid}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`]);
+            const cleanUrl = req.path; // limpia query
+            return res.redirect(302, cleanUrl);
+          }
+        }
+      } catch(_) {}
     }
     const sess = sid ? authService.getSession(sid) : null;
     if (!sess) return res.redirect(302, '/login');
