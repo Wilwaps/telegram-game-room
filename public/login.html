@@ -144,13 +144,31 @@
         try { if (typeof tg.ready === 'function') tg.ready(); } catch(_) {}
         const out = await post('/api/auth/login-telegram',{ initData: raw });
         dbgLog('tg login ok', out);
-        // Confirmar que la cookie quedó establecida
+        // 1) me-check con backoff corto
+        let ok = false; let lastStatus = 0;
+        for (let i=0, d=100; i<4; i++, d*=2) {
+          try {
+            const r = await fetch('/api/auth/me', { credentials:'include' });
+            lastStatus = r.status; dbgLog('me check', { status: r.status, ok: r.ok });
+            if (r.ok) { ok = true; break; }
+          } catch(ex) { dbgLog('me check error', String(ex && ex.message || ex)); }
+          await new Promise(res=>setTimeout(res, Math.min(1000, d)));
+        }
+        if (ok) { window.location.href = '/games'; return; }
+        // 2) Handshake para fijar cookie
         try {
-          const r = await fetch('/api/auth/me', { credentials:'include' });
-          dbgLog('me check', { status: r.status, ok: r.ok });
-          if (r.ok) { window.location.href = '/games'; return; }
-        } catch(ex) { dbgLog('me check error', String(ex && ex.message || ex)); }
-        // Fallback con ?sid=
+          if (out && out.sid) {
+            const hs = await fetch('/api/auth/handshake?sid=' + encodeURIComponent(out.sid), { credentials:'include' });
+            dbgLog('handshake', { status: hs.status, ok: hs.ok });
+            // Reintentar me-check
+            try {
+              const r2 = await fetch('/api/auth/me', { credentials:'include' });
+              dbgLog('me check after handshake', { status: r2.status, ok: r2.ok });
+              if (r2.ok) { window.location.href = '/games'; return; }
+            } catch(ex2) { dbgLog('me check error after handshake', String(ex2 && ex2.message || ex2)); }
+          }
+        } catch(ex3) { dbgLog('handshake error', String(ex3 && ex3.message || ex3)); }
+        // 3) Fallback con ?sid=
         try {
           if (out && out.sid) {
             dbgLog('fallback redirect with sid');

@@ -236,6 +236,19 @@ router.post('/echo', (req, res) => {
   }
 });
 
+router.get('/handshake', (req, res) => {
+  try {
+    const sid = String((req.query && req.query.sid) || '').trim();
+    if (!sid) return res.status(400).json({ success:false, error:'invalid_sid' });
+    const sess = auth.getSession(sid);
+    if (!sess) return res.status(401).json({ success:false, error:'invalid_session' });
+    setSessionCookie(res, sid);
+    return res.status(204).end();
+  } catch (err) {
+    return res.status(500).json({ success:false, error:'handshake_error' });
+  }
+});
+
 // Debug: estado de email (existe / verificado)
 router.get('/debug-email', (req, res) => {
   try {

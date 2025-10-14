@@ -160,7 +160,7 @@ const limiter = rateLimit({
     }
   }
 });
-app.use(limiter);
+app.use('/api', limiter);
 
 // Rutas API
 app.use('/api/economy', economyRoutes);
