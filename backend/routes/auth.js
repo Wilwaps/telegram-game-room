@@ -136,6 +136,25 @@ function verifyTelegramInitData(initData, botToken) {
   } catch (_) { return null; }
 }
 
+function verifyTelegramWidgetData(dataObj, botToken) {
+  try {
+    if (!dataObj || !botToken) return null;
+    const entries = Object.entries(dataObj).filter(([k]) => k !== 'hash');
+    const dataCheckString = entries
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
+      .join('\n');
+    const secretKey = crypto.createHash('sha256').update(botToken).digest();
+    const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    if (hmac !== String(dataObj.hash || '')) return null;
+    const u = dataObj || {};
+    const user = { id: u.id, username: u.username, first_name: u.first_name, last_name: u.last_name };
+    const authDate = Number(u.auth_date || 0);
+    if (!user.id || !authDate) return null;
+    return { user, authDate, hash: String(dataObj.hash || '') };
+  } catch (_) { return null; }
+}
+
 // Login con Telegram WebApp
 router.post('/login-telegram', (req, res) => {
   try {
@@ -169,6 +188,17 @@ router.post('/login-telegram', (req, res) => {
       const authDate = qs.get('auth_date') || '';
       return res.status(400).json({ success: false, error: 'invalid_telegram_data', reason: 'hash_mismatch_or_malformed', hasUser, authDatePresent: !!authDate, initLen: rawInit.length, allowUnverified });
     }
+    const params = new URLSearchParams(rawInit);
+    const hash = params.get('hash') || '';
+    const authDateSec = Number(params.get('auth_date') || parsed.authDate || 0);
+    const maxSkewSec = parseInt(process.env.TELEGRAM_AUTH_MAX_SKEW_SEC || '86400', 10);
+    if (authDateSec && maxSkewSec && (Math.floor(Date.now()/1000) - authDateSec > maxSkewSec)) {
+      return res.status(401).json({ success:false, error:'stale_telegram_auth' });
+    }
+    try {
+      const isReplay = auth.checkAndStoreTelegramReplay({ hash, authDate: authDateSec, ttlSec: maxSkewSec || 86400 });
+      if (isReplay) return res.status(409).json({ success:false, error:'replay_detected' });
+    } catch(_) {}
     const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');
     const tgUserId = 'tg:' + String(parsed.user.id);
     try {
@@ -188,6 +218,33 @@ router.post('/login-telegram', (req, res) => {
     res.json({ success: true, sid, userId });
   } catch (err) {
     res.status(500).json({ success: false, error: 'telegram_login_error' });
+  }
+});
+
+router.post('/login-telegram-widget', (req, res) => {
+  try {
+    const { data } = req.body || {};
+    const token = process.env.TELEGRAM_BOT_TOKEN || '';
+    if (!token) return res.status(500).json({ success:false, error:'telegram_token_missing' });
+    const payload = (typeof data === 'string') ? JSON.parse(data) : (data || {});
+    const parsed = verifyTelegramWidgetData(payload, token);
+    if (!parsed || !parsed.user || !parsed.user.id) {
+      return res.status(400).json({ success:false, error:'invalid_telegram_data' });
+    }
+    const maxSkewSec = parseInt(process.env.TELEGRAM_AUTH_MAX_SKEW_SEC || '86400', 10);
+    if (parsed.authDate && maxSkewSec && (Math.floor(Date.now()/1000) - parsed.authDate > maxSkewSec)) {
+      return res.status(401).json({ success:false, error:'stale_telegram_auth' });
+    }
+    try {
+      const isReplay = auth.checkAndStoreTelegramReplay({ hash: String(payload.hash||''), authDate: parsed.authDate, ttlSec: maxSkewSec || 86400 });
+      if (isReplay) return res.status(409).json({ success:false, error:'replay_detected' });
+    } catch(_) {}
+    const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');
+    const { sid, userId } = auth.createSessionForTelegram({ telegramId: parsed.user.id, name, ua: String(req.headers['user-agent'] || '') });
+    setSessionCookie(res, sid);
+    res.json({ success:true, sid, userId });
+  } catch (err) {
+    res.status(500).json({ success:false, error:'telegram_login_error' });
   }
 });
 
