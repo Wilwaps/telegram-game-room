@@ -22,6 +22,7 @@ class AuthStore {
     this.usersByEmail = new Map(); // emailLower -> { email, name, passwordHash, verified, telegramId, internalId }
     this.sessions = new Map(); // sid -> { userId, ua, createdAt }
     this.emailCodes = new Map(); // emailLower -> { code, expiresAt }
+    this.tgReplays = new Map();
   }
 
   getUserByEmail(email) { return this.usersByEmail.get(toLower(email)) || null; }
@@ -142,6 +143,24 @@ class AuthStore {
     const sid = uid(18);
     this.sessions.set(sid, { userId: u.userId, ua: String(ua || ''), createdAt: now() });
     return { sid, userId: u.userId };
+  }
+
+  checkAndStoreTelegramReplay({ hash, authDate, ttlSec }) {
+    const key = String(hash || '').trim();
+    if (!key) return false;
+    const nowMs = now();
+    const ttlMs = Math.max(1, Number(ttlSec || 600)) * 1000;
+    const prev = this.tgReplays.get(key);
+    if (prev && nowMs < prev) return true;
+    this.tgReplays.set(key, nowMs + ttlMs);
+    if (this.tgReplays.size > 5000) {
+      const entries = Array.from(this.tgReplays.entries());
+      const cutoff = nowMs;
+      for (let i = 0; i < entries.length; i++) {
+        if (entries[i][1] < cutoff) this.tgReplays.delete(entries[i][0]);
+      }
+    }
+    return false;
   }
 }
 

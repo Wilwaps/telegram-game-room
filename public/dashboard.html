@@ -43,36 +43,41 @@
         <div class="subtitle">Supply, transacciones y usuarios (real-time)</div>
       </div>
 
-    <div class="grid">
-      <div class="card">
-        <div class="label">Circulación inicial</div>
-        <div id="circ-init-status" class="kpi" style="font-size:18px">—</div>
-        <div id="circ-init-info" class="list"></div>
-      </div>
-      <div class="card">
-        <div class="label">Asignar circulación inicial</div>
-        <div class="list">
-          <div class="row"><span class="muted">toUserId</span><input id="circ-to" type="text" value="tg:1417856820" style="width:220px"/></div>
-          <div class="row"><span class="muted">amount</span><input id="circ-amount" type="number" min="1" value="100000" style="width:140px"/></div>
-          <div class="row"><span class="muted">Admin</span>
-            <input id="circ-admin-user" type="text" placeholder="usuario" style="width:140px"/>
-            <input id="circ-admin-code" type="password" placeholder="código" style="width:140px"/>
-          </div>
-          <div class="row" style="justify-content:flex-end">
-            <button id="circ-refresh" class="btn">Ver estado</button>
-            <button id="circ-assign" class="btn" style="border-color:#34d399; color:#d1fae5; background:rgba(52,211,153,.1)">Asignar</button>
-            <button id="circ-reconcile" class="btn" style="border-color:#a78bfa; color:#ede9fe; background:rgba(167,139,250,.12)">Reconciliar</button>
-          </div>
-          <div id="circ-alert" class="muted"></div>
-        </div>
-      </div>
-    </div>
       <div class="nav">
         <a class="btn" href="/portal.html">Portal</a>
         <a class="btn" href="/">Home</a>
       </div>
     </div>
 
+    <!-- Usuarios conectados (ancho completo al final) -->
+    <div class="grid" style="grid-template-columns: 1fr;">
+      <div class="card">
+        <div class="label">Usuarios conectados</div>
+        <div style="display:flex; gap:8px; align-items:center; margin:8px 0 10px;">
+          <input id="au-q" type="text" placeholder="Buscar..." style="flex:1; padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.04); color: var(--fg);"/>
+          <label class="muted" style="display:flex; gap:6px; align-items:center;"><input id="au-online" type="checkbox" checked/> Solo online</label>
+          <button id="au-refresh" class="btn">Refrescar</button>
+        </div>
+        <div style="max-height:60vh; overflow:auto;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Inicio</th>
+                <th>Últ. visto</th>
+                <th>ID</th>
+                <th>TG</th>
+                <th>Correo</th>
+                <th>Tel</th>
+                <th>Fuegos</th>
+                <th>Esperado</th>
+                <th>OK</th>
+              </tr>
+            </thead>
+            <tbody id="au-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
     <div class="grid">
       <div class="card">
         <div class="label">Total supply</div>
@@ -96,31 +101,6 @@
       <div class="card">
         <div class="label">Últimas transacciones de supply</div>
         <div id="txs" class="list"></div>
-      </div>
-      <div class="card">
-        <div class="label">Usuarios conectados</div>
-        <div style="display:flex; gap:8px; align-items:center; margin:8px 0 10px;">
-          <input id="au-q" type="text" placeholder="Buscar..." style="flex:1; padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.04); color: var(--fg);"/>
-          <label class="muted" style="display:flex; gap:6px; align-items:center;"><input id="au-online" type="checkbox" checked/> Solo online</label>
-          <button id="au-refresh" class="btn">Refrescar</button>
-        </div>
-        <div style="max-height:320px; overflow:auto;">
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th>Inicio</th>
-                <th>Últ. visto</th>
-                <th>ID</th>
-                <th>TG</th>
-                <th>Correo</th>
-                <th>Tel</th>
-                <th>Fuegos</th>
-                <th>OK</th>
-              </tr>
-            </thead>
-            <tbody id="au-rows"></tbody>
-          </table>
-        </div>
       </div>
       <div class="card">
         <div class="label">XP thresholds (config)</div>
@@ -252,6 +232,7 @@
             <td>${u.email||'-'}</td>
             <td>${u.phone||'-'}</td>
             <td>${fmt(u.fires||0)}</td>
+            <td style="font-family:monospace">${u.expectedId||'-'}</td>
             <td class="${ok?'ok':'bad'}">${ok?'OK':'NO'}</td>
           `;
           rows.appendChild(tr);

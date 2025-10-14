@@ -25,7 +25,6 @@
       <div class="flex items-center gap-2">
         <input id="codeInput" class="flex-1 bg-card border border-glass rounded-lg p-3" placeholder="Buscar sala por código (ej: RABCDE)"/>
         <button id="codeBtn" class="bg-yellow-400 text-background-dark font-bold px-4 py-3 rounded-lg shadow-neon-gold">Buscar</button>
-        <a href="/raffles/create" class="bg-accent text-background-dark font-bold px-4 py-3 rounded-lg">Crear</a>
       </div>
     </div>
 
@@ -44,6 +43,12 @@
       <div id="publicRaffles" class="grid gap-3"></div>
     </section>
   </main>
+
+  <!-- FAB Crear Rifa -->
+  <button id="raffleCreateFab" class="fixed bottom-24 right-4 bg-accent text-background-dark p-4 rounded-full shadow-[0_0_10px_#22d3ee,0_0_20px_#22d3ee] hover:bg-accent/90 transition-all duration-300 z-30">
+    <span class="material-symbols-outlined text-3xl">add</span>
+    <span class="sr-only">Crear rifa</span>
+  </button>
 
   <nav class="fixed bottom-0 left-0 right-0 bg-panel border-t border-glass px-2 py-1">
     <div class="flex justify-around text-xs text-center text-text/80">
@@ -154,6 +159,8 @@
       else { alert('Código no encontrado'); }
     }catch(_){ alert('Error de red'); }
   });
+  const fab = document.getElementById('raffleCreateFab');
+  if (fab) fab.addEventListener('click', ()=>{ window.location.href = '/raffles/create'; });
   window.addEventListener('load', load);
 })();
 </script>
