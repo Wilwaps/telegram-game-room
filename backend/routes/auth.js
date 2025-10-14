@@ -243,7 +243,13 @@ router.get('/handshake', (req, res) => {
     const sess = auth.getSession(sid);
     if (!sess) return res.status(401).json({ success:false, error:'invalid_session' });
     setSessionCookie(res, sid);
-    return res.status(204).end();
+    // Emitir ticket firmado para rehidratación cross-instance (válido por 60s)
+    const uid = String(sess.userId || '');
+    const ts = Date.now();
+    const secret = String(process.env.SESSION_TICKET_SECRET || 'dev-secret');
+    const payload = `${sid}.${uid}.${ts}`;
+    const ticket = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    return res.json({ success:true, sid, uid, ts, ticket });
   } catch (err) {
     return res.status(500).json({ success:false, error:'handshake_error' });
   }
