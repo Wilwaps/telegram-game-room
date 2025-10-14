@@ -64,18 +64,20 @@
       window.location.href = '/games';
     }catch(e){ alert('Login falló: '+e.message); }
   });
-  document.getElementById('btnTelegram').addEventListener('click', async ()=>{
+  async function loginWithTelegram(auto=false){
     try{
       const tg = window.Telegram && window.Telegram.WebApp;
       if (tg && tg.initData) {
+        try { if (typeof tg.ready === 'function') tg.ready(); } catch(_) {}
         const initData = tg.initData;
         await post('/api/auth/login-telegram',{ initData });
         window.location.href = '/games';
       } else {
-        alert('Abre esta página desde Telegram para login automático.');
+        if (!auto) alert('Abre esta página desde Telegram para login automático.');
       }
-    }catch(e){ alert('Login Telegram falló: '+e.message); }
-  });
+    }catch(e){ if (!auto) alert('Login Telegram falló: '+e.message); }
+  }
+  document.getElementById('btnTelegram').addEventListener('click', ()=>{ loginWithTelegram(false); });
   const usp = new URLSearchParams(location.search);
   const created = usp.get('created')==='1';
   const pre = usp.get('email'); if (pre) { const ei=document.getElementById('email'); if (ei) ei.value = pre; }
@@ -85,6 +87,20 @@
   if (created) {
     setTimeout(()=>alert('Cuenta creada. Ahora puedes iniciar sesión.'), 200);
   }
+  if (usp.get('exists')==='1') {
+    setTimeout(()=>{
+      alert('Este correo ya está registrado. Ingresa tu contraseña para iniciar sesión.');
+      const p = document.getElementById('password'); if (p) p.focus();
+    }, 200);
+  }
+  // Auto-login Telegram si el WebApp está embebido y no se desactiva con ?no_auto_tg=1
+  const disableAuto = usp.get('no_auto_tg')==='1';
+  try {
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (!disableAuto && tg && tg.initData) {
+      setTimeout(()=> loginWithTelegram(true), 50);
+    }
+  } catch(_) {}
 </script>
 </body>
 </html>
