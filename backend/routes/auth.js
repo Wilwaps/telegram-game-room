@@ -7,19 +7,26 @@ let roles = null; try { roles = require('../services/roles'); } catch(_) { roles
 
 function setSessionCookie(res, sid) {
   const maxAge = 30 * 24 * 3600; // 30 días
-  const cookie = [`sid=${sid}`, 'Path=/', 'HttpOnly', 'SameSite=None', 'Secure', 'Partitioned', `Max-Age=${maxAge}`].join('; ');
-  res.setHeader('Set-Cookie', cookie);
+  const cookieStd = [`sid=${sid}`, 'Path=/', 'HttpOnly', 'SameSite=None', 'Secure', `Max-Age=${maxAge}`].join('; ');
+  const cookiePart = [`sidp=${sid}`, 'Path=/', 'HttpOnly', 'SameSite=None', 'Secure', 'Partitioned', `Max-Age=${maxAge}`].join('; ');
+  res.setHeader('Set-Cookie', [cookieStd, cookiePart]);
 }
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', ['sid=; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=0']);
+  res.setHeader('Set-Cookie', [
+    'sid=; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=0',
+    'sidp=; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=0'
+  ]);
 }
 function getSidFromReq(req) {
   const raw = String(req.headers.cookie || '');
+  let sid = '';
+  let sidp = '';
   for (const part of raw.split(/;\s*/)) {
     const [k, v] = part.split('=');
-    if (k === 'sid') return v;
+    if (k === 'sid') sid = v;
+    if (k === 'sidp') sidp = v;
   }
-  return '';
+  return sid || sidp || '';
 }
 
 // Registro con email (crea usuario y emite código)
@@ -192,11 +199,12 @@ router.post('/login-telegram', (req, res) => {
     const hash = params.get('hash') || '';
     const authDateSec = Number(params.get('auth_date') || parsed.authDate || 0);
     const maxSkewSec = parseInt(process.env.TELEGRAM_AUTH_MAX_SKEW_SEC || '86400', 10);
+    const replayTtlSec = parseInt(process.env.TELEGRAM_REPLAY_TTL_SEC || '120', 10);
     if (authDateSec && maxSkewSec && (Math.floor(Date.now()/1000) - authDateSec > maxSkewSec)) {
       return res.status(401).json({ success:false, error:'stale_telegram_auth' });
     }
     try {
-      const isReplay = auth.checkAndStoreTelegramReplay({ hash, authDate: authDateSec, ttlSec: maxSkewSec || 86400 });
+      const isReplay = auth.checkAndStoreTelegramReplay({ hash, authDate: authDateSec, ttlSec: replayTtlSec });
       if (isReplay) return res.status(409).json({ success:false, error:'replay_detected' });
     } catch(_) {}
     const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');
@@ -236,7 +244,7 @@ router.post('/login-telegram-widget', (req, res) => {
       return res.status(401).json({ success:false, error:'stale_telegram_auth' });
     }
     try {
-      const isReplay = auth.checkAndStoreTelegramReplay({ hash: String(payload.hash||''), authDate: parsed.authDate, ttlSec: maxSkewSec || 86400 });
+      const isReplay = auth.checkAndStoreTelegramReplay({ hash: String(payload.hash||''), authDate: parsed.authDate, ttlSec: replayTtlSec });
       if (isReplay) return res.status(409).json({ success:false, error:'replay_detected' });
     } catch(_) {}
     const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');

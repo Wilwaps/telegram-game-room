@@ -95,17 +95,33 @@ app.use((req, res, next) => {
 // Bootstrap de sesión: asigna un SID invitado si no existe
 app.use((req, res, next) => {
   try {
+    const readSid = () => {
+      try {
+        const raw = String(req.headers.cookie || '');
+        let sid = ''; let sidp = '';
+        for (const part of raw.split(/;\s*/)) {
+          const [k, v] = part.split('=');
+          if (k === 'sid') { sid = v; }
+          if (k === 'sidp') { sidp = v; }
+        }
+        return sid || sidp || '';
+      } catch (_) { return ''; }
+    };
     const raw = String(req.headers.cookie || '');
     let sid = '';
     for (const part of raw.split(/;\s*/)) {
       const [k, v] = part.split('=');
       if (k === 'sid') { sid = v; break; }
     }
+    if (!sid) sid = readSid();
     const sess = sid ? authService.getSession(sid) : null;
     if (!sess) {
       const { sid: newSid } = authService.createGuestSession({ ua: String(req.headers['user-agent'] || '') });
       const maxAge = 30 * 24 * 3600;
-      res.setHeader('Set-Cookie', [`sid=${newSid}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`]);
+      res.setHeader('Set-Cookie', [
+        `sid=${newSid}; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=${maxAge}`,
+        `sidp=${newSid}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`
+      ]);
     }
   } catch (_) {}
   next();
@@ -120,6 +136,14 @@ app.use((req, res, next) => {
     for (const part of raw.split(/;\s*/)) {
       const [k, v] = part.split('=');
       if (k === 'sid') { sid = v; break; }
+    }
+    if (!sid) {
+      try {
+        for (const part of raw.split(/;\s*/)) {
+          const [k, v] = part.split('=');
+          if (k === 'sidp') { sid = v; break; }
+        }
+      } catch (_) {}
     }
     if (sid) {
       const sess = authService.getSession(sid);
@@ -189,6 +213,14 @@ function requireIdentified(req, res, next) {
       const [k, v] = part.split('=');
       if (k === 'sid') { sid = v; break; }
     }
+    if (!sid) {
+      try {
+        for (const part of raw.split(/;\s*/)) {
+          const [k, v] = part.split('=');
+          if (k === 'sidp') { sid = v; break; }
+        }
+      } catch (_) {}
+    }
     // Fallback QA: aceptar ?sid= para ambientes que bloquean cookies 3P
     if (!sid && String(process.env.ALLOW_SID_QUERY_LOGIN||'').toLowerCase()==='true') {
       try {
@@ -197,7 +229,10 @@ function requireIdentified(req, res, next) {
           const sess = authService.getSession(qsid);
           if (sess) {
             const maxAge = 30 * 24 * 3600;
-            res.setHeader('Set-Cookie', [`sid=${qsid}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`]);
+            res.setHeader('Set-Cookie', [
+              `sid=${qsid}; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=${maxAge}`,
+              `sidp=${qsid}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`
+            ]);
             // Continuar sin redirigir: servimos el recurso en esta misma respuesta
             return next();
           }
