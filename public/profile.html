@@ -175,15 +175,15 @@
         <div class="grid grid-cols-3 gap-2 text-center">
           <div>
             <p class="text-xs text-text/70">Victorias</p>
-            <p class="font-bold text-xl">100</p>
+            <p id="winsVal" class="font-bold text-xl">0</p>
           </div>
           <div>
             <p class="text-xs text-text/70">Empates</p>
-            <p class="font-bold text-xl">50</p>
+            <p id="drawsVal" class="font-bold text-xl">0</p>
           </div>
           <div>
             <p class="text-xs text-text/70">Derrotas</p>
-            <p class="font-bold text-xl">20</p>
+            <p id="lossesVal" class="font-bold text-xl">0</p>
           </div>
         </div>
       </div>
@@ -272,6 +272,10 @@
         const cEl = $('coinsVal'); if (cEl) cEl.textContent = fmt(coins);
         const eEl = $('expVal'); if (eEl) eEl.textContent = fmt(exp);
         const greet = $('greet'); if (greet && user) { greet.style.display='block'; greet.textContent = `¡Felicidades ${uname}! Has ganado ${fmt(earned)} monedas en el grupo.`; }
+        const st = (j.user && j.user.stats) ? j.user.stats : { wins:0, draws:0, losses:0 };
+        const wEl = $('winsVal'); if (wEl) wEl.textContent = fmt(st.wins||0);
+        const dEl = $('drawsVal'); if (dEl) dEl.textContent = fmt(st.draws||0);
+        const lEl = $('lossesVal'); if (lEl) lEl.textContent = fmt(st.losses||0);
         const cur = $('currentFiresVal'); if (cur) cur.textContent = String(fires);
       }
     }

@@ -24,11 +24,13 @@ router.get('/:userId', (req, res) => {
       u = store.getUser(userId) || { userId, userName: '', fires: 0, coins: 0 };
     }
     let earned = 0;
+    let stats = null;
     try {
       const hist = store.getUserHistory(userId, { limit: 200, offset: 0 });
       for (const tx of hist.items) if (tx && tx.type === 'coin') earned += Number(tx.amount || 0);
     } catch (_) {}
-    return res.json({ success: true, user: { userId: u.userId, userName: u.userName, fires: u.fires || 0, coins: u.coins || 0, earnedCoins: earned } });
+    try { stats = store.getUserStats(userId); } catch(_) { stats = { wins:0, losses:0, draws:0, games:0, byGame:{} }; }
+    return res.json({ success: true, user: { userId: u.userId, userName: u.userName, fires: u.fires || 0, coins: u.coins || 0, earnedCoins: earned, stats } });
   } catch (err) {
     return res.status(500).json({ success: false, error: 'profile_error' });
   }

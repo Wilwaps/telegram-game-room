@@ -16,6 +16,7 @@ class MemoryStore extends EventEmitter {
     this.txs = []; // simple list of transactions
     this.coinDaily = new Map(); // userId -> { date: 'YYYY-MM-DD', count: number }
     this.fireRequests = []; // [{ id, userId, amount, reference, status, createdAt, updatedAt }]
+    this.userStats = new Map(); // userId -> { wins, losses, draws, games, byGame: { [game]: { wins, losses, draws, games } } }
     // Evento de bienvenida (bono por primer login)
     this.welcomeEvent = { active: false, startsAt: 0, endsAt: 0, coins: 0, fires: 0, message: '' };
     this.welcomeClaims = new Map(); // userId -> ts de entrega
@@ -205,6 +206,29 @@ class MemoryStore extends EventEmitter {
     const items = filtered.slice(start, end);
     const nextCursor = end < filtered.length ? end : null;
     return { items, nextCursor, total: filtered.length };
+  }
+
+  // --- Stats ---
+  _statObj() { return { wins: 0, losses: 0, draws: 0, games: 0 }; }
+  _getStats(userId){
+    const id = String(userId||'').trim();
+    if (!this.userStats.has(id)) this.userStats.set(id, { ...this._statObj(), byGame: {} });
+    return this.userStats.get(id);
+  }
+  recordGameResult({ userId, game = 'generic', result }){
+    const id = String(userId||'').trim(); if (!id) return;
+    const g = String(game||'generic'); const r = String(result||'').toLowerCase();
+    const st = this._getStats(id);
+    st.games += 1;
+    if (r === 'win') st.wins += 1; else if (r === 'loss') st.losses += 1; else if (r === 'draw') st.draws += 1;
+    if (!st.byGame[g]) st.byGame[g] = this._statObj();
+    st.byGame[g].games += 1;
+    if (r === 'win') st.byGame[g].wins += 1; else if (r === 'loss') st.byGame[g].losses += 1; else if (r === 'draw') st.byGame[g].draws += 1;
+    this.userStats.set(id, st);
+  }
+  getUserStats(userId){
+    const st = this._getStats(userId);
+    return { wins: st.wins, losses: st.losses, draws: st.draws, games: st.games, byGame: { ...st.byGame } };
   }
 
   // --- User tracking & contact metadata ---

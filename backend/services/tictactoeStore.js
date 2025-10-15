@@ -189,8 +189,25 @@ class TTTStore extends EventEmitter {
       if (r.winner) {
         r.lastWinner = r.winner;
         if (r.winner === 'X') r.score.X += 1; else if (r.winner === 'O') r.score.O += 1;
+        try {
+          const xid = r.players.X, oid = r.players.O;
+          if (xid && oid) {
+            if (r.winner === 'X') {
+              mem.recordGameResult({ userId: xid, game: 'tictactoe', result: 'win' });
+              mem.recordGameResult({ userId: oid, game: 'tictactoe', result: 'loss' });
+            } else if (r.winner === 'O') {
+              mem.recordGameResult({ userId: oid, game: 'tictactoe', result: 'win' });
+              mem.recordGameResult({ userId: xid, game: 'tictactoe', result: 'loss' });
+            }
+          }
+        } catch(_) {}
       } else {
         r.lastWinner = null;
+        try {
+          const xid = r.players.X, oid = r.players.O;
+          if (xid) mem.recordGameResult({ userId: xid, game: 'tictactoe', result: 'draw' });
+          if (oid) mem.recordGameResult({ userId: oid, game: 'tictactoe', result: 'draw' });
+        } catch(_) {}
       }
     } else {
       r.turn = r.turn === 'X' ? 'O' : 'X';

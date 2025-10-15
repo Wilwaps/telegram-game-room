@@ -210,6 +210,17 @@ class BingoStore extends EventEmitter {
     if (!win) throw new Error('no_bingo');
     r.status = 'finished';
     r.winners = [{ userId: p.userId, cardIndex }];
+    // Estadísticas por usuario
+    try {
+      const winnerId = String(p.userId);
+      // Ganador
+      mem.recordGameResult({ userId: winnerId, game: 'bingo', result: 'win' });
+      // Perdedor(es)
+      for (const other of r.players.values()) {
+        const oid = String(other.userId||''); if (!oid || oid===winnerId) continue;
+        mem.recordGameResult({ userId: oid, game: 'bingo', result: 'loss' });
+      }
+    } catch(_) {}
     // Distribución del pozo: 70% ganador, 20% host, 10% sponsor fijo
     const pot = Math.max(0, Number(r.potFires || 0));
     const wAmt = Math.floor(pot * 0.70);

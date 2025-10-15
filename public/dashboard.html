@@ -27,6 +27,11 @@
     .nav { display:flex; gap:8px; flex-wrap:wrap; }
     .btn { display:inline-flex; align-items:center; gap:8px; background: rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.35); color:#e6fbff; padding:10px 14px; border-radius:10px; cursor:pointer; text-decoration:none; transition:.18s ease; }
     .btn:hover { transform: translateY(-1px); background: rgba(34,211,238,0.16); }
+    .btn-small { padding:6px 10px; font-size:12px; border-radius:8px; }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .btn-tab { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; border:1px solid rgba(34,211,238,0.35); background: rgba(34,211,238,0.1); color:#bfefff; font-size:12px; cursor:pointer; transition:.18s ease; }
+    .btn-tab:hover { background: rgba(34,211,238,0.18); }
+    .btn-tab-active { background: rgba(34,211,238,0.3); color:#0b0e14; border-color: rgba(34,211,238,0.8); }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px }
     .tbl { width:100%; border-collapse:separate; border-spacing:0 6px; }
     .tbl th { text-align:left; font-size:12px; color: var(--muted); }
@@ -50,7 +55,9 @@
       </div>
     </div>
 
-    <!-- Usuarios conectados (ancho completo al final) -->
+    
+
+    <!-- Usuarios conectados (ancho completo al inicio) -->
     <div class="grid" style="grid-template-columns: 1fr;">
       <div class="card">
         <div class="label">Usuarios conectados</div>
@@ -109,30 +116,29 @@
       </div>
     </div>
 
-    <div class="grid">
+    <div class="grid" style="grid-template-columns: 1fr;">
       <div class="card">
-        <div class="label">Eventos para el usuario</div>
-        <div id="wel-status" class="kpi" style="font-size:18px">-</div>
-        <div class="list" id="wel-info"></div>
-      </div>
-      <div class="card">
-        <div class="label">Configurar evento de bienvenida</div>
-        <div class="list">
-          <div class="row"><span class="muted">Monedas</span><input id="wel-coins" type="number" min="0" value="100" style="width:120px"/></div>
-          <div class="row"><span class="muted">Fuegos</span><input id="wel-fires" type="number" min="0" value="10" style="width:120px"/></div>
-          <div class="row"><span class="muted">Duración (horas)</span><input id="wel-hours" type="number" min="1" value="72" style="width:120px"/></div>
-          <div class="row"><span class="muted">Mensaje</span><input id="wel-msg" type="text" placeholder="Texto mostrado a usuarios" style="flex:1"/></div>
-          <div class="row"><span class="muted">Admin</span>
-            <input id="wel-admin-user" type="text" placeholder="usuario" style="width:140px"/>
-            <input id="wel-admin-code" type="password" placeholder="código" style="width:140px"/>
-          </div>
-          <div class="row" style="justify-content:flex-end">
-            <button id="wel-refresh" class="btn">Actualizar estado</button>
-            <button id="wel-activate" class="btn" style="border-color:#34d399; color:#d1fae5; background:rgba(52,211,153,.1)">Activar</button>
-            <button id="wel-disable" class="btn" style="border-color:#ef4444; color:#fee2e2; background:rgba(239,68,68,.1)">Desactivar</button>
-          </div>
-          <div id="wel-alert" class="muted"></div>
+        <div class="label">Evento de bienvenida</div>
+        <div class="row" style="justify-content:flex-start; gap:12px;">
+          <span class="muted">Estado</span>
+          <span id="wel-status" class="kpi" style="font-size:18px">-</span>
         </div>
+        <div class="list" id="wel-info"></div>
+        <hr style="border:none; border-top:1px solid rgba(255,255,255,.08); margin:12px 0;">
+        <div class="row"><span class="muted">Monedas</span><input id="wel-coins" type="number" min="0" value="100" style="width:120px"/></div>
+        <div class="row"><span class="muted">Fuegos</span><input id="wel-fires" type="number" min="0" value="10" style="width:120px"/></div>
+        <div class="row"><span class="muted">Duración (horas)</span><input id="wel-hours" type="number" min="1" value="72" style="width:120px"/></div>
+        <div class="row"><span class="muted">Mensaje</span><input id="wel-msg" type="text" placeholder="Texto mostrado a usuarios" style="flex:1"/></div>
+        <div class="row"><span class="muted">Admin</span>
+          <input id="wel-admin-user" type="text" placeholder="usuario" style="width:140px"/>
+          <input id="wel-admin-code" type="password" placeholder="código" style="width:140px"/>
+        </div>
+        <div class="row" style="justify-content:flex-end; gap:8px;">
+          <button id="wel-refresh" class="btn btn-small">Actualizar estado</button>
+          <button id="wel-apply" class="btn btn-small" style="border-color:#34d399; color:#d1fae5; background:rgba(52,211,153,.1)">Guardar y activar</button>
+          <button id="wel-disable" class="btn btn-small" style="border-color:#ef4444; color:#fee2e2; background:rgba(239,68,68,.1)">Desactivar</button>
+        </div>
+        <div id="wel-alert" class="muted"></div>
       </div>
     </div>
 
@@ -162,20 +168,29 @@
 
     function shortTxt(s, max=64){ const t = String(s||''); return t.length>max? (t.slice(0,max-3)+"...") : t; }
 
+    // Paginación y pestañas (Consolidado)
+    const fuState = { tab: 'active', cursor: 0, nextCursor: null, prevStack: [], page: 1, limit: 25 };
+    function fuSetTab(tab){ fuState.tab = tab; fuState.cursor = 0; fuState.prevStack = []; fuState.page = 1; document.getElementById('fu-page').textContent = 'Página 1';
+      document.getElementById('fu-tab-active').classList.toggle('btn-tab-active', tab==='active');
+      document.getElementById('fu-tab-history').classList.toggle('btn-tab-active', tab==='history');
+      loadFullUsers(); }
     async function loadFullUsers(){
       try{
         const q = (document.getElementById('fu-q')?.value||'');
-        const r = await fetch(`/api/admin/users/list?search=${encodeURIComponent(q)}&onlineOnly=false&limit=200`);
-        const j = await r.json();
-        const rows = document.getElementById('fu-rows');
+        const onlineOnly = fuState.tab === 'active';
+        const url = `/api/admin/users/list?search=${encodeURIComponent(q)}&onlineOnly=${onlineOnly}&limit=${fuState.limit}&cursor=${fuState.cursor}`;
+        const resp = await fetch(url);
+        const j = await resp.json();
+        const rows = document.getElementById('fu-rows'); if (!rows) return;
         rows.innerHTML='';
         const arr = (j && j.items) ? j.items : [];
+        fuState.nextCursor = (j && (typeof j.nextCursor !== 'undefined')) ? j.nextCursor : null;
         for (const u of arr){
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td style="font-family:monospace">${u.telegramId||'-'}</td>
+            <td style=\"font-family:monospace\">${u.telegramId||'-'}</td>
             <td>${u.email||'-'}</td>
-            <td style="font-family:monospace">${u.userId||'-'}</td>
+            <td style=\"font-family:monospace\">${u.userId||'-'}</td>
             <td>${u.telegramUsername||u.userName||'-'}</td>
             <td>${u.userName||'-'}</td>
             <td>${u.phone||'-'}</td>
@@ -183,10 +198,13 @@
             <td>${fmtTS(u.lastSeenAt)} · ${fmtDur(u.lastDurationMs)}</td>
             <td>${u.email||'-'}</td>
             <td>${fmt(u.fires||0)}</td>
-            <td><button class="btn btn-reset" data-id="${u.userId}">Reset</button></td>
+            <td><button class=\"btn btn-small btn-reset\" data-id=\"${u.userId}\">Reset</button></td>
           `;
           rows.appendChild(tr);
         }
+        document.getElementById('fu-page').textContent = `Página ${fuState.page}`;
+        document.getElementById('fu-prev').disabled = fuState.prevStack.length===0;
+        document.getElementById('fu-next').disabled = (fuState.nextCursor===null);
         for (const b of document.querySelectorAll('button.btn-reset')){
           b.addEventListener('click', async (e)=>{
             const id = e.currentTarget.getAttribute('data-id');
@@ -200,7 +218,7 @@
             }catch(_){ alert('Error de red'); }
           });
         }
-      }catch(_){ const rows=document.getElementById('fu-rows'); if(rows) rows.innerHTML='<tr><td colspan="11">Error de red</td></tr>'; }
+      }catch(_){ const rows=document.getElementById('fu-rows'); if(rows) rows.innerHTML='<tr><td colspan=\"11\">Error de red</td></tr>'; }
     }
 
     async function fetchWelcomeStatus(){
@@ -341,7 +359,7 @@
     fetchWelcomeStatus();
     loadFullUsers();
     document.getElementById('wel-refresh').addEventListener('click', fetchWelcomeStatus);
-    document.getElementById('wel-activate').addEventListener('click', activateWelcome);
+    const applyBtn = document.getElementById('wel-apply'); if (applyBtn) applyBtn.addEventListener('click', activateWelcome);
     document.getElementById('wel-disable').addEventListener('click', disableWelcome);
     if (typeof fetchCircInitStatus === 'function') {
       fetchCircInitStatus();
@@ -352,10 +370,14 @@
     const aq=document.getElementById('au-q'); if(aq){ aq.addEventListener('keydown', (e)=>{ if(e.key==='Enter') loadAdminUsers(); }); }
     const ao=document.getElementById('au-online'); if(ao){ ao.addEventListener('change', loadAdminUsers); }
     const ar=document.getElementById('au-refresh'); if(ar){ ar.addEventListener('click', loadAdminUsers); }
-    const fur=document.getElementById('fu-refresh'); if(fur){ fur.addEventListener('click', loadFullUsers); }
-    const fuq=document.getElementById('fu-q'); if(fuq){ fuq.addEventListener('keydown', (e)=>{ if(e.key==='Enter') loadFullUsers(); }); }
-    setInterval(loadAdminUsers, 10000);
-    setInterval(loadFullUsers, 15000);
+    const fur=document.getElementById('fu-refresh'); if(fur){ fur.addEventListener('click', ()=>{ fuState.cursor=0; fuState.prevStack=[]; fuState.page=1; loadFullUsers(); }); }
+    const fuq=document.getElementById('fu-q'); if(fuq){ fuq.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ fuState.cursor=0; fuState.prevStack=[]; fuState.page=1; loadFullUsers(); } }); }
+    const fprev=document.getElementById('fu-prev'); if(fprev){ fprev.addEventListener('click', ()=>{ if (fuState.prevStack.length>0){ fuState.cursor = fuState.prevStack.pop(); fuState.page=Math.max(1, fuState.page-1); loadFullUsers(); } }); }
+    const fnext=document.getElementById('fu-next'); if(fnext){ fnext.addEventListener('click', ()=>{ if (fuState.nextCursor!==null){ fuState.prevStack.push(fuState.cursor); fuState.cursor = fuState.nextCursor; fuState.page += 1; loadFullUsers(); } }); }
+    const tabA=document.getElementById('fu-tab-active'); if(tabA){ tabA.addEventListener('click', ()=> fuSetTab('active')); }
+    const tabH=document.getElementById('fu-tab-history'); if(tabH){ tabH.addEventListener('click', ()=> fuSetTab('history')); }
+    setInterval(()=>{ try{ loadAdminUsers(); }catch(_){ } }, 10000);
+    setInterval(()=>{ try{ loadFullUsers(); }catch(_){ } }, 15000);
   </script>
   <script src="/js/music.js"></script>
 </body>
