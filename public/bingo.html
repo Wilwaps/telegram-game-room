@@ -158,6 +158,13 @@
         </div>
       </div>
       <div class="space-y-2">
+        <p class="text-text/70 text-sm">Conjunto</p>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <button id="ball75" class="bg-glass text-text py-2 rounded-lg">75</button>
+          <button id="ball90" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg shadow-[0_0_10px_#facc15]">90</button>
+        </div>
+      </div>
+      <div class="space-y-2">
         <p class="text-text/70 text-sm">Costo</p>
         <div class="grid grid-cols-2 gap-2">
           <button id="costFree" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]">
@@ -269,6 +276,8 @@
   const modeLinea = $('modeLinea');
   const mode4c = $('mode4c');
   const modeCarton = $('modeCarton');
+  const ball75 = $('ball75');
+  const ball90 = $('ball90');
   const costFree = $('costFree');
   const costFuego = $('costFuego');
   const joinCodeInput = $('joinCodeInput');
@@ -308,12 +317,15 @@
   let es = null;
   let currentBallSet = 90;
   let tablaOpen = false;
-  const userMarks = new Map(); // cardIdx -> Set("r,c")
+  let stateCalled = [];
+  let stateLast = null;
+  const userMarks = new Map();
   let createdRoomId = null;
   let createVisibility = 'private';
   let createCostType = 'free';
   let createCostValue = 1; // 1 🔥 por cartón
   let createMode = 'linea';
+  let createBallSet = 90;
   let selectedCardIdx = 0;
   let lobbyES = null;
   let lobbyRoomId = null;
@@ -337,7 +349,7 @@
 
   async function syncOptions(){
     if (!createdRoomId) return;
-    const payload = { userId: myId, visibility: createVisibility, mode: createMode };
+    const payload = { userId: myId, visibility: createVisibility, mode: createMode, ballSet: String(createBallSet) };
     if (createCostType === 'fuego') { payload.costType = 'fuego'; payload.costValue = 1; } else { payload.costType = 'free'; payload.costValue = 0; }
     try { await api(`/api/games/bingo/rooms/${encodeURIComponent(createdRoomId)}/options`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); } catch(_) {}
   }
@@ -385,6 +397,7 @@
 
   async function createRoom(){
     const payload = { userId: myId, visibility: createVisibility, costType: createCostType, costValue: createCostValue, mode: createMode };
+    payload.ballSet = String(createBallSet);
     const j = await api('/api/games/bingo/rooms', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     if (!j || !j.success) throw new Error('create_failed');
     createdRoomId = j.state.id; createCode.textContent = j.state.code || '------'; createPot.textContent = String(j.state.potFires||0);
@@ -488,7 +501,9 @@
         modeVal.textContent = (s.mode==='4c' ? '4 Esquinas' : (s.mode==='carton' ? 'Cartón Lleno' : 'Línea'));
         lastCall.textContent = String(s.lastCall||'');
         currentBallSet = Number(s.ballSet||90);
-        renderCalled(s.called||[]);
+        stateCalled = Array.isArray(s.called) ? s.called.slice() : [];
+        stateLast = (typeof s.lastCall!=='undefined' && s.lastCall!==null) ? Number(s.lastCall) : null;
+        renderCalled(stateCalled);
         renderPlayers(s.players||[]);
         if (tablaOpen) { renderTabla(currentBallSet, s.called||[], s.lastCall||null); }
         // host controls
@@ -545,6 +560,8 @@
   modeLinea.addEventListener('click', ()=>{ createMode='linea'; styleToggle(modeLinea,mode4c,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(modeLinea,modeCarton,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   mode4c.addEventListener('click', ()=>{ createMode='4c'; styleToggle(mode4c,modeLinea,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(mode4c,modeCarton,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   modeCarton.addEventListener('click', ()=>{ createMode='carton'; styleToggle(modeCarton,modeLinea,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(modeCarton,mode4c,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
+  ball75.addEventListener('click', ()=>{ createBallSet=75; styleToggle(ball75,ball90,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
+  ball90.addEventListener('click', ()=>{ createBallSet=90; styleToggle(ball90,ball75,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   costFree.addEventListener('click', ()=>{ createCostType='free'; styleToggle(costFree,costFuego,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   costFuego.addEventListener('click', ()=>{ createCostType='fuego'; styleToggle(costFuego,costFree,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   shareCreate.addEventListener('click', async ()=>{
@@ -565,7 +582,7 @@
     tablaOpen = !tablaOpen;
     if (tablaOpen) {
       tablaPanel.classList.remove('hidden');
-      renderTabla(currentBallSet, Array.from(calledList.querySelectorAll('span')).map(el=> Number(el.textContent)).filter(Boolean), Number(lastCall.textContent||0)||null);
+      renderTabla(currentBallSet, stateCalled, stateLast);
     } else {
       tablaPanel.classList.add('hidden');
     }
