@@ -64,4 +64,16 @@ router.post('/merge', (req, res) => {
   }
 });
 
+// POST /api/admin/users/reset { userId }
+router.post('/reset', (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ success:false, error:'invalid_user' });
+    const u = store.resetUserCredentials({ userId });
+    return res.json({ success:true, user: u });
+  } catch (err) {
+    return res.status(500).json({ success:false, error:'reset_error' });
+  }
+});
+
 module.exports = router;

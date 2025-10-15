@@ -43,6 +43,7 @@
         <div class="subtitle">Supply, transacciones y usuarios (real-time)</div>
       </div>
 
+
       <div class="nav">
         <a class="btn" href="/portal.html">Portal</a>
         <a class="btn" href="/">Home</a>
@@ -150,6 +151,56 @@
         $('burn').textContent  = fmt(j.supply.burned);
         const rv=$('reserve'); if(rv) rv.textContent=fmt(j.supply.reserve||0);
       }
+    }
+
+    function fmtDur(ms){
+      const n = Math.max(0, Number(ms||0));
+      const s = Math.floor(n/1000); if (s < 60) return `${s}s`;
+      const m = Math.floor(s/60); if (m < 60) return `${m}m ${s%60}s`;
+      const h = Math.floor(m/60); return `${h}h ${m%60}m`;
+    }
+
+    function shortTxt(s, max=64){ const t = String(s||''); return t.length>max? (t.slice(0,max-3)+"...") : t; }
+
+    async function loadFullUsers(){
+      try{
+        const q = (document.getElementById('fu-q')?.value||'');
+        const r = await fetch(`/api/admin/users/list?search=${encodeURIComponent(q)}&onlineOnly=false&limit=200`);
+        const j = await r.json();
+        const rows = document.getElementById('fu-rows');
+        rows.innerHTML='';
+        const arr = (j && j.items) ? j.items : [];
+        for (const u of arr){
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="font-family:monospace">${u.telegramId||'-'}</td>
+            <td>${u.email||'-'}</td>
+            <td style="font-family:monospace">${u.userId||'-'}</td>
+            <td>${u.telegramUsername||u.userName||'-'}</td>
+            <td>${u.userName||'-'}</td>
+            <td>${u.phone||'-'}</td>
+            <td><code>${shortTxt(u.lastDevice||'-', 48)}</code></td>
+            <td>${fmtTS(u.lastSeenAt)} · ${fmtDur(u.lastDurationMs)}</td>
+            <td>${u.email||'-'}</td>
+            <td>${fmt(u.fires||0)}</td>
+            <td><button class="btn btn-reset" data-id="${u.userId}">Reset</button></td>
+          `;
+          rows.appendChild(tr);
+        }
+        for (const b of document.querySelectorAll('button.btn-reset')){
+          b.addEventListener('click', async (e)=>{
+            const id = e.currentTarget.getAttribute('data-id');
+            if (!id) return;
+            if (!confirm('¿Resetear claves y contacto de este usuario?')) return;
+            try{
+              const r = await fetch('/api/admin/users/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId:id }) });
+              const j = await r.json();
+              if (j && j.success) { await loadFullUsers(); }
+              else { alert('No se pudo resetear'); }
+            }catch(_){ alert('Error de red'); }
+          });
+        }
+      }catch(_){ const rows=document.getElementById('fu-rows'); if(rows) rows.innerHTML='<tr><td colspan="11">Error de red</td></tr>'; }
     }
 
     async function fetchWelcomeStatus(){
@@ -288,6 +339,7 @@
     loadXP();
     loadAdminUsers();
     fetchWelcomeStatus();
+    loadFullUsers();
     document.getElementById('wel-refresh').addEventListener('click', fetchWelcomeStatus);
     document.getElementById('wel-activate').addEventListener('click', activateWelcome);
     document.getElementById('wel-disable').addEventListener('click', disableWelcome);
@@ -300,7 +352,10 @@
     const aq=document.getElementById('au-q'); if(aq){ aq.addEventListener('keydown', (e)=>{ if(e.key==='Enter') loadAdminUsers(); }); }
     const ao=document.getElementById('au-online'); if(ao){ ao.addEventListener('change', loadAdminUsers); }
     const ar=document.getElementById('au-refresh'); if(ar){ ar.addEventListener('click', loadAdminUsers); }
+    const fur=document.getElementById('fu-refresh'); if(fur){ fur.addEventListener('click', loadFullUsers); }
+    const fuq=document.getElementById('fu-q'); if(fuq){ fuq.addEventListener('keydown', (e)=>{ if(e.key==='Enter') loadFullUsers(); }); }
     setInterval(loadAdminUsers, 10000);
+    setInterval(loadFullUsers, 15000);
   </script>
   <script src="/js/music.js"></script>
 </body>

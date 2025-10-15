@@ -61,6 +61,28 @@ app.use((req, res, next) => {
   try { res.removeHeader('X-Frame-Options'); res.removeHeader('x-frame-options'); } catch (_) {}
   next();
 });
+// Identidad anónima para métricas: UID persistente y captura de dispositivo (UA)
+app.use((req, res, next) => {
+  try {
+    const raw = String(req.headers.cookie || '');
+    let uid = '';
+    for (const part of raw.split(/;\s*/)) {
+      const [k, v] = part.split('=');
+      if (k === 'uid' || k === 'uidp') { uid = v; break; }
+    }
+    if (!uid) {
+      uid = (Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 24);
+      const maxAge = 365 * 24 * 3600;
+      res.setHeader('Set-Cookie', [
+        `uid=${uid}; Path=/; SameSite=None; Secure; Max-Age=${maxAge}`,
+        `uidp=${uid}; Path=/; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`
+      ]);
+    }
+    const ua = String(req.headers['user-agent'] || '');
+    try { store.touchUser('anon:' + uid, { ua }); } catch (_) {}
+  } catch (_) {}
+  next();
+});
 app.use(express.static(path.resolve(__dirname, '../public')));
 
 // Rate limit con bypass endurecido (requiere header + env)

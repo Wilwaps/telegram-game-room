@@ -10,7 +10,7 @@ class MemoryStore extends EventEmitter {
       circulating: 100_000,
       burned: 0
     };
-    this.users = new Map(); // userId -> { userId, userName, fires, coins }
+    this.users = new Map(); // userId -> { userId, userName, fires, coins, createdAt, lastSeenAt, firstSeenAt, currentSessionStart, lastDurationMs, lastDevice, devices }
     this.sponsors = new Map(); // userId -> { userId, key, description }
     this.userTx = new Map(); // userId -> [tx]
     this.txs = []; // simple list of transactions
@@ -182,7 +182,7 @@ class MemoryStore extends EventEmitter {
     if (!id) return null;
     const now = Date.now();
     if (!this.users.has(id)) {
-      this.users.set(id, { userId: id, userName: id, fires: 0, coins: 0, createdAt: now, lastSeenAt: now });
+      this.users.set(id, { userId: id, userName: id, fires: 0, coins: 0, createdAt: now, lastSeenAt: now, firstSeenAt: now, currentSessionStart: now, lastDurationMs: 0, devices: [] });
     } else {
       const u = this.users.get(id);
       if (u) { u.lastSeenAt = now; this.users.set(id, u); }
@@ -208,9 +208,35 @@ class MemoryStore extends EventEmitter {
   }
 
   // --- User tracking & contact metadata ---
-  touchUser(userId) {
+  touchUser(userId, opts) {
     const u = this.ensureUser(userId);
-    if (u) { u.lastSeenAt = Date.now(); }
+    if (!u) return u;
+    const now = Date.now();
+    const prevLast = Number(u.lastSeenAt || 0);
+    u.lastSeenAt = now;
+    const windowMs = Math.max(15000, Math.min(10 * 60_000, parseInt(process.env.ONLINE_WINDOW_MS || '120000', 10) || 120000));
+    const gap = now - prevLast;
+    if (!u.currentSessionStart || gap > windowMs) {
+      u.currentSessionStart = now;
+      u.lastDurationMs = 0;
+    } else {
+      const start = Number(u.currentSessionStart || u.firstSeenAt || u.createdAt || now);
+      u.lastDurationMs = Math.max(0, now - start);
+    }
+    if (opts && typeof opts === 'object') {
+      const ua = String(opts.ua || '').trim();
+      if (ua) {
+        u.lastDevice = ua;
+        try {
+          if (!Array.isArray(u.devices)) u.devices = [];
+          if (!u.devices.includes(ua)) {
+            u.devices.unshift(ua);
+            u.devices = u.devices.slice(0, 5);
+          }
+        } catch (_) {}
+      }
+    }
+    this.users.set(u.userId, u);
     return u;
   }
 
@@ -220,6 +246,19 @@ class MemoryStore extends EventEmitter {
     if (typeof email !== 'undefined') u.email = String(email || '').trim() || undefined;
     if (typeof phone !== 'undefined') u.phone = String(phone || '').trim() || undefined;
     if (typeof telegramId !== 'undefined') u.telegramId = String(telegramId || '').trim() || undefined;
+    this.users.set(u.userId, u);
+    return u;
+  }
+
+  resetUserCredentials({ userId }) {
+    const u = this.ensureUser(userId);
+    if (!u) throw new Error('invalid_user');
+    delete u.email;
+    delete u.phone;
+    u.lastDevice = undefined;
+    u.devices = [];
+    u.lastDurationMs = 0;
+    u.currentSessionStart = Date.now();
     this.users.set(u.userId, u);
     return u;
   }
@@ -236,7 +275,10 @@ class MemoryStore extends EventEmitter {
         email: u.email,
         phone: u.phone,
         fires: Math.max(0, Number(u.fires || 0)),
-        coins: Math.max(0, Number(u.coins || 0))
+        coins: Math.max(0, Number(u.coins || 0)),
+        lastDevice: u.lastDevice,
+        lastDurationMs: Math.max(0, Number(u.lastDurationMs || 0)),
+        devices: Array.isArray(u.devices) ? u.devices.slice(0, 5) : []
       };
     });
     const q = String(search || '').toLowerCase();
