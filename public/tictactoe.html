@@ -311,6 +311,8 @@
   let createdRoomId = null;
   let createES = null;
   let celebrateKey = '';
+  let boardTimer = null;
+  let turnDeadlineTs = 0;
 
   function getQuery(name){
     const u = new URL(window.location.href);
@@ -359,6 +361,19 @@
     const mm = String(Math.floor(s/60)).padStart(2,'0');
     const ss = String(s%60).padStart(2,'0');
     return `${mm}:${ss} seg`;
+  }
+
+  function stopBoardTimer(){ try{ clearInterval(boardTimer); }catch(_){ } boardTimer = null; }
+  function startBoardTimer(){
+    stopBoardTimer();
+    if (!turnDeadlineTs || !timerValEl) return;
+    const tick = ()=>{
+      const left = Math.max(0, turnDeadlineTs - Date.now());
+      timerValEl.textContent = fmtTime(left);
+      if (left <= 0) stopBoardTimer();
+    };
+    tick();
+    boardTimer = setInterval(tick, 250);
   }
 
   function updateActiveCard(room){
@@ -472,7 +487,14 @@
     try{ createES && createES.close && createES.close(); }catch(_){ }
     if (!createdRoomId) return;
     createES = new EventSource(`/api/games/tictactoe/rooms/${encodeURIComponent(createdRoomId)}/stream`);
-    createES.addEventListener('state', (ev)=>{ try{ const s=JSON.parse(ev.data); renderCreateUsers(s); }catch(_){ } });
+    createES.addEventListener('state', (ev)=>{
+      try{ const s=JSON.parse(ev.data); renderCreateUsers(s);
+        // Auto-entrar al tablero cuando el contrincante se une y aún no hemos abierto la sala
+        if (!roomId && s && s.players && s.players.X && s.players.O) {
+          joinRoom(createdRoomId).catch(()=>{}); closeCreateOverlay();
+        }
+      }catch(_){ }
+    });
   }
 
   async function patchOptions(){
@@ -515,11 +537,10 @@
         }
         // actualizar countdown visible si volvemos al lobby
         updateActiveCard(s);
-        // actualizar temporizador en vista de sala
-        if (s.turnDeadline && timerValEl) {
-          const left = Number(s.turnDeadline) - Date.now();
-          timerValEl.textContent = fmtTime(left);
-        }
+        // actualizar temporizador en vista de sala (countdown vivo)
+        if (s.status === 'playing' && s.turnDeadline) {
+          turnDeadlineTs = Number(s.turnDeadline)||0; startBoardTimer();
+        } else { turnDeadlineTs = 0; stopBoardTimer(); if (timerValEl) timerValEl.textContent = '00:30'; }
         // marcador
         if (s.score) {
           if (scoreXVal) scoreXVal.textContent = String(s.score.X||0);
