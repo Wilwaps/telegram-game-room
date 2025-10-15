@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script id="tailwind-config">tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#06e4f9','background-dark':'#0B0E14',accent:'#22d3ee',card:'#121A2B',text:'#E6EDF3',glass:'rgba(255,255,255,0.1)'}}}};</script>
+  <script id="tailwind-config">tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#06e4f9','background-dark':'#0B0E14',accent:'#22d3ee',card:'#121A2B',text:'#E6EDF3',glass:'rgba(255,255,255,0.1)',success:'#22C55E',error:'#EF4444'},boxShadow:{'neon-accent':'0 0 10px #22d3ee, 0 0 20px #22d3ee','neon-violet':'0 0 10px #a78bfa, 0 0 20px #a78bfa','neon-success':'0 0 8px #22C55E, 0 0 16px #22C55E','neon-error':'0 0 8px #EF4444, 0 0 16px #EF4444'}}}};</script>
   <style>body{min-height:max(884px,100dvh)}</style>
 </head>
 <body class="bg-background-dark font-display text-text">
@@ -26,7 +26,7 @@
       </div>
       <button id="saveAdm" class="bg-accent text-background-dark font-bold py-2 rounded-lg">Guardar</button>
     </div>
-    <div class="bg-card border border-glass rounded-lg p-3 space-y-2">
+    <div class="bg-card border border-glass rounded-lg p-3 space-y-3">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2 text-sm">
           <button data-st="pending" class="st-btn bg-accent/20 text-accent px-3 py-1 rounded-lg">Pendientes</button>
@@ -35,11 +35,12 @@
         </div>
         <button id="refresh" class="text-sm bg-glass hover:bg-accent/20 px-3 py-1 rounded-lg">Refrescar</button>
       </div>
-      <div id="list" class="space-y-2"></div>
+      <div id="list" class="space-y-4"></div>
     </div>
   </div>
   <script>
     const $=id=>document.getElementById(id);
+    const avatar='https://lh3.googleusercontent.com/aida-public/AB6AXuBcO4sAoIKsqz6c_1ao9l8oLKrRoHcgQgvKXMVZ1GjrD6yIt1wIHUoUejWNVg5YeFSUNG2AzXPMsQBpnk9JKm7nj3Fl0c_-Jqff4R7sYxnLt9HXJtqXN5mHa4LpYy8ze_U0XA5E_p63z6cQCqLqyvstKocyRXYEASAUSo6DzvZTIfgZsyx7Xqbw8vV7RblR_FBppp7LTCsFU7QanKpaRmqO3o8B9Vxmy_1-jF73jvsjIbKoT9uvlznwhPR06j9c8xcPEZp403DWuA_j';
     function headers(){
       const u=sessionStorage.getItem('admUser')||'';
       const c=sessionStorage.getItem('admCode')||'';
@@ -49,6 +50,11 @@
       return h;
     }
     let curStatus='pending';
+    const profileCache=new Map();
+    async function getProfile(uid){
+      if(profileCache.has(uid)) return profileCache.get(uid);
+      try{ const r=await fetch(`/api/profile/${encodeURIComponent(uid)}`); const j=await r.json(); const u=(j&&j.success&&j.user)?j.user:null; profileCache.set(uid,u); return u; }catch(_){ profileCache.set(uid,null); return null; }
+    }
     async function load(){
       const path = curStatus==='pending' ? '/api/economy/fire-requests/pending' : `/api/economy/fire-requests/list?status=${encodeURIComponent(curStatus)}`;
       const r=await fetch(path,{headers:headers()});
@@ -57,28 +63,59 @@
       cont.innerHTML='';
       if(!(j&&j.success)) return;
       for(const it of j.items){
-        const el=document.createElement('div');
-        el.className='flex items-center justify-between bg-background-dark p-3 rounded-lg';
-        el.innerHTML=`<div><div class="font-bold">${it.userId}</div><div class="text-sm text-text/70">${it.reference}</div></div><div class="flex items-center gap-2"><span class="text-orange-400 font-bold">${it.amount}</span><span class="material-symbols-outlined text-orange-400" style="font-variation-settings:'FILL' 1;">local_fire_department</span></div><div class='flex items-center gap-2'><button data-id='${it.id}' class='btn-rej bg-error/20 text-error px-3 py-1 rounded-lg'>Rechazar</button><button data-id='${it.id}' class='btn-acc bg-success/20 text-success px-3 py-1 rounded-lg'>Aceptar</button></div>`;
-        cont.appendChild(el);
+        const prof = await getProfile(it.userId);
+        const name = (prof && (prof.userName||prof.name)) ? (prof.userName||prof.name) : (String(it.userId).slice(0,24));
+        const card=document.createElement('div');
+        card.className='bg-card rounded-xl p-4 border border-glass space-y-4';
+        const actions = (curStatus==='pending') ? `
+          <div class="flex justify-between space-x-3">
+            <button data-id='${it.id}' class='btn-rej flex-1 bg-error/10 text-error border border-error/30 py-2 rounded-lg hover:bg-error/20 transition-all duration-300 shadow-neon-error'>Rechazar</button>
+            <button data-id='${it.id}' class='btn-acc flex-1 bg-success/10 text-success border border-success/30 py-2 rounded-lg hover:bg-success/20 transition-all duration-300 shadow-neon-success'>Aceptar</button>
+          </div>` : `<div class="text-sm text-text/60">Estado: ${it.status||'-'}</div>`;
+        card.innerHTML = `
+          <div class="flex items-center space-x-4">
+            <img class="w-12 h-12 rounded-full border-2 border-glass" src="${avatar}" alt="avatar"/>
+            <div>
+              <p class="font-bold">${name}</p>
+              <p class="text-xs text-text/70">ID: ${it.userId}</p>
+            </div>
+          </div>
+          <div class="bg-background-dark rounded-lg p-3 border border-glass">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-text/80">Solicitud de Fuegos:</span>
+              <div class="flex items-center space-x-1">
+                <span class="font-bold text-lg text-orange-400">${it.amount}</span>
+                <span class="material-symbols-outlined text-orange-400" style="font-variation-settings:'FILL' 1;">local_fire_department</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-text/80">Referencia:</span>
+              <span class="font-mono text-sm text-accent">${it.reference||'-'}</span>
+            </div>
+          </div>
+          ${actions}
+        `;
+        cont.appendChild(card);
       }
-      for(const b of document.querySelectorAll('.btn-acc')){
-        b.addEventListener('click',async(e)=>{
-          const id=e.currentTarget.getAttribute('data-id');
-          const r=await fetch(`/api/economy/fire-requests/${encodeURIComponent(id)}/accept`,{method:'POST',headers:Object.assign({'Content-Type':'application/json'},headers()),body:'{}'});
-          const j=await r.json();
-          await load();
-          if(!(j&&j.success)) alert('Error al aceptar');
-        });
-      }
-      for(const b of document.querySelectorAll('.btn-rej')){
-        b.addEventListener('click',async(e)=>{
-          const id=e.currentTarget.getAttribute('data-id');
-          const r=await fetch(`/api/economy/fire-requests/${encodeURIComponent(id)}/reject`,{method:'POST',headers:Object.assign({'Content-Type':'application/json'},headers()),body:'{}'});
-          const j=await r.json();
-          await load();
-          if(!(j&&j.success)) alert('Error al rechazar');
-        });
+      if (curStatus==='pending'){
+        for(const b of document.querySelectorAll('.btn-acc')){
+          b.addEventListener('click',async(e)=>{
+            const id=e.currentTarget.getAttribute('data-id');
+            const r=await fetch(`/api/economy/fire-requests/${encodeURIComponent(id)}/accept`,{method:'POST',headers:Object.assign({'Content-Type':'application/json'},headers()),body:'{}'});
+            const j=await r.json();
+            await load();
+            if(!(j&&j.success)) alert('Error al aceptar');
+          });
+        }
+        for(const b of document.querySelectorAll('.btn-rej')){
+          b.addEventListener('click',async(e)=>{
+            const id=e.currentTarget.getAttribute('data-id');
+            const r=await fetch(`/api/economy/fire-requests/${encodeURIComponent(id)}/reject`,{method:'POST',headers:Object.assign({'Content-Type':'application/json'},headers()),body:'{}'});
+            const j=await r.json();
+            await load();
+            if(!(j&&j.success)) alert('Error al rechazar');
+          });
+        }
       }
     }
     $('saveAdm').addEventListener('click',()=>{
