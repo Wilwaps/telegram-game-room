@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="/js/app-user.js"></script>
   <script id="tailwind-config">
     tailwind.config = {
       darkMode: 'class',
@@ -252,12 +253,11 @@
     async function loadProfile(){
       const tg = window.Telegram && window.Telegram.WebApp;
       const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
-      if (!user) {
+      try { if (window.AppUser && typeof window.AppUser.resolveUserId==='function') { uid = window.AppUser.resolveUserId(); } } catch(_){ }
+      if (!uid) {
         // Fallback anónimo para QA fuera de Telegram
         uid = localStorage.getItem('anon_uid');
         if (!uid) { uid = 'anon:' + Math.random().toString(36).slice(2,8); localStorage.setItem('anon_uid', uid); }
-      } else {
-        uid = 'tg:' + String(user.id);
       }
       const uname = (user && (user.username || [user.first_name, user.last_name].filter(Boolean).join(' ').trim())) || 'Invitado';
       const r = await fetch(`/api/profile/${encodeURIComponent(uid)}`);

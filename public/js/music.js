@@ -144,9 +144,13 @@
       const uid = getCookie('uid') || getCookie('uidp');
       return uid ? ('anon:'+uid) : (localStorage.getItem('anon_uid')||'anon:guest');
     }
+    function resolveUID(){
+      try { if (window.AppUser && typeof window.AppUser.resolveUserId==='function') return window.AppUser.resolveUserId(); } catch(_){ }
+      return getUserId();
+    }
     async function pollUnread(){
       try{
-        const uid = getUserId(); if (!uid) return;
+        const uid = resolveUID(); if (!uid) return;
         const r = await fetch(`/api/messages/unread-count/${encodeURIComponent(uid)}`);
         const j = await r.json(); const n = (j&&j.success)? Number(j.count||0) : 0;
         if (n>0) { inboxDot && (inboxDot.style.display='block'); }
@@ -155,7 +159,7 @@
     }
     async function openInbox(){
       try{
-        const uid = getUserId(); if (!uid) return;
+        const uid = resolveUID(); if (!uid) return;
         const r = await fetch(`/api/messages/inbox/${encodeURIComponent(uid)}?limit=50`);
         const j = await r.json();
         const list = q('#mxInboxList'); if (!list) return; list.innerHTML='';
