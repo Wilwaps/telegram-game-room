@@ -313,6 +313,7 @@
   let celebrateKey = '';
   let boardTimer = null;
   let turnDeadlineTs = 0;
+  let createPollTimer = null;
 
   function getQuery(name){
     const u = new URL(window.location.href);
@@ -468,11 +469,14 @@
     // Guardar ID y actualizar overlay
     createdRoomId = j.state.id;
     setRoom(j.state.id); // sólo para tener el link preparado, pero no mostramos tablero aún
+    roomId = null; // no fijar roomId aún para permitir auto-join cuando entre el invitado
     createCode.textContent = j.state.code || '------';
     // Aplicar opciones actuales por si el backend creó con defaults distintos
     await patchOptions().catch(()=>{});
     // Suscribirse a SSE para mostrar usuarios conectados en overlay
     subscribeCreate();
+    // Fallback: poll por si falla el SSE
+    startCreatePoller();
   }
 
   function renderCreateUsers(s){
@@ -495,6 +499,26 @@
         }
       }catch(_){ }
     });
+  }
+
+  function stopCreatePoller(){ try{ clearInterval(createPollTimer); }catch(_){ } createPollTimer = null; }
+  function startCreatePoller(){
+    stopCreatePoller();
+    if (!createdRoomId) return;
+    createPollTimer = setInterval(async ()=>{
+      try{
+        const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(createdRoomId)}/state`);
+        const j = await r.json();
+        const s = j && j.success && j.state ? j.state : null;
+        if (!s) return;
+        renderCreateUsers(s);
+        if (!roomId && s.players && s.players.X && s.players.O) {
+          await joinRoom(createdRoomId).catch(()=>{});
+          closeCreateOverlay();
+          stopCreatePoller();
+        }
+      }catch(_){ }
+    }, 1500);
   }
 
   async function patchOptions(){
@@ -637,6 +661,7 @@
     overlay.classList.add('hidden');
     try{ createES && createES.close && createES.close(); }catch(_){ }
     createES = null;
+    stopCreatePoller();
   }
   function styleToggle(btnOn, btnOff, onClasses, offClasses){
     btnOn.className = (btnOn.className.replace(' bg-glass','').replace(' text-text','') + onClasses);
