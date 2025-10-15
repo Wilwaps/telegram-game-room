@@ -208,19 +208,21 @@
           <span id="lastCall" class="text-yellow-400 font-bold text-lg"></span>
           <button id="drawBtn" class="hidden bg-accent text-background-dark font-bold py-1 px-3 rounded-lg">Extraer</button>
         </div>
-      <div class="flex items-center gap-3">
-        <span class="inline-flex items-center gap-1 text-sm"><span class="material-symbols-outlined text-orange-500">local_fire_department</span> Pozo: <b id="potVal">0</b> 🔥</span>
-        <span class="inline-flex items-center gap-1 text-sm">Modo: <b id="modeVal">-</b></span>
-      </div>
-      <div class="flex items-center gap-2 text-sm">
-        <span>Último:</span>
-        <span id="lastCall" class="text-yellow-400 font-bold text-lg"></span>
-        <button id="drawBtn" class="hidden bg-accent text-background-dark font-bold py-1 px-3 rounded-lg">Extraer</button>
+        <div class="flex items-center gap-2">
+          <button id="tablaToggle" class="bg-glass text-text px-3 py-1 rounded-lg">Tabla</button>
+        </div>
       </div>
     </div>
     <div class="bg-panel border border-glass rounded-lg p-3">
       <h3 class="font-bold mb-2">Números llamados</h3>
       <div id="calledList" class="text-sm flex flex-wrap gap-2"></div>
+    </div>
+    <div id="tablaPanel" class="hidden bg-panel border border-glass rounded-lg p-3">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-bold">Tabla</h3>
+        <span id="tablaInfo" class="text-sm text-text/70"></span>
+      </div>
+      <div id="tablaGrid" class="grid gap-1"></div>
     </div>
     <div id="lobbyPanel" class="bg-panel border border-glass rounded-lg p-3">
       <h3 class="font-bold mb-2">Lobby</h3>
@@ -281,6 +283,10 @@
   const lastCall = $('lastCall');
   const calledList = $('calledList');
   const drawBtn = $('drawBtn');
+  const tablaToggle = $('tablaToggle');
+  const tablaPanel = $('tablaPanel');
+  const tablaGrid = $('tablaGrid');
+  const tablaInfo = $('tablaInfo');
   const startBtn = $('startBtn');
   const cardsCountSel = $('cardsCount');
   const readyChk = $('readyChk');
@@ -300,6 +306,9 @@
   let myId = null;
   let roomId = null;
   let es = null;
+  let currentBallSet = 90;
+  let tablaOpen = false;
+  const userMarks = new Map(); // cardIdx -> Set("r,c")
   let createdRoomId = null;
   let createVisibility = 'private';
   let createCostType = 'free';
@@ -392,9 +401,34 @@
 
   function renderCalled(arr){
     calledList.innerHTML='';
-    for (const n of arr||[]){
-      const b = document.createElement('span'); b.className='px-2 py-1 rounded bg-card border border-glass'; b.textContent=String(n); calledList.appendChild(b);
+    const a = Array.isArray(arr)?arr:[];
+    const last = a.length ? a[a.length-1] : null;
+    const slice = a.slice(-10);
+    for (let i=0;i<slice.length;i++){
+      const n = slice[i];
+      const isLast = (n===last);
+      const b = document.createElement('span');
+      b.className = 'px-2 py-1 rounded border ' + (isLast ? 'bg-yellow-400/30 border-yellow-400 text-yellow-300' : 'bg-card border-glass');
+      b.textContent = String(n);
+      calledList.appendChild(b);
     }
+  }
+
+  function renderTabla(ballSet, calledArr, last){
+    const max = [75,90].includes(Number(ballSet)) ? Number(ballSet) : 90;
+    const cols = (max===75) ? 15 : 10;
+    tablaGrid.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
+    tablaGrid.innerHTML = '';
+    const set = new Set(calledArr||[]);
+    for (let i=1;i<=max;i++){
+      const el = document.createElement('div');
+      const called = set.has(i);
+      const isLast = (i===last);
+      el.className = 'px-2 py-1 text-center rounded border ' + (called ? (isLast ? 'bg-yellow-400/40 border-yellow-400 text-yellow-300' : 'bg-card border-yellow-500 text-yellow-300') : 'bg-card border-glass text-text/80');
+      el.textContent = String(i);
+      tablaGrid.appendChild(el);
+    }
+    tablaInfo.textContent = `Conjunto: ${max} • Cantados: ${(calledArr||[]).length}`;
   }
   function renderPlayers(players){
     playersList.innerHTML='';
@@ -418,8 +452,17 @@
           const cell = document.createElement('div');
           const isFree = (r===2 && c===2 && v==='FREE');
           const calledOk = isFree || cset.has(v);
-          cell.className='text-center text-sm px-2 py-2 rounded border ' + (calledOk ? 'bg-yellow-400/20 border-yellow-400 text-yellow-300' : 'bg-panel border-glass');
+          const marks = userMarks.get(idx) || new Set();
+          const key = r+','+c;
+          const isMarked = marks.has(key);
+          cell.className='bingo-cell ' + (calledOk ? 'called ' : '') + (isMarked ? 'marked ' : '');
           cell.textContent = isFree ? '★' : String(v);
+          cell.addEventListener('click', ()=>{
+            if (!(isFree || cset.has(v))) return;
+            let set = userMarks.get(idx); if (!set){ set = new Set(); userMarks.set(idx, set); }
+            if (set.has(key)) set.delete(key); else set.add(key);
+            cell.classList.toggle('marked');
+          });
           grid.appendChild(cell);
         }
       }
@@ -444,8 +487,10 @@
         potVal.textContent = String(s.potFires||0);
         modeVal.textContent = (s.mode==='4c' ? '4 Esquinas' : (s.mode==='carton' ? 'Cartón Lleno' : 'Línea'));
         lastCall.textContent = String(s.lastCall||'');
+        currentBallSet = Number(s.ballSet||90);
         renderCalled(s.called||[]);
         renderPlayers(s.players||[]);
+        if (tablaOpen) { renderTabla(currentBallSet, s.called||[], s.lastCall||null); }
         // host controls
         const isHost = (s.hostId === myId);
         drawBtn.classList.toggle('hidden', !(isHost && s.status==='playing'));
@@ -516,6 +561,15 @@
   });
   startBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { /* ok */ } }catch(_){ } });
   drawBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/draw`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); }catch(_){ } });
+  tablaToggle.addEventListener('click', ()=>{
+    tablaOpen = !tablaOpen;
+    if (tablaOpen) {
+      tablaPanel.classList.remove('hidden');
+      renderTabla(currentBallSet, Array.from(calledList.querySelectorAll('span')).map(el=> Number(el.textContent)).filter(Boolean), Number(lastCall.textContent||0)||null);
+    } else {
+      tablaPanel.classList.add('hidden');
+    }
+  });
   cardsCountSel.addEventListener('change', async ()=>{ if (!roomId) return; const n = Number(cardsCountSel.value||'1')||1; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardsCount: n }) }); }catch(_){ } });
   readyChk.addEventListener('change', async ()=>{ if (!roomId) return; const r = !!readyChk.checked; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, ready: r, cardsCount: Number(cardsCountSel.value||'1') }) }); }catch(_){ } });
   claimBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/claim`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardIndex: selectedCardIdx }) }); if (!(j && j.success)) { /* no-op */ } }catch(_){ } });

@@ -18,6 +18,7 @@ const rafflesRoutes = require('./routes/raffles');
 const messagesRoutes = require('./routes/messages');
 const musicRoutes = require('./routes/music');
 const store = require('./services/memoryStore');
+const auth = require('./services/authStore');
 const welcomeRoutes = require('./routes/welcome');
 const adminWelcomeRoutes = require('./routes/admin_welcome');
 
@@ -61,14 +62,16 @@ app.use((req, res, next) => {
   try { res.removeHeader('X-Frame-Options'); res.removeHeader('x-frame-options'); } catch (_) {}
   next();
 });
-// Identidad anónima para métricas: UID persistente y captura de dispositivo (UA)
+// Identidad para métricas: resuelve usuario de sesión o anonimiza con UID persistente
 app.use((req, res, next) => {
   try {
     const raw = String(req.headers.cookie || '');
     let uid = '';
+    let sid = '';
     for (const part of raw.split(/;\s*/)) {
       const [k, v] = part.split('=');
-      if (k === 'uid' || k === 'uidp') { uid = v; break; }
+      if (k === 'uid' || k === 'uidp') { uid = v; }
+      else if (k === 'sid') { sid = v; }
     }
     if (!uid) {
       uid = (Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 24);
@@ -79,7 +82,18 @@ app.use((req, res, next) => {
       ]);
     }
     const ua = String(req.headers['user-agent'] || '');
-    try { store.touchUser('anon:' + uid, { ua }); } catch (_) {}
+    let sessionUserId = '';
+    if (sid) {
+      try {
+        const sess = auth.getSession(sid);
+        if (sess && sess.userId) sessionUserId = String(sess.userId);
+      } catch (_) {}
+    }
+    if (sessionUserId) {
+      try { store.touchUser(sessionUserId, { ua }); } catch (_) {}
+    } else {
+      try { store.touchUser('anon:' + uid, { ua }); } catch (_) {}
+    }
   } catch (_) {}
   next();
 });
