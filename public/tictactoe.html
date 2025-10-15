@@ -572,6 +572,16 @@
         }
         // controles de revancha
         if (afterRound) afterRound.style.display = (s.status === 'finished') ? 'flex' : 'none';
+        if (s.status === 'finished'){
+          const my = myMark || (s.players?.X===myId ? 'X' : (s.players?.O===myId ? 'O' : null));
+          if (!myMark && my) setMyMark(my);
+          const opp = my==='X' ? 'O' : 'X';
+          const v = s.rematchVotes || {};
+          const mine = my ? !!v[my] : false;
+          const other = opp ? !!v[opp] : false;
+          if (rematchBtn){ rematchBtn.disabled = mine; rematchBtn.textContent = mine ? 'Esperando rival...' : 'Revancha'; }
+          if (celebrateRematch){ celebrateRematch.disabled = mine; celebrateRematch.textContent = mine ? 'Esperando rival...' : 'Revancha'; }
+        }
 
         // celebración al finalizar
         const k = `${roomId}|${s.round||0}|${s.winner||'draw'}|${s.status}`;
@@ -683,16 +693,16 @@
   if (rematchBtn) rematchBtn.addEventListener('click', async ()=>{
     if (!roomId) return;
     try{
-      const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST' });
+      const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) });
       const j = await r.json();
-      if (j && j.success) { afterRound.style.display='none'; try{ if (celebrateOverlay) celebrateOverlay.classList.add('hidden'); }catch(_){ } }
+      if (j && j.success) { rematchBtn.disabled = true; rematchBtn.textContent = 'Esperando rival...'; }
     }catch(_){ }
   });
   if (celebrateClose) celebrateClose.addEventListener('click', ()=>{ try{ celebrateOverlay.classList.add('hidden'); }catch(_){ } });
   if (celebrateRematch) celebrateRematch.addEventListener('click', async ()=>{
     if (!roomId) return; try {
-      const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST' });
-      const j = await r.json(); if (j && j.success) { try{ celebrateOverlay.classList.add('hidden'); }catch(_){ } if (afterRound) afterRound.style.display='none'; }
+      const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) });
+      const j = await r.json(); if (j && j.success) { celebrateRematch.disabled = true; celebrateRematch.textContent = 'Esperando rival...'; }
     } catch(_){ }
   });
   if (joinFromCreate) joinFromCreate.addEventListener('click', async ()=>{

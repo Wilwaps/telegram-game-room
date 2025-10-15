@@ -144,7 +144,9 @@ router.get('/public-rooms', (req, res) => {
 router.post('/rooms/:id/rematch', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const state = store.rematch(roomId);
+    const userId = String(req.body && req.body.userId || '').trim();
+    if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
+    const state = store.rematch(roomId, userId);
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'rematch_error';

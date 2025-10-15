@@ -33,7 +33,8 @@ class TTTStore extends EventEmitter {
       score: { X: 0, O: 0 },
       round: 1,
       lastWinner: null,
-      paidFlags: { X: false, O: false }
+      paidFlags: { X: false, O: false },
+      rematchVotes: { X: false, O: false }
     };
     this.rooms.set(id, state);
     this.codeIndex.set(state.code, id);
@@ -57,7 +58,8 @@ class TTTStore extends EventEmitter {
       costType: r.costType,
       costValue: r.costValue,
       score: { ...r.score },
-      round: r.round
+      round: r.round,
+      rematchVotes: { X: !!(r.rematchVotes && r.rematchVotes.X), O: !!(r.rematchVotes && r.rematchVotes.O) }
     };
   }
   listRoomsByUser(userId) {
@@ -186,6 +188,7 @@ class TTTStore extends EventEmitter {
       r.winner = w === 'draw' ? null : w;
       r.status = 'finished';
       r.turnDeadline = null;
+      r.rematchVotes = { X: false, O: false };
       if (r.winner) {
         r.lastWinner = r.winner;
         if (r.winner === 'X') r.score.X += 1; else if (r.winner === 'O') r.score.O += 1;
@@ -217,18 +220,26 @@ class TTTStore extends EventEmitter {
     this.emit('room_update_' + r.id, s);
     return s;
   }
-  rematch(roomId) {
+  rematch(roomId, userId) {
     const r = this.rooms.get(String(roomId));
     if (!r) throw new Error('room_not_found');
     if (r.status !== 'finished') throw new Error('not_finished');
-    r.round += 1;
-    r.board = Array(9).fill(null);
-    r.winner = null;
-    r.lastMoveAt = Date.now();
-    r.turn = (r.turn === 'X') ? 'O' : 'X';
-    const both = r.players.X && r.players.O;
-    r.status = both ? 'playing' : 'waiting';
-    r.turnDeadline = both ? (r.lastMoveAt + this.turnTimeoutMs) : null;
+    const me = this.who(r, userId);
+    if (!me) throw new Error('not_in_room');
+    if (!r.rematchVotes) r.rematchVotes = { X: false, O: false };
+    r.rematchVotes[me] = true;
+    const bothAccepted = !!r.rematchVotes.X && !!r.rematchVotes.O;
+    if (bothAccepted) {
+      r.round += 1;
+      r.board = Array(9).fill(null);
+      r.winner = null;
+      r.lastMoveAt = Date.now();
+      r.turn = (r.turn === 'X') ? 'O' : 'X';
+      const both = r.players.X && r.players.O;
+      r.status = both ? 'playing' : 'waiting';
+      r.turnDeadline = both ? (r.lastMoveAt + this.turnTimeoutMs) : null;
+      r.rematchVotes = { X: false, O: false };
+    }
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);
     return s;
