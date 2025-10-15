@@ -17,42 +17,11 @@ const fireRequestsRoutes = require('./routes/fire_requests');
 const rafflesRoutes = require('./routes/raffles');
 const messagesRoutes = require('./routes/messages');
 const musicRoutes = require('./routes/music');
-let authRoutes = null;
-try { authRoutes = require('./routes/auth'); } catch (e) {
-  console.warn('[warn] auth routes not found, disabling /api/auth endpoints');
-  const noop = express.Router();
-  noop.get('/health', (req,res)=> res.json({ success:true, disabled:true }));
-  authRoutes = noop;
-}
 const store = require('./services/memoryStore');
-let authService = null; let AUTH_STUB = false;
-try { authService = require('./services/authStore'); }
-catch (e) {
-  console.warn('[warn] auth service not found, using in-memory stub');
-  AUTH_STUB = true;
-  const sessions = new Map();
-  const uid = (n=18)=> (Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0,n);
-  authService = {
-    getSession: (sid)=> sessions.get(String(sid||'')) || null,
-    destroySession: (sid)=> { sessions.delete(String(sid||'')); },
-    createGuestSession: ({ ua })=> { const sid = uid(24); const userId = 'anon:' + uid(8); sessions.set(sid, { userId, ua: String(ua||''), createdAt: Date.now() }); return { sid, userId }; },
-    createSessionForTelegram: ({ telegramId, name, ua })=> { const sid = uid(24); const userId = 'tg:' + String(telegramId||'0'); sessions.set(sid, { userId, ua: String(ua||''), createdAt: Date.now() }); return { sid, userId }; }
-  };
-}
 const welcomeRoutes = require('./routes/welcome');
 const adminWelcomeRoutes = require('./routes/admin_welcome');
 
 const app = express();
-// QA: permitir login sin verificación de email por defecto (puede desactivarse con ALLOW_UNVERIFIED_EMAIL_LOGIN=false)
-if (!('ALLOW_UNVERIFIED_EMAIL_LOGIN' in process.env)) {
-  process.env.ALLOW_UNVERIFIED_EMAIL_LOGIN = 'true';
-}
-if (!('ALLOW_UNVERIFIED_TG_INIT' in process.env)) {
-  process.env.ALLOW_UNVERIFIED_TG_INIT = 'true';
-}
-if (!('ALLOW_SID_QUERY_LOGIN' in process.env)) {
-  process.env.ALLOW_SID_QUERY_LOGIN = 'true';
-}
 // Configurar trust proxy con hops numéricos (evita ValidationError de express-rate-limit)
 app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
 // Bloquear cualquier intento de establecer X-Frame-Options en respuestas
@@ -92,68 +61,7 @@ app.use((req, res, next) => {
   try { res.removeHeader('X-Frame-Options'); res.removeHeader('x-frame-options'); } catch (_) {}
   next();
 });
-// Bootstrap de sesión: asigna un SID invitado si no existe
-app.use((req, res, next) => {
-  try {
-    const readSid = () => {
-      try {
-        const raw = String(req.headers.cookie || '');
-        let sid = ''; let sidp = '';
-        for (const part of raw.split(/;\s*/)) {
-          const [k, v] = part.split('=');
-          if (k === 'sid') { sid = v; }
-          if (k === 'sidp') { sidp = v; }
-        }
-        return sid || sidp || '';
-      } catch (_) { return ''; }
-    };
-    const raw = String(req.headers.cookie || '');
-    let sid = '';
-    for (const part of raw.split(/;\s*/)) {
-      const [k, v] = part.split('=');
-      if (k === 'sid') { sid = v; break; }
-    }
-    if (!sid) sid = readSid();
-    const sess = sid ? authService.getSession(sid) : null;
-    if (!sess) {
-      const { sid: newSid } = authService.createGuestSession({ ua: String(req.headers['user-agent'] || '') });
-      const maxAge = 30 * 24 * 3600;
-      res.setHeader('Set-Cookie', [
-        `sid=${newSid}; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=${maxAge}`,
-        `sidp=${newSid}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`
-      ]);
-    }
-  } catch (_) {}
-  next();
-});
 app.use(express.static(path.resolve(__dirname, '../public')));
-
-// Traza de usuarios: si hay sesión, actualizar lastSeenAt
-app.use((req, res, next) => {
-  try {
-    const raw = String(req.headers.cookie || '');
-    let sid = '';
-    for (const part of raw.split(/;\s*/)) {
-      const [k, v] = part.split('=');
-      if (k === 'sid') { sid = v; break; }
-    }
-    if (!sid) {
-      try {
-        for (const part of raw.split(/;\s*/)) {
-          const [k, v] = part.split('=');
-          if (k === 'sidp') { sid = v; break; }
-        }
-      } catch (_) {}
-    }
-    if (sid) {
-      const sess = authService.getSession(sid);
-      if (sess && sess.userId) {
-        try { store.touchUser(sess.userId); } catch (_) {}
-      }
-    }
-  } catch (_) {}
-  next();
-});
 
 // Rate limit con bypass endurecido (requiere header + env)
 const limiter = rateLimit({
@@ -170,11 +78,7 @@ const limiter = rateLimit({
       // Omitir rate limit para clientes Telegram WebApp y rutas de login (QA)
       const isTelegramUA = /Telegram/i.test(ua);
       if (isTelegramUA) return true;
-      if (req.path && (
-        req.path === '/login' ||
-        req.path === '/games' || req.path.startsWith('/games') ||
-        req.path.startsWith('/api/auth')
-      )) return true;
+      if (req.path && (req.path === '/login' || req.path === '/games' || req.path.startsWith('/games'))) return true;
       const allowEnv = process.env.ALLOW_TEST_RUNNER === 'true' || (process.env.NODE_ENV !== 'production');
       const isTestUA = /testsprite|chrome-devtools|chrome devtools/i.test(ua);
       const isTestHX = /testsprite/i.test(hx);
@@ -200,93 +104,45 @@ app.use('/telegram', telegramRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/games/tictactoe', tttRoutes);
 app.use('/api/games/bingo', bingoRoutes);
-app.use('/api/auth', authRoutes);
 app.use('/api/admin/users', require('./routes/admin_users'));
 try { app.use('/api/roles', require('./routes/roles')); } catch(_) {}
 
 // Rutas Frontend
-function requireIdentified(req, res, next) {
-  try {
-    const raw = String(req.headers.cookie || '');
-    let sid = '';
-    for (const part of raw.split(/;\s*/)) {
-      const [k, v] = part.split('=');
-      if (k === 'sid') { sid = v; break; }
-    }
-    if (!sid) {
-      try {
-        for (const part of raw.split(/;\s*/)) {
-          const [k, v] = part.split('=');
-          if (k === 'sidp') { sid = v; break; }
-        }
-      } catch (_) {}
-    }
-    // Fallback QA: aceptar ?sid= para ambientes que bloquean cookies 3P
-    if (!sid && String(process.env.ALLOW_SID_QUERY_LOGIN||'').toLowerCase()==='true') {
-      try {
-        const qsid = String(req.query && req.query.sid || '').trim();
-        if (qsid) {
-          const sess = authService.getSession(qsid);
-          if (sess) {
-            const maxAge = 30 * 24 * 3600;
-            res.setHeader('Set-Cookie', [
-              `sid=${qsid}; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=${maxAge}`,
-              `sidp=${qsid}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${maxAge}`
-            ]);
-            // Continuar sin redirigir: servimos el recurso en esta misma respuesta
-            return next();
-          }
-        }
-      } catch(_) {}
-    }
-    // Permitir acceso aun si no hay sesión o si es anónima (sin redirigir a /login)
-    // El bootstrap anterior ya crea sesión invitada si no existe
-    return next();
-  } catch (_) { return next(); }
-}
-
-app.get('/supply', requireIdentified, (req, res) => {
+app.get('/supply', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/supply.html'));
 });
-app.get('/profile', requireIdentified, (req, res) => {
+app.get('/profile', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/profile.html'));
 });
 
-app.get('/games', requireIdentified, (req, res) => {
+app.get('/games', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/games.html'));
 });
-app.get('/games/tictactoe', requireIdentified, (req, res) => {
+app.get('/games/tictactoe', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/tictactoe.html'));
 });
-app.get('/games/bingo', requireIdentified, (req, res) => {
+app.get('/games/bingo', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/bingo.html'));
 });
-app.get('/raffles', requireIdentified, (req, res) => {
+app.get('/raffles', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/raffles.html'));
 });
-app.get('/raffles/create', requireIdentified, (req, res) => {
+app.get('/raffles/create', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/raffle-create.html'));
 });
-app.get('/raffles/room', requireIdentified, (req, res) => {
+app.get('/raffles/room', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/raffle-room.html'));
 });
-app.get('/fire-requests', requireIdentified, (req, res) => {
+app.get('/fire-requests', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/fire-requests.html'));
 });
 
-app.get('/admin/dashboard', requireIdentified, (req, res) => {
+app.get('/admin/dashboard', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/admin/dashboard.html'));
 });
 
 app.get('/login', (req, res) => {
-  // Autenticación de frontend eliminada: redirigir a juegos
   return res.redirect(302, '/games');
-});
-app.get('/register', (req, res) => {
-  res.sendFile(path.resolve(__dirname, '../public/register.html'));
-});
-app.get('/verify', (req, res) => {
-  res.sendFile(path.resolve(__dirname, '../public/verify.html'));
 });
 
 // Healthcheck
