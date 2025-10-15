@@ -20,6 +20,7 @@ class MemoryStore extends EventEmitter {
     // Evento de bienvenida (bono por primer login)
     this.welcomeEvent = { active: false, startsAt: 0, endsAt: 0, coins: 0, fires: 0, message: '' };
     this.welcomeClaims = new Map(); // userId -> ts de entrega
+    this.bingoWins = [];
     // Cargar estado persistido si existe
     try {
       const p = path.resolve(__dirname, '../../storage/events/welcome.json');
@@ -526,6 +527,24 @@ class MemoryStore extends EventEmitter {
     return { ok: true, remaining: u.fires, tx };
   }
 
+  // Transferencia de coins entre usuarios (no afecta supply)
+  transferCoins({ fromUserId, toUserId, amount = 0, reason = 'coins_transfer' }) {
+    const from = String(fromUserId || '').trim();
+    const to = String(toUserId || '').trim();
+    const a = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!from || !to || from === to || a <= 0) return { ok: false, error: 'invalid_transfer' };
+    const fu = this.ensureUser(from);
+    const tu = this.ensureUser(to);
+    const cur = Math.max(0, Number(fu.coins || 0));
+    if (cur < a) return { ok: false, error: 'insufficient_coins' };
+    fu.coins = cur - a;
+    tu.coins = Math.max(0, Number(tu.coins || 0)) + a;
+    const tx = this.pushTx({ type: 'coins_transfer', fromUserId: from, toUserId: to, amount: a, reason });
+    this._addUserTx(from, tx);
+    this._addUserTx(to, tx);
+    return { ok: true, from: fu, to: tu, tx };
+  }
+
   // Transferencia entre usuarios (no afecta supply)
   transferFires({ fromUserId, toUserId, amount = 0, reason = 'transfer' }) {
     const from = String(fromUserId || '').trim();
@@ -610,6 +629,37 @@ class MemoryStore extends EventEmitter {
     }
     this.emit('supply_changed', this.getSupplySummary());
     return { ok: true, primaryId: pId };
+  }
+
+  recordBingoWin({ roomId, winnerId, hostId, mode, ballSet, potFires = 0, potCoins = 0, winnerFires = 0, hostFires = 0, sponsorFires = 0, winnerCoins = 0, hostCoins = 0, sponsorCoins = 0 }) {
+    const rec = {
+      id: 'bw_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+      ts: Date.now(),
+      roomId: String(roomId || ''),
+      winnerId: String(winnerId || ''),
+      hostId: String(hostId || ''),
+      mode: mode ? String(mode) : 'linea',
+      ballSet: [75, 90].includes(Number(ballSet)) ? Number(ballSet) : 90,
+      potFires: Math.max(0, Number(potFires) || 0),
+      potCoins: Math.max(0, Number(potCoins) || 0),
+      winnerFires: Math.max(0, Number(winnerFires) || 0),
+      hostFires: Math.max(0, Number(hostFires) || 0),
+      sponsorFires: Math.max(0, Number(sponsorFires) || 0),
+      winnerCoins: Math.max(0, Number(winnerCoins) || 0),
+      hostCoins: Math.max(0, Number(hostCoins) || 0),
+      sponsorCoins: Math.max(0, Number(sponsorCoins) || 0)
+    };
+    this.bingoWins.unshift(rec);
+    this.bingoWins = this.bingoWins.slice(0, 500);
+    return rec;
+  }
+
+  listBingoWins({ userId, limit = 50 } = {}) {
+    const l = Math.max(1, Math.min(200, Number(limit) || 50));
+    if (!userId) return this.bingoWins.slice(0, l);
+    const id = String(userId || '').toLowerCase();
+    const filtered = this.bingoWins.filter(x => (x.winnerId || '').toLowerCase() === id);
+    return filtered.slice(0, l);
   }
 }
 

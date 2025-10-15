@@ -59,7 +59,11 @@ class TTTStore extends EventEmitter {
       costValue: r.costValue,
       score: { ...r.score },
       round: r.round,
-      rematchVotes: { X: !!(r.rematchVotes && r.rematchVotes.X), O: !!(r.rematchVotes && r.rematchVotes.O) }
+      rematchVotes: { X: !!(r.rematchVotes && r.rematchVotes.X), O: !!(r.rematchVotes && r.rematchVotes.O) },
+      playerNames: {
+        X: r.players.X ? (mem.getUser(r.players.X)?.userName || r.players.X) : null,
+        O: r.players.O ? (mem.getUser(r.players.O)?.userName || r.players.O) : null
+      }
     };
   }
   listRoomsByUser(userId) {
@@ -248,10 +252,27 @@ class TTTStore extends EventEmitter {
     const now = Date.now();
     for (const r of this.rooms.values()) {
       if (r && r.status === 'playing' && r.turnDeadline && now > r.turnDeadline) {
-        // Rota turno por timeout
-        r.turn = r.turn === 'X' ? 'O' : 'X';
-        r.lastMoveAt = now;
-        r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
+        const loser = r.turn;
+        const winner = loser === 'X' ? 'O' : 'X';
+        r.status = 'finished';
+        r.winner = winner;
+        r.lastWinner = winner;
+        r.turnDeadline = null;
+        r.rematchVotes = { X: false, O: false };
+        if (winner === 'X') r.score.X += 1; else if (winner === 'O') r.score.O += 1;
+        try {
+          const xid = r.players.X;
+          const oid = r.players.O;
+          if (xid && oid) {
+            if (winner === 'X') {
+              mem.recordGameResult({ userId: xid, game: 'tictactoe', result: 'win' });
+              mem.recordGameResult({ userId: oid, game: 'tictactoe', result: 'loss' });
+            } else if (winner === 'O') {
+              mem.recordGameResult({ userId: oid, game: 'tictactoe', result: 'win' });
+              mem.recordGameResult({ userId: xid, game: 'tictactoe', result: 'loss' });
+            }
+          }
+        } catch(_) {}
         const s = this.getState(r.id);
         this.emit('room_update_' + r.id, s);
       }

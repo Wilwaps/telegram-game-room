@@ -44,6 +44,15 @@
     .nav-item:hover { background-color: var(--tw-bg-accent); color: var(--tw-bg-background-dark); }
     .nav-item { transition: background-color 0.2s, color 0.2s; }
     .nav-item .material-symbols-outlined { display:block; margin:0 auto 0.25rem; }
+    #roomView { overflow-y: auto; }
+    .cards-scroll { max-height: 100%; }
+    .bingo-card { background: rgba(18,26,43,0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px; transition: box-shadow .2s, border-color .2s; }
+    .bingo-card.active { border-color: #22d3ee; box-shadow: 0 0 10px rgba(34,211,238,0.4); }
+    .bingo-cell { display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px 0; font-size:0.9rem; background: rgba(15,21,36,0.85); cursor:pointer; transition: background .15s, border-color .15s, color .15s, box-shadow .15s; }
+    .bingo-cell.called { border-color:#facc15; background: rgba(250,204,21,0.08); box-shadow: inset 0 0 8px rgba(250,204,21,0.2); }
+    .bingo-cell.marked { background: rgba(34,211,238,0.2); border-color:#22d3ee; color:#22d3ee; box-shadow: 0 0 10px rgba(34,211,238,0.3); }
+    .bingo-cell.free { border-style:dashed; color:#facc15; font-weight:700; }
+    .claim-float { position: fixed; bottom: 96px; right: 16px; z-index: 40; display: none; }
   </style>
 </head>
 <body class="bg-background-dark font-display text-text">
@@ -178,17 +187,27 @@
 </div>
 
 <!-- Vista de sala -->
-<section id="roomView" class="hidden fixed inset-0 z-30 bg-background-dark">
-  <div class="p-4 pb-24 max-w-4xl mx-auto space-y-4">
-    <div class="flex items-center justify-between">
-      <div class="text-sm">Tu ID: <span id="me" class="font-mono"></span></div>
-      <div class="text-sm flex items-center gap-3">
-        <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-orange-500">local_fire_department</span><b id="meFires">0</b></span>
-        <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-yellow-400">monetization_on</span><b id="meCoins">0</b></span>
-        <span>Sala: <span id="roomCode" class="text-accent font-mono"></span></span>
+<section id="roomView" class="hidden fixed inset-x-0 top-0 bottom-20 z-30 bg-background-dark/98 backdrop-blur-sm">
+  <div class="relative h-full">
+    <div class="p-4 pb-40 h-full overflow-y-auto max-w-5xl mx-auto space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="text-sm">Tu ID: <span id="me" class="font-mono"></span></div>
+        <div class="text-sm flex items-center gap-3">
+          <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-orange-500">local_fire_department</span><b id="meFires">0</b></span>
+          <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-yellow-400">monetization_on</span><b id="meCoins">0</b></span>
+          <span>Sala: <span id="roomCode" class="text-accent font-mono"></span></span>
+        </div>
       </div>
-    </div>
-    <div class="bg-card border border-glass rounded-lg p-3 flex flex-wrap gap-4 items-center justify-between">
+      <div class="bg-card border border-glass rounded-lg p-3 flex flex-wrap gap-4 items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center gap-1 text-sm"><span class="material-symbols-outlined text-orange-500">local_fire_department</span> Pozo: <b id="potVal">0</b> 🔥</span>
+          <span class="inline-flex items-center gap-1 text-sm">Modo: <b id="modeVal">-</b></span>
+        </div>
+        <div class="flex items-center gap-2 text-sm">
+          <span>Último:</span>
+          <span id="lastCall" class="text-yellow-400 font-bold text-lg"></span>
+          <button id="drawBtn" class="hidden bg-accent text-background-dark font-bold py-1 px-3 rounded-lg">Extraer</button>
+        </div>
       <div class="flex items-center gap-3">
         <span class="inline-flex items-center gap-1 text-sm"><span class="material-symbols-outlined text-orange-500">local_fire_department</span> Pozo: <b id="potVal">0</b> 🔥</span>
         <span class="inline-flex items-center gap-1 text-sm">Modo: <b id="modeVal">-</b></span>
@@ -216,19 +235,22 @@
       </div>
       <div id="playersList" class="mt-3 text-sm text-text/80"></div>
     </div>
-    <div id="cardsWrap" class="grid md:grid-cols-2 gap-4"></div>
-    <div class="flex gap-2">
-      <button id="claimBtn" class="flex-1 bg-violet text-text font-bold py-2 rounded-lg">Cantar</button>
-      <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Salir</a>
-    </div>
-    <div id="gameOver" class="hidden text-center space-y-2">
-      <p class="text-3xl font-bold">¡BINGO!</p>
-      <p>Ganador: <b id="winnerVal">-</b></p>
-      <div class="flex gap-2 max-w-sm mx-auto">
-        <button id="rematchBtn" class="flex-1 bg-yellow-400 text-background-dark font-bold py-2 rounded-lg hidden">Revancha</button>
-        <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Ir al Lobby</a>
+      <div class="cards-scroll overflow-y-auto pr-1">
+        <div id="cardsWrap" class="grid md:grid-cols-2 gap-4"></div>
+      </div>
+      <div class="flex gap-2">
+        <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Salir</a>
+      </div>
+      <div id="gameOver" class="hidden text-center space-y-2">
+        <p class="text-3xl font-bold">¡BINGO!</p>
+        <p>Ganador: <b id="winnerVal">-</b></p>
+        <div class="flex gap-2 max-w-sm mx-auto">
+          <button id="rematchBtn" class="flex-1 bg-yellow-400 text-background-dark font-bold py-2 rounded-lg hidden">Revancha</button>
+          <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Ir al Lobby</a>
+        </div>
       </div>
     </div>
+    <button id="claimBtn" class="claim-float bg-violet text-text font-bold py-3 px-6 rounded-full shadow-[0_0_18px_rgba(167,139,250,0.65)]">Cantar</button>
   </div>
 </section>
 

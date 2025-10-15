@@ -194,7 +194,15 @@ app.listen(PORT, () => {
       logger.info('Welcome event already active, skip activation');
     }
   } catch (_) {}
-  // Seed usuario de prueba para QA: pruebatote / pruebatote
+  try {
+    const interval = Math.max(500, parseInt(process.env.TTT_TICK_INTERVAL_MS || '1000', 10) || 1000);
+    setInterval(() => {
+      try { tttStore.tick(); } catch (err) { logger.error('TTT tick error', err); }
+    }, interval);
+    logger.info(`TTT tick loop started (interval ${interval} ms)`);
+  } catch (err) {
+    logger.error('Failed to start TTT tick loop', err);
+  }
   try {
     if (authService && typeof authService.getUserByEmail === 'function' && typeof authService.createEmailUser === 'function') {
       const email = 'pruebatote@example.com';

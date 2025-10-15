@@ -14,8 +14,9 @@ router.post('/rooms', (req, res) => {
     const costType = (req.body && req.body.costType) || undefined;
     const costValue = (req.body && req.body.costValue) || undefined;
     const mode = (req.body && req.body.mode) || undefined;
+    const ballSet = (req.body && req.body.ballSet) || undefined;
     if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
-    const state = store.createRoom(userId, { visibility, costType, costValue, mode });
+    const state = store.createRoom({ userId, visibility, costType, costValue, mode, ballSet });
     res.json({ success: true, state });
   } catch (e) {
     res.status(500).json({ success: false, error: 'create_error' });
@@ -97,7 +98,8 @@ router.patch('/rooms/:id/options', (req, res) => {
     const costType = (req.body && req.body.costType);
     const costValue = (req.body && req.body.costValue);
     const mode = (req.body && req.body.mode);
-    const state = store.setOptions(roomId, userId, { visibility, costType, costValue, mode });
+    const ballSet = (req.body && req.body.ballSet);
+    const state = store.setOptions(roomId, userId, { visibility, costType, costValue, mode, ballSet });
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'options_error';
@@ -127,7 +129,7 @@ router.post('/rooms/:id/start', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = String(req.body && req.body.userId || '').trim();
-    const state = store.start(roomId, userId);
+    const state = store.start({ roomId, userId });
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'start_error';
@@ -141,7 +143,7 @@ router.post('/rooms/:id/draw', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = String(req.body && req.body.userId || '').trim();
-    const state = store.drawNext(roomId, userId);
+    const state = store.draw({ roomId, userId });
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'draw_error';

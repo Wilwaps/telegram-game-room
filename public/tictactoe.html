@@ -48,8 +48,14 @@
     .neon-text-accent { text-shadow: 0 0 5px #22d3ee, 0 0 10px #22d3ee, 0 0 15px #22d3ee; }
     .neon-text-violet { text-shadow: 0 0 5px #a78bfa, 0 0 10px #a78bfa, 0 0 15px #a78bfa; }
     .neon-text-gold { text-shadow: 0 0 5px #facc15, 0 0 10px #facc15, 0 0 15px #facc15; }
-    /* Ocultar controles no deseados dentro de sala */
     #newBtn, #copyBtn { display: none !important; }
+    .player-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px; background: rgba(15,21,36,0.65); transition: box-shadow .2s, border-color .2s; }
+    .player-card.active { border-color: #facc15; box-shadow: 0 0 12px rgba(250,204,21,0.6); }
+    .score-value { transition: text-shadow .2s, color .2s; }
+    .score-value.active { text-shadow: 0 0 12px currentColor; color: #facc15; }
+    #grid.turn-x { box-shadow: 0 0 18px rgba(250,204,21,0.45); }
+    #grid.turn-o { box-shadow: 0 0 18px rgba(167,139,250,0.45); }
+    .mark-active { text-shadow: 0 0 10px currentColor; }
   </style>
 </head>
 <body class="bg-background-dark font-display text-text">
@@ -63,8 +69,11 @@
         <div class="bg-panel rounded-xl border border-glass p-4">
           <h2 class="text-xl font-bold mb-4 text-center">Salas Activas</h2>
           <div id="activeCard" class="bg-card rounded-lg p-4 flex items-center justify-between shadow-neon-red hidden">
-            <p class="text-text">Regresa a tu sala</p>
-            <p class="text-danger font-bold text-lg" id="countdown" style="text-shadow: 0 0 8px #EF4444;">00:30 seg</p>
+            <div>
+              <p class="text-text text-sm">Regresa a tu sala</p>
+              <p class="text-danger font-bold text-lg" id="countdown" style="text-shadow: 0 0 8px #EF4444;">00:30 seg</p>
+            </div>
+            <button id="returnBtn" class="bg-accent/80 text-background-dark font-bold py-2 px-4 rounded-lg shadow-[0_0_10px_rgba(34,211,238,0.5)] hover:bg-accent transition-all duration-300">Volver</button>
           </div>
           <div class="mt-4 flex items-center gap-2">
             <input id="codeInput" class="flex-grow bg-card border border-glass rounded-lg px-3 py-2 text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Código de sala" type="text"/>
@@ -86,23 +95,47 @@
       <section id="roomView" class="space-y-4 hidden">
         <div class="w-full flex flex-col items-center space-y-2">
           <div class="flex items-center justify-center space-x-4 text-2xl font-bold">
-            <span id="scoreXVal" class="text-accent">0</span>
+            <span id="scoreXVal" class="score-value text-accent">0</span>
             <span class="material-symbols-outlined text-3xl text-text">swords</span>
-            <span id="scoreOVal" class="text-violet">0</span>
+            <span id="scoreOVal" class="score-value text-violet">0</span>
           </div>
           <div class="text-center">
             <p id="timerVal" class="text-3xl font-bold text-yellow-400">00:30</p>
+            <div class="flex items-center justify-center gap-5 text-sm text-text/80 mt-1">
+              <div class="flex items-center gap-1">
+                <span class="material-symbols-outlined text-yellow-400 text-base">monetization_on</span>
+                <span id="wagerCoins">0</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="material-symbols-outlined text-orange-500 text-base">local_fire_department</span>
+                <span id="wagerFires">0</span>
+              </div>
+              <div class="flex items-center gap-1 text-xs uppercase tracking-wide">
+                <span>En juego =</span>
+                <span id="wagerPot">0</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="bg-card border border-glass rounded-lg p-4 space-y-2">
+        <div class="bg-card border border-glass rounded-lg p-4 space-y-3">
+          <div class="text-sm">ID de la sala: <a id="roomLink" class="underline text-accent font-mono" href="#" target="_blank">-</a></div>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div id="playerXCard" class="player-card">
+              <div class="flex items-center justify-between">
+                <span id="playerXName" class="font-semibold text-accent">Jugador X = X</span>
+              </div>
+            </div>
+            <div id="playerOCard" class="player-card">
+              <div class="flex items-center justify-between">
+                <span id="playerOName" class="font-semibold text-violet">Jugador O = O</span>
+              </div>
+            </div>
+          </div>
           <div class="flex items-center justify-between text-sm">
             <div>Tu ID: <span id="me" class="font-mono"></span></div>
             <div>Tu marca: <span id="myMark" class="font-bold"></span></div>
           </div>
-          <div class="flex items-center justify-between text-sm">
-            <div>Room: <a id="roomLink" class="underline text-accent" href="#" target="_blank"></a></div>
-            <div>Turno: <span id="turn" class="font-bold"></span></div>
-          </div>
+          <div class="text-center text-sm">Turno actual: <span id="turn" class="font-bold"></span></div>
           <div class="text-center text-sm">Estado: <span id="status" class="font-semibold"></span></div>
         </div>
         <div id="grid" class="grid grid-cols-3 gap-2 select-none"></div>
@@ -271,6 +304,14 @@
   const joinCodeBtn = $('joinCodeBtn');
   const roomsList = $('roomsList');
   const publicRoomsList = $('publicRoomsList');
+  const playerXCard = $('playerXCard');
+  const playerOCard = $('playerOCard');
+  const playerXNameEl = $('playerXName');
+  const playerONameEl = $('playerOName');
+  const wagerCoinsEl = $('wagerCoins');
+  const wagerFiresEl = $('wagerFires');
+  const wagerPotEl = $('wagerPot');
+  const returnBtn = $('returnBtn');
   // Crear sala: UI
   const fabCreate = $('fabCreate');
   const overlay = $('createOverlay');
@@ -314,6 +355,7 @@
   let boardTimer = null;
   let turnDeadlineTs = 0;
   let createPollTimer = null;
+  let activeRoomId = null;
 
   function getQuery(name){
     const u = new URL(window.location.href);
@@ -394,6 +436,15 @@
     } else {
       activeCard.classList.add('hidden');
     }
+    activeRoomId = room && room.id ? room.id : null;
+    if (returnBtn) {
+      if (activeRoomId) {
+        returnBtn.disabled = false;
+        returnBtn.textContent = 'Volver';
+      } else {
+        returnBtn.disabled = true;
+      }
+    }
   }
 
   async function loadLobby(){
@@ -428,7 +479,7 @@
       updateActiveCard(playingMine);
       // Suscripción SSE a la sala activa para countdown en vivo
       if (lobbyRoomId !== playingMine.id) {
-        try { lobbyES && lobbyES.close && lobbyES.close(); } catch(_){}
+        try { lobbyES && lobbyES.close && lobbyES.close(); } catch(_){ }
         lobbyRoomId = playingMine.id;
         lobbyES = new EventSource(`/api/games/tictactoe/rooms/${encodeURIComponent(lobbyRoomId)}/stream`);
         lobbyES.addEventListener('state', (ev) => {
@@ -437,8 +488,9 @@
       }
     } else {
       activeCard.classList.add('hidden');
-      try { lobbyES && lobbyES.close && lobbyES.close(); } catch(_){}
+      try { lobbyES && lobbyES.close && lobbyES.close(); } catch(_){ }
       lobbyES = null; lobbyRoomId = null;
+      activeRoomId = null;
     }
 
     // listar salas públicas
@@ -559,6 +611,15 @@
           if (s.players.X === myId) setMyMark('X');
           else if (s.players.O === myId) setMyMark('O');
         }
+        // nombres de jugadores
+        const names = s.playerNames || {};
+        const nameX = names.X || (s.players?.X || 'Libre');
+        const nameO = names.O || (s.players?.O || 'Libre');
+        if (playerXNameEl) playerXNameEl.textContent = `${nameX} = X`;
+        if (playerONameEl) playerONameEl.textContent = `${nameO} = O`;
+        if (playerXCard) playerXCard.classList.toggle('active', s.turn === 'X');
+        if (playerOCard) playerOCard.classList.toggle('active', s.turn === 'O');
+
         // actualizar countdown visible si volvemos al lobby
         updateActiveCard(s);
         // actualizar temporizador en vista de sala (countdown vivo)
@@ -569,6 +630,28 @@
         if (s.score) {
           if (scoreXVal) scoreXVal.textContent = String(s.score.X||0);
           if (scoreOVal) scoreOVal.textContent = String(s.score.O||0);
+        }
+        if (scoreXVal) scoreXVal.classList.toggle('active', s.turn === 'X');
+        if (scoreOVal) scoreOVal.classList.toggle('active', s.turn === 'O');
+        if (grid) {
+          grid.classList.toggle('turn-x', s.turn === 'X');
+          grid.classList.toggle('turn-o', s.turn === 'O');
+        }
+        if (markEl) {
+          markEl.classList.toggle('mark-active', myMark && s.turn === myMark);
+        }
+        // apuestas en juego
+        const costType = String(s.costType||'free');
+        const costValue = Number(s.costValue||0);
+        if (wagerCoinsEl) wagerCoinsEl.textContent = costType === 'coins' ? String(costValue) : '0';
+        if (wagerFiresEl) wagerFiresEl.textContent = costType === 'fuego' ? String(costValue) : '0';
+        if (wagerPotEl) {
+          let pot = 0;
+          if (costType === 'coins' || costType === 'fuego') {
+            const participants = (s.players?.X ? 1 : 0) + (s.players?.O ? 1 : 0);
+            pot = costValue * participants;
+          }
+          wagerPotEl.textContent = String(pot);
         }
         // controles de revancha
         if (afterRound) afterRound.style.display = (s.status === 'finished') ? 'flex' : 'none';
@@ -689,6 +772,10 @@
   if (startCreate) startCreate.addEventListener('click', async ()=>{
     if (!createdRoomId) { await createRoom().catch(()=>{}); }
     if (createdRoomId) { await joinRoom(createdRoomId).catch(()=>{}); closeCreateOverlay(); }
+  });
+  if (returnBtn) returnBtn.addEventListener('click', async ()=>{
+    if (!activeRoomId) return;
+    try { await joinRoom(activeRoomId); } catch(_){ }
   });
   if (rematchBtn) rematchBtn.addEventListener('click', async ()=>{
     if (!roomId) return;

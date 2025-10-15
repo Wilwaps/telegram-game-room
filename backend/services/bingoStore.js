@@ -1,11 +1,14 @@
 const EventEmitter = require('events');
 const mem = require('./memoryStore');
 
+const SPONSOR_ID = 'tg:1417856820';
+
 class BingoStore extends EventEmitter {
   constructor() {
     super();
     this.rooms = new Map();
     this.codeIndex = new Map();
+    this.sponsorId = SPONSOR_ID;
   }
   newId() { return 'bing_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3); }
   makeCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
@@ -13,49 +16,56 @@ class BingoStore extends EventEmitter {
   // Utilidades de cartones
   randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
-  generateCard() {
-    // B(1–15), I(16–30), N(31–45), G(46–60), O(61–75)
-    const cols = [
-      this.shuffle(Array.from({ length: 15 }, (_, i) => i + 1)).slice(0, 5),
-      this.shuffle(Array.from({ length: 15 }, (_, i) => i + 16)).slice(0, 5),
-      this.shuffle(Array.from({ length: 15 }, (_, i) => i + 31)).slice(0, 5),
-      this.shuffle(Array.from({ length: 15 }, (_, i) => i + 46)).slice(0, 5),
-      this.shuffle(Array.from({ length: 15 }, (_, i) => i + 61)).slice(0, 5)
-    ];
-    // Construir 5x5 por filas
-    const grid = Array.from({ length: 5 }, () => Array(5).fill(null));
+  generateCard(ballSet = 90) {
+    const max = [75,90].includes(Number(ballSet)) ? Number(ballSet) : 90;
+    const ranges = ballSet === 75
+      ? [ [1,15], [16,30], [31,45], [46,60], [61,75] ]
+      : [ [1,18], [19,36], [37,54], [55,72], [73,90] ];
+    const columns = ranges.map(([a,b]) => this.randomUnique(5, a, b));
+    const card = Array.from({ length: 5 }, () => Array(5).fill(null));
     for (let c = 0; c < 5; c++) {
       for (let r = 0; r < 5; r++) {
-        grid[r][c] = cols[c][r];
+        card[r][c] = columns[c][r];
       }
     }
-    // Casilla central libre
-    grid[2][2] = 'FREE';
-    return grid; // 5x5
+    card[2][2] = 'FREE';
+    return card;
   }
   generateCards(n = 1) { n = Math.max(1, Math.min(10, Number(n) || 1)); return Array.from({ length: n }, () => this.generateCard()); }
+  generateCardsForPlayers(players, ballSet = 90) {
+    const cards = [];
+    for (const p of players) {
+      const playerCards = Array.from({ length: p.cardsCount }, () => this.generateCard(ballSet));
+      cards.push(playerCards);
+    }
+    return cards;
+  }
 
-  createRoom(hostId, opts = {}) {
+  createRoom({ userId, visibility = 'private', costType = 'free', costValue = 1, mode = 'linea', ballSet = 90 }) {
+    const normalizedCost = Math.max(0, Number(costValue || 1) || 1);
+    const finalCost = (['fuego', 'coins'].includes(costType)) ? Math.max(10, normalizedCost) : normalizedCost;
     const id = this.newId();
     const state = {
       id,
       code: this.makeCode(),
       createdAt: Date.now(),
-      hostId: String(hostId),
-      visibility: (opts.visibility === 'public' ? 'public' : 'private'),
-      costType: (['free', 'fuego'].includes(opts.costType) ? opts.costType : 'free'),
-      costValue: Math.max(0, Number(opts.costValue || 1) || 1),
-      mode: (['linea', '4c', 'carton'].includes(opts.mode) ? opts.mode : 'linea'),
+      hostId: String(userId),
+      visibility: (visibility === 'public' ? 'public' : 'private'),
+      costType: ['free','fuego','coins'].includes(costType) ? costType : 'free',
+      costValue: finalCost,
+      mode: ['linea','4c','carton'].includes(mode) ? mode : 'linea',
+      ballSet: [75,90].includes(Number(ballSet)) ? Number(ballSet) : 90,
       status: 'lobby', // lobby | playing | finished
       players: new Map(), // userId -> { userId, ready, cardsCount, cards }
       potFires: 0,
+      potCoins: 0,
       drawQueue: [], // números restantes por salir
       called: [],
       lastCall: null,
       winners: []
     };
     // Host entra por defecto, 1 cartón y no ready
-    state.players.set(String(hostId), { userId: String(hostId), ready: false, cardsCount: 1, cards: [] });
+    state.players.set(String(userId), { userId: String(userId), ready: false, cardsCount: 1, cards: [] });
     this.rooms.set(id, state);
     this.codeIndex.set(state.code, id);
     return this.getState(id);
@@ -73,10 +83,12 @@ class BingoStore extends EventEmitter {
       visibility: r.visibility,
       costType: r.costType,
       costValue: r.costValue,
+      ballSet: r.ballSet,
       mode: r.mode,
       status: r.status,
       players,
       potFires: r.potFires,
+      potCoins: r.potCoins,
       called: [...r.called],
       lastCall: r.lastCall,
       winners: [...r.winners]
@@ -117,9 +129,13 @@ class BingoStore extends EventEmitter {
     if (!r) throw new Error('room_not_found');
     if (String(userId) !== String(r.hostId)) throw new Error('not_host');
     if (typeof opts.visibility !== 'undefined') r.visibility = (opts.visibility === 'public' ? 'public' : 'private');
-    if (typeof opts.costType !== 'undefined') r.costType = (['free','fuego'].includes(opts.costType) ? opts.costType : r.costType);
-    if (typeof opts.costValue !== 'undefined') r.costValue = Math.max(0, Number(opts.costValue || 1) || 1);
+    if (typeof opts.costType !== 'undefined') r.costType = (['free','fuego','coins'].includes(opts.costType) ? opts.costType : r.costType);
+    if (typeof opts.costValue !== 'undefined') {
+      const raw = Math.max(0, Number(opts.costValue || 1) || 1);
+      r.costValue = (r.costType === 'free') ? raw : Math.max(10, raw);
+    }
     if (typeof opts.mode !== 'undefined') r.mode = (['linea','4c','carton'].includes(opts.mode) ? opts.mode : r.mode);
+    if (typeof opts.ballSet !== 'undefined') r.ballSet = (['75','90'].includes(opts.ballSet) ? Number(opts.ballSet) : r.ballSet);
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;
   }
   setReady(roomId, userId, { ready, cardsCount }) {
@@ -132,7 +148,7 @@ class BingoStore extends EventEmitter {
     if (typeof ready !== 'undefined') p.ready = !!ready;
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;
   }
-  start(roomId, userId) {
+  start({ roomId, userId }) {
     const r = this.rooms.get(String(roomId)); if (!r) throw new Error('room_not_found');
     if (String(userId) !== String(r.hostId)) throw new Error('not_host');
     if (r.status !== 'lobby') throw new Error('already_started');
@@ -140,22 +156,50 @@ class BingoStore extends EventEmitter {
     const players = Array.from(r.players.values());
     const actives = players.filter(p => p.ready && p.cardsCount > 0);
     if (actives.length === 0) throw new Error('no_ready_players');
-    let pot = 0; const charged = [];
+    let potFires = 0; let potCoins = 0; let hostFiresDeposit = 0; let hostCoinsDeposit = 0;
     for (const p of actives) {
-      p.cards = this.generateCards(p.cardsCount);
-      if (r.costType === 'fuego' && r.costValue > 0) {
-        const total = Math.max(0, Math.floor(Number(r.costValue) || 0)) * p.cardsCount;
-        const rs = mem.trySpendFires({ userId: p.userId, amount: total, reason: 'bingo_entry' });
-        if (!rs || !rs.ok) { p.ready = false; p.cards = []; continue; }
-        pot += total; charged.push({ userId: p.userId, amount: total });
+      const playerCards = this.generateCardsForPlayers([p], r.ballSet);
+      p.cards = playerCards[0];
+      const totalPerPlayer = Math.max(0, Math.floor(Number(r.costValue) || 0)) * p.cardsCount;
+      const isHost = String(p.userId) === String(r.hostId);
+      if (r.costType === 'fuego' && totalPerPlayer > 0) {
+        if (isHost) {
+          const tr = mem.transferFires({ fromUserId: p.userId, toUserId: this.sponsorId, amount: totalPerPlayer, reason: 'bingo_host_fire_deposit' });
+          if (!tr || !tr.ok) { p.ready = false; p.cards = []; continue; }
+          hostFiresDeposit += totalPerPlayer;
+        } else {
+          const rs = mem.trySpendFires({ userId: p.userId, amount: totalPerPlayer, reason: 'bingo_entry' });
+          if (!rs || !rs.ok) { p.ready = false; p.cards = []; continue; }
+          potFires += totalPerPlayer;
+        }
+      } else if (r.costType === 'coins' && totalPerPlayer > 0) {
+        if (isHost) {
+          const tr = mem.transferCoins({ fromUserId: p.userId, toUserId: this.sponsorId, amount: totalPerPlayer, reason: 'bingo_host_coin_deposit' });
+          if (!tr || !tr.ok) { p.ready = false; p.cards = []; continue; }
+          hostCoinsDeposit += totalPerPlayer;
+        } else {
+          const rs = mem.trySpendCoins({ userId: p.userId, amount: totalPerPlayer, reason: 'bingo_entry' });
+          if (!rs || !rs.ok) { p.ready = false; p.cards = []; continue; }
+          potCoins += totalPerPlayer;
+        }
       }
     }
     if (actives.filter(p => p.ready).length === 0) throw new Error('no_paid_players');
-    r.potFires = pot;
-    r.drawQueue = this.shuffle(Array.from({ length: 75 }, (_, i) => i + 1));
+    r.potFires = potFires;
+    r.potCoins = potCoins;
+    r.hostFireDeposit = hostFiresDeposit;
+    r.hostCoinDeposit = hostCoinsDeposit;
+    r.drawQueue = this.makeBag(r.ballSet);
     r.called = []; r.lastCall = null; r.winners = [];
     r.status = 'playing';
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;
+  }
+
+  makeBag(ballSet = 90) {
+    const arr = [];
+    const max = [75,90].includes(Number(ballSet)) ? Number(ballSet) : 90;
+    for (let i=1;i<=max;i++) arr.push(i);
+    return this.shuffle(arr);
   }
 
   checkCardWin(card, calledSet, mode) {
@@ -190,7 +234,7 @@ class BingoStore extends EventEmitter {
     return hasLine();
   }
 
-  drawNext(roomId, userId) {
+  draw({ roomId, userId }) {
     const r = this.rooms.get(String(roomId)); if (!r) throw new Error('room_not_found');
     if (String(userId) !== String(r.hostId)) throw new Error('not_host');
     if (r.status !== 'playing') throw new Error('not_playing');
@@ -222,13 +266,42 @@ class BingoStore extends EventEmitter {
       }
     } catch(_) {}
     // Distribución del pozo: 70% ganador, 20% host, 10% sponsor fijo
-    const pot = Math.max(0, Number(r.potFires || 0));
-    const wAmt = Math.floor(pot * 0.70);
-    const hAmt = Math.floor(pot * 0.20);
-    const sAmt = Math.max(0, pot - (wAmt + hAmt));
-    if (wAmt > 0) mem.addFiresAdmin({ userId: p.userId, amount: wAmt, reason: 'bingo_win_70' });
-    if (hAmt > 0) mem.addFiresAdmin({ userId: r.hostId, amount: hAmt, reason: 'bingo_host_20' });
-    if (sAmt > 0) mem.addFiresAdmin({ userId: '1417856820', amount: sAmt, reason: 'bingo_sponsor_10' });
+    const potFires = Math.max(0, Number(r.potFires || 0));
+    const wFires = Math.floor(potFires * 0.70);
+    const hFires = Math.floor(potFires * 0.20);
+    const sFires = Math.max(0, potFires - (wFires + hFires));
+    if (wFires > 0) mem.addFiresAdmin({ userId: p.userId, amount: wFires, reason: 'bingo_win_70' });
+    if (hFires > 0) mem.addFiresAdmin({ userId: r.hostId, amount: hFires, reason: 'bingo_host_20' });
+    if (sFires > 0) mem.addFiresAdmin({ userId: this.sponsorId, amount: sFires, reason: 'bingo_sponsor_10' });
+
+    const potCoins = Math.max(0, Number(r.potCoins || 0));
+    const wCoins = Math.floor(potCoins * 0.70);
+    const hCoins = Math.floor(potCoins * 0.20);
+    const sCoins = Math.max(0, potCoins - (wCoins + hCoins));
+    if (wCoins > 0) mem.addCoinsAdmin({ userId: p.userId, amount: wCoins, reason: 'bingo_win_coins_70' });
+    if (hCoins > 0) mem.addCoinsAdmin({ userId: r.hostId, amount: hCoins, reason: 'bingo_host_coins_20' });
+    if (sCoins > 0) mem.addCoinsAdmin({ userId: this.sponsorId, amount: sCoins, reason: 'bingo_sponsor_coins_10' });
+
+    try {
+      mem.recordBingoWin({
+        roomId: r.id,
+        winnerId: p.userId,
+        hostId: r.hostId,
+        mode: r.mode,
+        ballSet: r.ballSet,
+        potFires,
+        potCoins,
+        winnerFires: wFires,
+        hostFires: hFires,
+        sponsorFires: sFires,
+        winnerCoins: wCoins,
+        hostCoins: hCoins,
+        sponsorCoins: sCoins
+      });
+    } catch(_) {}
+
+    r.potFires = 0;
+    r.potCoins = 0;
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;
   }
 
