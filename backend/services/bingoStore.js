@@ -16,6 +16,16 @@ class BingoStore extends EventEmitter {
   // Utilidades de cartones
   randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+  randomUnique(count, min, max) {
+    const lo = Math.floor(Number(min) || 0);
+    const hi = Math.floor(Number(max) || 0);
+    if (hi < lo) return [];
+    const total = Math.min(Math.max(1, Number(count) || 1), hi - lo + 1);
+    const pool = [];
+    for (let n = lo; n <= hi; n++) pool.push(n);
+    this.shuffle(pool);
+    return pool.slice(0, total).sort((a, b) => a - b);
+  }
   generateCard(ballSet = 90) {
     const max = [75,90].includes(Number(ballSet)) ? Number(ballSet) : 90;
     const ranges = ballSet === 75
