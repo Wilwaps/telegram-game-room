@@ -4,6 +4,7 @@ const { URL } = require('url');
 const router = express.Router();
 const store = require('../services/memoryStore');
 const adminAuth = require('../middleware/adminAuth');
+const { preferSessionUserId } = require('../middleware/sessionUser');
 
 function postJSON(urlStr, data) {
   return new Promise((resolve) => {
@@ -41,7 +42,8 @@ async function notifyAdminNewRequest(req, { request }) {
 router.post('/fire-requests/create', (req, res) => {
   try {
     const { userId, amount, reference } = req.body || {};
-    const rec = store.createFireRequest({ userId, amount, reference });
+    const realUserId = preferSessionUserId(req, userId);
+    const rec = store.createFireRequest({ userId: realUserId, amount, reference });
     // notificar admin por TG (no bloquear)
     notifyAdminNewRequest(req, { request: rec });
     res.json({ success: true, request: rec });
@@ -54,9 +56,9 @@ router.post('/fire-requests/create', (req, res) => {
 // GET /api/economy/fire-requests/my/:userId
 router.get('/fire-requests/my/:userId', (req, res) => {
   try {
-    const { userId } = req.params;
+    const realUserId = preferSessionUserId(req, req.params && req.params.userId);
     const { limit, offset } = req.query || {};
-    const out = store.listFireRequestsByUser(userId, { limit, offset });
+    const out = store.listFireRequestsByUser(realUserId, { limit, offset });
     res.json({ success: true, ...out });
   } catch (err) {
     res.status(500).json({ success: false, error: 'list_my_error' });

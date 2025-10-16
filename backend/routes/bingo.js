@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const store = require('../services/bingoStore');
+const { preferSessionUserId } = require('../middleware/sessionUser');
 
 router.get('/health', (req, res) => {
   res.json({ success: true, service: 'bingo', status: 'ok' });
@@ -9,7 +10,7 @@ router.get('/health', (req, res) => {
 // Crear sala
 router.post('/rooms', (req, res) => {
   try {
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, req.body && req.body.userId);
     const visibility = (req.body && req.body.visibility) || undefined;
     const costType = (req.body && req.body.costType) || undefined;
     const costValue = (req.body && req.body.costValue) || undefined;
@@ -26,7 +27,7 @@ router.post('/rooms', (req, res) => {
 // Salas del usuario
 router.get('/my-rooms', (req, res) => {
   try {
-    const userId = String(req.query.userId || '').trim();
+    const userId = preferSessionUserId(req, req.query && req.query.userId);
     if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
     const rooms = store.listRoomsByUser(userId);
     res.json({ success: true, rooms });
@@ -61,7 +62,7 @@ router.get('/code/:code', (req, res) => {
 router.post('/join-code', (req, res) => {
   try {
     const code = String(req.body && req.body.code || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, req.body && req.body.userId);
     if (!code || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
     const meta = store.findByCode(code);
     if (!meta) return res.status(404).json({ success: false, error: 'room_not_found' });
@@ -78,7 +79,7 @@ router.post('/join-code', (req, res) => {
 router.post('/rooms/:id/join', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, req.body && req.body.userId);
     if (!roomId || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
     const state = store.joinRoom(roomId, userId);
     res.json({ success: true, state });
@@ -93,7 +94,7 @@ router.post('/rooms/:id/join', (req, res) => {
 router.patch('/rooms/:id/options', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, req.body && req.body.userId);
     const visibility = (req.body && req.body.visibility);
     const costType = (req.body && req.body.costType);
     const costValue = (req.body && req.body.costValue);
@@ -112,7 +113,7 @@ router.patch('/rooms/:id/options', (req, res) => {
 router.patch('/rooms/:id/ready', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, req.body && req.body.userId);
     const ready = (req.body && req.body.ready);
     const cardsCount = (req.body && req.body.cardsCount);
     const state = store.setReady(roomId, userId, { ready, cardsCount });
@@ -128,7 +129,7 @@ router.patch('/rooms/:id/ready', (req, res) => {
 router.post('/rooms/:id/start', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, req.body && req.body.userId);
     const state = store.start({ roomId, userId });
     res.json({ success: true, state });
   } catch (e) {
@@ -142,7 +143,7 @@ router.post('/rooms/:id/start', (req, res) => {
 router.post('/rooms/:id/draw', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, req.body && req.body.userId);
     const state = store.draw({ roomId, userId });
     res.json({ success: true, state });
   } catch (e) {
@@ -156,7 +157,7 @@ router.post('/rooms/:id/draw', (req, res) => {
 router.post('/rooms/:id/claim', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, req.body && req.body.userId);
     const cardIndex = (req.body && req.body.cardIndex);
     const state = store.claim(roomId, userId, { cardIndex });
     res.json({ success: true, state });
@@ -171,7 +172,7 @@ router.post('/rooms/:id/claim', (req, res) => {
 router.post('/rooms/:id/rematch', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, req.body && req.body.userId);
     const state = store.rematch(roomId, userId);
     res.json({ success: true, state });
   } catch (e) {

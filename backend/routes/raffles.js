@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const store = require('../services/memoryStore');
 const raffles = require('../services/raffleStore');
+const { preferSessionUserId, requireSessionUser, UserIdError } = require('../middleware/sessionUser');
 const messages = require('../services/messageStore');
 const https = require('https');
 const { URL } = require('url');
@@ -65,7 +66,8 @@ router.get('/code/:code', (req,res)=>{
 router.post('/create', (req,res)=>{
   try{
     const { hostId, hostName, mode, entryPrice, visibility, range, time, name, hostMeta, prizeMeta } = req.body||{};
-    const rec = raffles.create({ hostId, hostName, mode, entryPrice, visibility, range, time: (time==='Ganador'?'winner': time==='1 día'?'1d': time==='1 semana'?'1w': time), name, hostMeta, prizeMeta });
+    const realHostId = preferSessionUserId(req, hostId);
+    const rec = raffles.create({ hostId: realHostId, hostName, mode, entryPrice, visibility, range, time: (time==='Ganador'?'winner': time==='1 día'?'1d': time==='1 semana'?'1w': time), name, hostMeta, prizeMeta });
     // notificar admin
     notifyAdminNewRaffle(req, rec);
     try{
@@ -73,47 +75,57 @@ router.post('/create', (req,res)=>{
       messages.send({ toUserId: 'tg:1417856820', text: `Sala de rifa iniciada ${dep} 🔥 (host: ${rec.hostId}, code: ${rec.code})` });
     }catch(_){ }
     res.json({ success:true, raffle: raffles.getPublicInfo(rec) });
-  }catch(err){ res.status(400).json({ success:false, error: (err&&err.message)||'create_error' }); }
+  }catch(err){
+    if (err instanceof UserIdError) return res.status(err.status || 400).json({ success:false, error: err.message });
+    res.status(400).json({ success:false, error: (err&&err.message)||'create_error' }); }
 });
 
 router.post('/:id/reserve', (req,res)=>{
   try{
     const { userId, number } = req.body||{};
-    const out = raffles.reserve({ id: req.params.id, userId, number });
+    const realUserId = preferSessionUserId(req, userId);
+    const out = raffles.reserve({ id: req.params.id, userId: realUserId, number });
     res.json({ success:true, ...out });
-  }catch(err){ res.status(400).json({ success:false, error:(err&&err.message)||'reserve_error' }); }
+  }catch(err){
+    if (err instanceof UserIdError) return res.status(err.status || 400).json({ success:false, error: err.message });
+    res.status(400).json({ success:false, error:(err&&err.message)||'reserve_error' }); }
 });
 
 router.post('/:id/release', (req,res)=>{
   try{
     const { userId, number } = req.body||{};
-    const out = raffles.release({ id: req.params.id, userId, number });
+    const realUserId = resolveUserId(req, userId);
+    const out = raffles.release({ id: req.params.id, userId: realUserId, number });
     res.json({ success:true, ...out });
-  }catch(err){ res.status(400).json({ success:false, error:(err&&err.message)||'release_error' }); }
+  }catch(err){
+    if (err instanceof UserIdError) return res.status(err.status || 400).json({ success:false, error: err.message });
+    res.status(400).json({ success:false, error:(err&&err.message)||'release_error' }); }
 });
 
 router.post('/:id/confirm', (req,res)=>{
   try{
     const { userId, number, reference } = req.body||{};
+    const realUserId = resolveUserId(req, userId);
     const r = raffles.findById(req.params.id);
     if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
     if (r.mode === 'fire'){
-      const out = raffles.confirm({ id: r.id, userId, number, reference });
+      const out = raffles.confirm({ id: r.id, userId: realUserId, number, reference });
       // mensaje al usuario
-      messages.send({ toUserId: userId, text: `Te has unido a la rifa ${r.code} con el número ${String(number).padStart(2,'0')}. Te notificaremos al finalizar.` });
+      messages.send({ toUserId: realUserId, text: `Te has unido a la rifa ${r.code} con el número ${String(number).padStart(2,'0')}. Te notificaremos al finalizar.` });
       return res.json({ success:true, ...out });
     } else {
       // modo premio: generar solicitud pendiente (simplemente reservar más tiempo y añadir a participants como pending)
       const idx = Math.max(0, Math.min(r.size-1, Number(number)||0));
       const cur = r.numbers[idx];
-      if (!(cur.state===0 || (cur.state===1 && cur.reservedBy===String(userId)))) throw new Error('not_available');
-      r.numbers[idx] = { idx, state:1, reservedBy:String(userId), reservedUntil: Date.now()+5*60*1000 };
-      if (!Array.isArray(r.pending)) r.pending = [];
-      r.pending.push({ idx, userId:String(userId), reference:String(reference||'').trim(), ts: Date.now() });
-      messages.send({ toUserId: r.hostId, text: `Solicitud de compra en tu rifa ${r.code} del número ${String(idx).padStart(2,'0')}. Ref: ${String(reference||'')}` });
+      if (!(cur.state===0 || (cur.state===1 && cur.reservedBy===String(realUserId)))) throw new Error('not_available');
+      r.numbers[idx] = { idx, state:1, reservedBy:String(realUserId), reservedUntil: Date.now()+5*60*1000 };
+      r.pending.push({ idx, userId:String(realUserId), reference:String(reference||''), ts: Date.now() });
+      messages.send({ toUserId: realUserId, text: `Te has unido a la rifa ${r.code} con el número ${String(number).padStart(2,'0')}. Te notificaremos al finalizar.` });
       return res.json({ success:true, pending:true });
     }
-  }catch(err){ res.status(400).json({ success:false, error:(err&&err.message)||'confirm_error' }); }
+  }catch(err){
+    if (err instanceof UserIdError) return res.status(err.status || 400).json({ success:false, error: err.message });
+    res.status(400).json({ success:false, error:(err&&err.message)||'confirm_error' }); }
 });
 
 router.get('/:id/pending', (req,res)=>{
@@ -126,6 +138,8 @@ router.post('/:id/approve', (req,res)=>{
   try{
     const r = raffles.findById(req.params.id);
     if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
+    const hostId = requireSessionUser(req);
+    if (hostId !== r.hostId) throw new UserIdError('not_host', 403);
     const { number, approve } = req.body||{};
     const idx = Math.max(0, Math.min(r.size-1, Number(number)||0));
     const pidx = (r.pending||[]).findIndex(x=>x.idx===idx);
@@ -145,7 +159,9 @@ router.post('/:id/approve', (req,res)=>{
     const soldCount = r.numbers.filter(n=>n.state===2).length;
     if (soldCount>=r.size || (r.endsAt && r.endsAt<=Date.now())){ raffles.closeAndPayout(r); }
     res.json({ success:true });
-  }catch(err){ res.status(400).json({ success:false, error:(err&&err.message)||'approve_error' }); }
+  }catch(err){
+    if (err instanceof UserIdError) return res.status(err.status || 400).json({ success:false, error: err.message });
+    res.status(400).json({ success:false, error:(err&&err.message)||'approve_error' }); }
 });
 
 // Documentos

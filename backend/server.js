@@ -68,11 +68,22 @@ app.use((req, res, next) => {
     const raw = String(req.headers.cookie || '');
     let uid = '';
     let sid = '';
+    let sessionObj = null;
     for (const part of raw.split(/;\s*/)) {
       const [k, v] = part.split('=');
       if (k === 'uid' || k === 'uidp') { uid = v; }
       else if (k === 'sid') { sid = v; }
     }
+    if (sid) {
+      try {
+        const sess = auth.getSession(sid);
+        if (sess && sess.userId) {
+          req.sessionUserId = String(sess.userId);
+          sessionObj = sess;
+        }
+      } catch (_) {}
+    }
+    req.sessionUser = sessionObj;
     if (!uid) {
       uid = (Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 24);
       const maxAge = 365 * 24 * 3600;
@@ -82,15 +93,8 @@ app.use((req, res, next) => {
       ]);
     }
     const ua = String(req.headers['user-agent'] || '');
-    let sessionUserId = '';
-    if (sid) {
-      try {
-        const sess = auth.getSession(sid);
-        if (sess && sess.userId) sessionUserId = String(sess.userId);
-      } catch (_) {}
-    }
-    if (sessionUserId) {
-      try { store.touchUser(sessionUserId, { ua }); } catch (_) {}
+    if (req.sessionUserId) {
+      try { store.touchUser(req.sessionUserId, { ua }); } catch (_) {}
     } else {
       try { store.touchUser('anon:' + uid, { ua }); } catch (_) {}
     }
