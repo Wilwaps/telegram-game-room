@@ -72,7 +72,8 @@ class BingoStore extends EventEmitter {
       drawQueue: [], // números restantes por salir
       called: [],
       lastCall: null,
-      winners: []
+      winners: [],
+      lastPayout: null
     };
     // Host entra por defecto, 1 cartón y no ready
     state.players.set(String(userId), { userId: String(userId), ready: false, cardsCount: 1, cards: [] });
@@ -101,7 +102,8 @@ class BingoStore extends EventEmitter {
       potCoins: r.potCoins,
       called: [...r.called],
       lastCall: r.lastCall,
-      winners: [...r.winners]
+      winners: [...r.winners],
+      lastPayout: r.lastPayout || null
     };
   }
 
@@ -129,9 +131,10 @@ class BingoStore extends EventEmitter {
   joinRoom(roomId, userId) {
     const r = this.rooms.get(String(roomId));
     if (!r) throw new Error('room_not_found');
-    if (r.status !== 'lobby') throw new Error('already_started');
     const uid = String(userId);
-    if (!r.players.has(uid)) r.players.set(uid, { userId: uid, ready: false, cardsCount: 1, cards: [] });
+    const exists = r.players.has(uid);
+    if (!exists && r.status !== 'lobby') throw new Error('already_started');
+    if (!exists) r.players.set(uid, { userId: uid, ready: false, cardsCount: 1, cards: [] });
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;
   }
   setOptions(roomId, userId, opts = {}) {
@@ -310,6 +313,14 @@ class BingoStore extends EventEmitter {
       });
     } catch(_) {}
 
+    r.lastPayout = {
+      winnerFires: wFires,
+      hostFires: hFires,
+      sponsorFires: sFires,
+      winnerCoins: wCoins,
+      hostCoins: hCoins,
+      sponsorCoins: sCoins
+    };
     r.potFires = 0;
     r.potCoins = 0;
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;
@@ -327,6 +338,7 @@ class BingoStore extends EventEmitter {
     r.called = [];
     r.lastCall = null;
     r.winners = [];
+    r.lastPayout = null;
     // Limpiar cartas y marcar no ready para todos, mantener cardsCount elegido
     for (const p of r.players.values()) { p.ready = false; p.cards = []; }
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;

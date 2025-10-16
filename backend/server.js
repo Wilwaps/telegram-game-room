@@ -1,4 +1,6 @@
 const express = require('express');
+const Sentry = require('@sentry/node');
+const Tracing = require('@sentry/tracing');
 const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -23,6 +25,17 @@ const welcomeRoutes = require('./routes/welcome');
 const adminWelcomeRoutes = require('./routes/admin_welcome');
 
 const app = express();
+// Sentry init (si DSN disponible)
+try {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN || undefined,
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_RATE || '0.2') || 0.2,
+    integrations: [
+      new Sentry.Integrations.Http({ tracing: true }),
+      new Tracing.Integrations.Express({ app })
+    ]
+  });
+} catch (_) {}
 // Configurar trust proxy con hops numéricos (evita ValidationError de express-rate-limit)
 app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
 // Bloquear cualquier intento de establecer X-Frame-Options en respuestas
@@ -41,11 +54,11 @@ app.use(helmet({
     useDefaults: true,
     directives: {
       "default-src": ["'self'"],
-      "script-src": ["'self'", "https://cdn.tailwindcss.com", "https://telegram.org", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+      "script-src": ["'self'", "https://cdn.tailwindcss.com", "https://telegram.org", "https://cdn.jsdelivr.net", "https://browser.sentry-cdn.com", "'unsafe-inline'"],
       "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
       "img-src": ["'self'", "data:", "https:", "blob:"],
       "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
-      "connect-src": ["'self'", "https:", "wss:", "https://api.telegram.org", "https://*.telegram.org"],
+      "connect-src": ["'self'", "https:", "wss:", "https://api.telegram.org", "https://*.telegram.org", "https://*.sentry.io", "https://o*.ingest.sentry.io"],
       "media-src": ["'self'", "https://www.soundhelix.com", "https://api.telegram.org", "https://*.telegram.org"],
       "frame-ancestors": ["'self'", "https://*.telegram.org", "https://web.telegram.org", "https://t.me", "https://*.t.me"],
       "upgrade-insecure-requests": []
@@ -56,6 +69,8 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 app.use(cors());
+// Sentry middleware (request/tracing)
+try { app.use(Sentry.Handlers.requestHandler()); app.use(Sentry.Handlers.tracingHandler()); } catch (_) {}
 app.use(express.json());
 // Forzar eliminación del header X-Frame-Options para permitir embed en Telegram WebApp
 app.use((req, res, next) => {
@@ -102,6 +117,14 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.static(path.resolve(__dirname, '../public')));
+
+// Config JS para frontend (DSN y env)
+app.get('/config.js', (req, res) => {
+  try {
+    res.set('Content-Type', 'application/javascript');
+    res.send(`window.__SENTRY_DSN__=${JSON.stringify(process.env.SENTRY_DSN || '')};window.__APP_ENV__=${JSON.stringify(process.env.NODE_ENV || 'development')};`);
+  } catch (e) { res.status(200).type('application/javascript').send(''); }
+});
 
 // Rate limit con bypass endurecido (requiere header + env)
 const limiter = rateLimit({
@@ -195,6 +218,8 @@ app.use((req, res) => {
   res.status(404).json({ success: false, error: 'not_found' });
 });
 
+// Sentry error handler
+try { app.use(Sentry.Handlers.errorHandler()); } catch (_) {}
 // Error handler
 app.use((err, req, res, next) => {
   logger.error('Unhandled error', err);

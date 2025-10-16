@@ -11,6 +11,11 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script src="/js/app-user.js"></script>
+  <script src="/config.js"></script>
+  <!-- Sentry (frontend, opcional: requiere window.__SENTRY_DSN__) -->
+  <script src="https://browser.sentry-cdn.com/7.121.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
+  <script src="/js/sentry-config.js"></script>
+  <script src="/js/sentry-client.js"></script>
   <script id="tailwind-config">
     tailwind.config = {
       darkMode: 'class',
@@ -224,7 +229,7 @@
         </div>
       </div>
     </div>
-    <div class="bg-panel border border-glass rounded-lg p-3">
+    <div id="calledSection" class="bg-panel border border-glass rounded-lg p-3 hidden">
       <h3 class="font-bold mb-2">Números llamados</h3>
       <div id="calledList" class="text-sm flex flex-wrap gap-2"></div>
     </div>
@@ -254,12 +259,26 @@
       <div class="flex gap-2">
         <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Salir</a>
       </div>
-      <div id="gameOver" class="hidden text-center space-y-2">
-        <p class="text-3xl font-bold">¡BINGO!</p>
-        <p>Ganador: <b id="winnerVal">-</b></p>
-        <div class="flex gap-2 max-w-sm mx-auto">
-          <button id="rematchBtn" class="flex-1 bg-yellow-400 text-background-dark font-bold py-2 rounded-lg hidden">Revancha</button>
-          <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Ir al Lobby</a>
+      <div id="gameOver" class="hidden text-center space-y-4 py-4">
+        <h2 class="text-4xl font-extrabold text-yellow-400" style="text-shadow:0 0 12px #facc15">¡BINGO!</h2>
+        <p class="text-lg text-yellow-300">Felicidades, <span id="winnerVal" class="font-bold">-</span></p>
+        <div class="flex items-center justify-center gap-6">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-orange-400">local_fire_department</span>
+            <span class="text-3xl font-bold" id="winFires">0</span>
+            <span class="text-sm">🔥</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
+            <span class="text-3xl font-bold" id="winCoins">0</span>
+          </div>
+        </div>
+        <div class="text-sm text-text/70">
+          <p>Host recibe: <b id="hostFires">0</b> 🔥 • <b id="hostCoins">0</b> coins</p>
+        </div>
+        <div class="w-full max-w-xs mx-auto">
+          <button id="rematchBtn" class="w-full rounded-full bg-yellow-400 py-3 font-bold text-background-dark shadow-[0_0_10px_#facc15] hidden">Revancha</button>
+          <a href="/games" class="mt-3 block w-full rounded-full bg-transparent py-3 text-primary/80 hover:text-primary border border-primary/50">Ir al Lobby</a>
         </div>
       </div>
     </div>
@@ -303,6 +322,7 @@
   const tablaPanel = $('tablaPanel');
   const tablaGrid = $('tablaGrid');
   const tablaInfo = $('tablaInfo');
+  const calledSection = $('calledSection');
   const startBtn = $('startBtn');
   const cardsCountSel = $('cardsCount');
   const readyChk = $('readyChk');
@@ -323,10 +343,13 @@
   let roomId = null;
   let es = null;
   let currentBallSet = 90;
+  let currentMode = 'linea';
+  let currentStatus = 'lobby';
   let tablaOpen = false;
   let stateCalled = [];
   let stateLast = null;
   const userMarks = new Map();
+  let lastMyCards = [];
   let createdRoomId = null;
   let createVisibility = 'private';
   let createCostType = 'free';
@@ -435,6 +458,7 @@
     roomId = j.state.id; roomCodeEl.textContent = j.state.code || '------';
     subscribe();
     roomView.classList.remove('hidden');
+    try{ roomView.scrollTop = 0; }catch(_){ }
   }
 
   function renderCalled(arr){
@@ -510,10 +534,42 @@
         const boxes = cardsWrap.querySelectorAll('[data-idx]');
         boxes.forEach(el=>{ el.className = el.className.replace(' ring-2 ring-accent',''); });
         box.className += ' ring-2 ring-accent';
+        updateClaimVisibility();
       });
       if (idx === selectedCardIdx) { box.className += ' ring-2 ring-accent'; }
       cardsWrap.appendChild(box);
     });
+    lastMyCards = myCards;
+    updateClaimVisibility();
+  }
+
+  function checkCardWinClient(card, calledSet, mode){
+    if (!Array.isArray(card) || card.length!==5) return false;
+    const isCalled = (n,r,c)=> (r===2 && c===2 && n==='FREE') ? true : calledSet.has(n);
+    const hasLine = ()=>{
+      for (let r=0;r<5;r++){ let ok=true; for (let c=0;c<5;c++){ if (!isCalled(card[r][c],r,c)){ ok=false; break; } } if (ok) return true; }
+      for (let c=0;c<5;c++){ let ok=true; for (let r=0;r<5;r++){ if (!isCalled(card[r][c],r,c)){ ok=false; break; } } if (ok) return true; }
+      let okd1=true; for(let i=0;i<5;i++){ if(!isCalled(card[i][i],i,i)){ okd1=false; break; } }
+      let okd2=true; for(let i=0;i<5;i++){ if(!isCalled(card[i][4-i],i,4-i)){ okd2=false; break; } }
+      return okd1 || okd2;
+    };
+    const hasCorners = ()=> isCalled(card[0][0],0,0) && isCalled(card[0][4],0,4) && isCalled(card[4][0],4,0) && isCalled(card[4][4],4,4);
+    const hasFull = ()=>{
+      for (let r=0;r<5;r++){ for (let c=0;c<5;c++){ if (!isCalled(card[r][c],r,c)) return false; } }
+      return true;
+    };
+    if (mode==='4c') return hasCorners(); if (mode==='carton') return hasFull(); return hasLine();
+  }
+
+  function updateClaimVisibility(){
+    try{
+      if (currentStatus !== 'playing') { claimBtn.style.display='none'; return; }
+      const card = (lastMyCards && lastMyCards[selectedCardIdx]) || null;
+      if (!card) { claimBtn.style.display='none'; return; }
+      const set = new Set(stateCalled||[]);
+      const win = checkCardWinClient(card, set, currentMode);
+      claimBtn.style.display = win ? 'block' : 'none';
+    }catch(_){ claimBtn.style.display='none'; }
   }
 
   function subscribe(){
@@ -524,6 +580,8 @@
         const s = JSON.parse(ev.data);
         potVal.textContent = String(s.potFires||0);
         modeVal.textContent = (s.mode==='4c' ? '4 Esquinas' : (s.mode==='carton' ? 'Cartón Lleno' : 'Línea'));
+        currentMode = s.mode || 'linea';
+        currentStatus = s.status || 'lobby';
         lastCall.textContent = String(s.lastCall||'');
         currentBallSet = Number(s.ballSet||90);
         stateCalled = Array.isArray(s.called) ? s.called.slice() : [];
@@ -536,17 +594,20 @@
         drawBtn.classList.toggle('hidden', !(isHost && s.status==='playing'));
         startBtn.classList.toggle('hidden', !(isHost && s.status==='lobby'));
         lobbyPanel.style.display = (s.status==='lobby') ? 'block' : 'none';
-        // ocultar Cantar si no está en juego
-        claimBtn.style.display = (s.status==='playing') ? 'block' : 'none';
+        // llamados solo en playing/finished
+        if (calledSection) calledSection.classList.toggle('hidden', !(s.status==='playing' || s.status==='finished'));
         // my cards
         const me = (s.players||[]).find(p=> p.userId===myId);
         const myCards = me && me.cards ? me.cards : [];
         renderCards(myCards, s.called||[]);
+        updateClaimVisibility();
         // game over
         if (s.status==='finished'){
           gameOver.classList.remove('hidden');
           const w = (s.winners && s.winners[0] && s.winners[0].userId) || '-';
           winnerVal.textContent = w;
+          // montos (si vienen)
+          try{ const p = s.lastPayout || {}; const wf=p.winnerFires||0, hf=p.hostFires||0; const wc=p.winnerCoins||0, hc=p.hostCoins||0; const wfEl=document.getElementById('winFires'); const hfEl=document.getElementById('hostFires'); const wcEl=document.getElementById('winCoins'); const hcEl=document.getElementById('hostCoins'); if(wfEl) wfEl.textContent=String(wf); if(hfEl) hfEl.textContent=String(hf); if(wcEl) wcEl.textContent=String(wc); if(hcEl) hcEl.textContent=String(hc);}catch(_){ }
           // botón Revancha solo para host
           const isHost2 = (s.hostId === myId);
           const rematchBtn = document.getElementById('rematchBtn');
@@ -601,7 +662,7 @@
     const code = (codeInput.value||'').trim(); if (!code) return;
     try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); } }catch(e){ notify(e.message); }
   });
-  startBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { } }catch(e){ notify(e.message); } });
+  startBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { /* auto scroll to top */ try{ roomView.scrollTop = 0; }catch(_){ } } }catch(e){ notify(e.message); } });
   drawBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/draw`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); }catch(e){ notify(e.message); } });
   tablaToggle.addEventListener('click', ()=>{
     tablaOpen = !tablaOpen;
@@ -636,6 +697,10 @@
     const rid = getQuery('room');
     if (rid) { try{ await joinRoom(rid); } catch(_){ await loadLobby(); } }
     else { await loadLobby(); }
+    // Reingreso desde banner "Sala en curso"
+    if (activeCard) {
+      activeCard.addEventListener('click', async ()=>{ if (lobbyRoomId) { try{ await joinRoom(lobbyRoomId); setTimeout(()=>{ try{ lobbyPanel && lobbyPanel.scrollIntoView({block:'start'}); }catch(_){ } }, 50);}catch(e){ notify(e.message); } } });
+    }
   })();
 })();
 </script>
