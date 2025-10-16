@@ -266,6 +266,9 @@
 <script>
 (function(){
   const $ = (id) => document.getElementById(id);
+  function getQuery(name){
+    try { return new URL(window.location.href).searchParams.get(name); } catch(_) { return null }
+  }
   const fabCreate = $('fabCreate');
   const overlay = $('createOverlay');
   const closeCreate = $('closeCreate');
@@ -331,6 +334,7 @@
   let lobbyRoomId = null;
 
   function getUserId(){
+    try { if (window.AppUser && typeof AppUser.resolveUserId==='function') return AppUser.resolveUserId(); } catch(_){ }
     const tg = window.Telegram && window.Telegram.WebApp;
     const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
     if (user && user.id) return 'tg:' + String(user.id);
@@ -345,7 +349,24 @@
   function openCreate(){ overlay.classList.remove('hidden'); createdRoomId = null; createCode.textContent='------'; createPot.textContent='0'; }
   function closeCreateOverlay(){ overlay.classList.add('hidden'); }
 
-  async function api(path, opts){ const r = await fetch(path, opts); const j = await r.json(); return j; }
+  async function api(path, opts){
+    const r = await fetch(path, opts);
+    let j=null; try { j = await r.json(); } catch(_){ }
+    if (!r.ok || !j || j.success===false){
+      const msg = (j && (j.error||j.message)) || ('http_'+r.status);
+      throw new Error(msg);
+    }
+    return j;
+  }
+  function notify(msg){
+    try{
+      const el = document.createElement('div');
+      el.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-red-500 text-white px-3 py-2 rounded shadow z-50 text-sm';
+      el.textContent = String(msg||'Error');
+      document.body.appendChild(el);
+      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 2000);
+    }catch(_){ alert(String(msg||'Error')); }
+  }
 
   async function syncOptions(){
     if (!createdRoomId) return;
@@ -567,17 +588,17 @@
   shareCreate.addEventListener('click', async ()=>{
     if (!createdRoomId) return; const link = `${location.origin}/games/bingo?room=${encodeURIComponent(createdRoomId)}`; try{ await navigator.clipboard.writeText(link); shareCreate.textContent='Copiado'; setTimeout(()=>shareCreate.textContent='Compartir', 1200);}catch(_){ }
   });
-  startCreate.addEventListener('click', async ()=>{ if (!createdRoomId) { await createRoom().catch(()=>{}); } if (createdRoomId) { closeCreateOverlay(); } });
+  startCreate.addEventListener('click', async ()=>{ if (!createdRoomId) { await createRoom().catch(e=>notify(e.message)); } if (createdRoomId) { closeCreateOverlay(); } });
   joinFromCreate.addEventListener('click', async ()=>{
     const code = (joinCodeInput.value||'').trim(); if (!code) return;
-    try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); closeCreateOverlay(); } }catch(_){ }
+    try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); closeCreateOverlay(); } }catch(e){ notify(e.message); }
   });
   joinCodeBtn.addEventListener('click', async ()=>{
     const code = (codeInput.value||'').trim(); if (!code) return;
-    try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); } }catch(_){ }
+    try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); } }catch(e){ notify(e.message); }
   });
-  startBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { /* ok */ } }catch(_){ } });
-  drawBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/draw`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); }catch(_){ } });
+  startBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { } }catch(e){ notify(e.message); } });
+  drawBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/draw`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); }catch(e){ notify(e.message); } });
   tablaToggle.addEventListener('click', ()=>{
     tablaOpen = !tablaOpen;
     if (tablaOpen) {
@@ -587,11 +608,11 @@
       tablaPanel.classList.add('hidden');
     }
   });
-  cardsCountSel.addEventListener('change', async ()=>{ if (!roomId) return; const n = Number(cardsCountSel.value||'1')||1; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardsCount: n }) }); }catch(_){ } });
-  readyChk.addEventListener('change', async ()=>{ if (!roomId) return; const r = !!readyChk.checked; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, ready: r, cardsCount: Number(cardsCountSel.value||'1') }) }); }catch(_){ } });
-  claimBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/claim`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardIndex: selectedCardIdx }) }); if (!(j && j.success)) { /* no-op */ } }catch(_){ } });
+  cardsCountSel.addEventListener('change', async ()=>{ if (!roomId) return; const n = Number(cardsCountSel.value||'1')||1; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardsCount: n }) }); }catch(e){ notify(e.message); } });
+  readyChk.addEventListener('change', async ()=>{ if (!roomId) return; const r = !!readyChk.checked; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, ready: r, cardsCount: Number(cardsCountSel.value||'1') }) }); }catch(e){ notify(e.message); } });
+  claimBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/claim`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardIndex: selectedCardIdx }) }); if (!(j && j.success)) { } }catch(e){ notify(e.message); } });
   document.getElementById('rematchBtn')?.addEventListener('click', async ()=>{
-    if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { /* vuelve a lobby */ } }catch(_){ }
+    if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { } }catch(e){ notify(e.message); }
   });
 
   // init

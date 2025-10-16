@@ -94,7 +94,7 @@ router.post('/:id/reserve', (req,res)=>{
 router.post('/:id/release', (req,res)=>{
   try{
     const { userId, number } = req.body||{};
-    const realUserId = resolveUserId(req, userId);
+    const realUserId = preferSessionUserId(req, userId);
     const out = raffles.release({ id: req.params.id, userId: realUserId, number });
     res.json({ success:true, ...out });
   }catch(err){
@@ -105,7 +105,7 @@ router.post('/:id/release', (req,res)=>{
 router.post('/:id/confirm', (req,res)=>{
   try{
     const { userId, number, reference } = req.body||{};
-    const realUserId = resolveUserId(req, userId);
+    const realUserId = preferSessionUserId(req, userId);
     const r = raffles.findById(req.params.id);
     if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
     if (r.mode === 'fire'){
