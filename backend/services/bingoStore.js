@@ -141,6 +141,7 @@ class BingoStore extends EventEmitter {
     const r = this.rooms.get(String(roomId));
     if (!r) throw new Error('room_not_found');
     if (String(userId) !== String(r.hostId)) throw new Error('not_host');
+    if (r.status !== 'lobby') throw new Error('already_started');
     if (typeof opts.visibility !== 'undefined') r.visibility = (opts.visibility === 'public' ? 'public' : 'private');
     if (typeof opts.costType !== 'undefined') r.costType = (['free','fuego','coins'].includes(opts.costType) ? opts.costType : r.costType);
     if (typeof opts.costValue !== 'undefined') {
@@ -171,8 +172,8 @@ class BingoStore extends EventEmitter {
     if (actives.length === 0) throw new Error('no_ready_players');
     let potFires = 0; let potCoins = 0; let hostFiresDeposit = 0; let hostCoinsDeposit = 0;
     for (const p of actives) {
-      const playerCards = this.generateCardsForPlayers([p], r.ballSet);
-      p.cards = playerCards[0];
+      const playerCards = Array.from({ length: p.cardsCount }, () => this.generateCard(r.ballSet));
+      p.cards = playerCards;
       const totalPerPlayer = Math.max(0, Math.floor(Number(r.costValue) || 0)) * p.cardsCount;
       const isHost = String(p.userId) === String(r.hostId);
       if (r.costType === 'fuego' && totalPerPlayer > 0) {
