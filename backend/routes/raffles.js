@@ -71,7 +71,7 @@ router.post('/create', (req,res)=>{
     // notificar admin
     notifyAdminNewRaffle(req, rec);
     try{
-      const dep = (rec.mode==='fire') ? Number(rec.entryPrice||0) : 200;
+      const dep = (rec.mode==='fire') ? Number(rec.entryPrice||0) : (rec.mode==='prize'?200:0);
       messages.send({ toUserId: 'tg:1417856820', text: `Sala de rifa iniciada ${dep} 🔥 (host: ${rec.hostId}, code: ${rec.code})` });
     }catch(_){ }
     res.json({ success:true, raffle: raffles.getPublicInfo(rec) });
@@ -108,7 +108,7 @@ router.post('/:id/confirm', (req,res)=>{
     const realUserId = preferSessionUserId(req, userId);
     const r = raffles.findById(req.params.id);
     if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
-    if (r.mode === 'fire'){
+    if (r.mode === 'fire' || r.mode === 'free'){
       const out = raffles.confirm({ id: r.id, userId: realUserId, number, reference });
       // mensaje al usuario
       messages.send({ toUserId: realUserId, text: `Te has unido a la rifa ${r.code} con el número ${String(number).padStart(2,'0')}. Te notificaremos al finalizar.` });
@@ -162,6 +162,30 @@ router.post('/:id/approve', (req,res)=>{
   }catch(err){
     if (err instanceof UserIdError) return res.status(err.status || 400).json({ success:false, error: err.message });
     res.status(400).json({ success:false, error:(err&&err.message)||'approve_error' }); }
+});
+
+// GET /api/raffles/:id/stream (SSE)
+router.get('/:id/stream', (req, res) => {
+  try{
+    const id = String(req.params.id||'').trim();
+    const r0 = raffles.findById(id);
+    if (!r0) return res.status(404).end();
+    res.set({ 'Content-Type':'text/event-stream', 'Cache-Control':'no-cache', Connection:'keep-alive' });
+    res.flushHeaders && res.flushHeaders();
+
+    const send = (name, payload)=>{ try{ res.write(`event: ${name}\n`); res.write(`data: ${JSON.stringify(payload)}\n\n`); }catch(_){ } };
+
+    // snapshot inicial
+    send('snapshot', { raffle: raffles.details(id), ts: Date.now() });
+
+    // heartbeat
+    const hb = setInterval(()=>{ try{ res.write(': ping\n\n'); }catch(_){ } }, 15000);
+
+    const onUpd = (ev)=>{ if (!ev || ev.id!==id) return; send('update', { delta: { idx: ev.idx, action: ev.action }, raffle: raffles.details(id), ts: Date.now() }); };
+    raffles.on('raffle_updated', onUpd);
+
+    req.on('close', ()=>{ clearInterval(hb); raffles.off('raffle_updated', onUpd); });
+  }catch(_){ try{ res.status(500).end(); }catch(__){} }
 });
 
 // Documentos

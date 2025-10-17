@@ -74,6 +74,8 @@ class RaffleStore extends EventEmitter {
       // Depósito fijo de 200 🔥 al sponsor
       const dep = store.transferFires({ fromUserId: hid, toUserId: SPONSOR_ID, amount: 200, reason: 'raffle_prize_deposit' });
       if (!dep.ok) throw new Error(dep.error || 'deposit_failed');
+    } else if (mode === 'free'){
+      // Modo libre: sin depósito, solo pruebas
     } else {
       throw new Error('invalid_mode');
     }
@@ -101,9 +103,11 @@ class RaffleStore extends EventEmitter {
       winner: null,
       hostMeta: hostMeta || {},
       prizeMeta: prizeMeta || {},
-      documents: []
+      documents: [],
+      pending: []
     };
     this.raffles.unshift(rec);
+    try{ this.emit('raffle_updated', { id }); }catch(_){ }
     return rec;
   }
 
@@ -149,6 +153,7 @@ class RaffleStore extends EventEmitter {
     if (cur.state !== 0) throw new Error('not_available');
     const uid = String(userId||'').trim(); if (!uid) throw new Error('invalid_user');
     r.numbers[idx] = { idx, state:1, reservedBy: uid, reservedUntil: Date.now()+45*1000 };
+    try{ this.emit('raffle_updated', { id:r.id, idx, action:'reserve' }); }catch(_){ }
     return { ok:true, idx };
   }
 
@@ -157,7 +162,7 @@ class RaffleStore extends EventEmitter {
     const idx = Math.max(0, Math.min(r.size-1, Number(number)||0));
     const cur = r.numbers[idx];
     const uid = String(userId||'').trim(); if (!uid) throw new Error('invalid_user');
-    if (cur.state === 1 && cur.reservedBy === uid){ r.numbers[idx] = { idx, state:0 }; return { ok:true }; }
+    if (cur.state === 1 && cur.reservedBy === uid){ r.numbers[idx] = { idx, state:0 }; try{ this.emit('raffle_updated', { id:r.id, idx, action:'release' }); }catch(_){ } return { ok:true }; }
     return { ok:false };
   }
 
@@ -168,11 +173,17 @@ class RaffleStore extends EventEmitter {
     const cur = r.numbers[idx];
     const uid = String(userId||'').trim(); if (!uid) throw new Error('invalid_user');
     if (!(cur.state===0 || (cur.state===1 && cur.reservedBy===uid))) throw new Error('not_available');
-
-    // Cobro: transferir del usuario al pot de la rifa
-    const potId = this.potUserId(r.id);
-    const tr = store.transferFires({ fromUserId: uid, toUserId: potId, amount: r.entryPrice, reason: 'raffle_buy' });
-    if (!tr.ok) throw new Error(tr.error || 'payment_failed');
+    if (r.mode === 'fire'){
+      // Cobro: transferir del usuario al pot de la rifa
+      const potId = this.potUserId(r.id);
+      const tr = store.transferFires({ fromUserId: uid, toUserId: potId, amount: r.entryPrice, reason: 'raffle_buy' });
+      if (!tr.ok) throw new Error(tr.error || 'payment_failed');
+    } else if (r.mode === 'free'){
+      // Sin cobro
+    } else if (r.mode === 'prize'){
+      // La confirmación de premio se maneja en la ruta con pendiente/approve
+      throw new Error('invalid_mode_for_confirm');
+    }
 
     r.numbers[idx] = { idx, state:2, buyer: uid, ref: String(reference||'').trim() };
     let p = r.participants.find(x => x.userId===uid);
@@ -187,6 +198,7 @@ class RaffleStore extends EventEmitter {
     // Cierre por tiempo
     if (r.endsAt && r.endsAt <= Date.now()) { this.closeAndPayout(r); }
 
+    try{ this.emit('raffle_updated', { id:r.id, idx, action:'confirm' }); }catch(_){ }
     return { ok:true };
   }
 
@@ -232,6 +244,7 @@ class RaffleStore extends EventEmitter {
       messages.send({ toUserId: r.hostId, text: `Tu rifa ${r.code} ha finalizado. ${win?('Ganador: '+win.userId):'Sin ganador'}.` });
     }catch(_){ }
     this.emit('raffle_completed', { id: r.id, winner: r.winner });
+    try{ this.emit('raffle_updated', { id: r.id, action:'completed' }); }catch(_){ }
   }
 
   generateClosurePDF(r){

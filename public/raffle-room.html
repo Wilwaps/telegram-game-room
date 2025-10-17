@@ -105,7 +105,7 @@
   function fmt(n){ try{return new Intl.NumberFormat().format(n||0)}catch(_){return String(n||0)} }
   let R=null, my=null, selIdx=null, warnAccepted=false;
   let prevStates=null; const flashSet=new Set(); const flashTimers={};
-  const refreshMs=1500;
+  const refreshMs=1500; let usingSSE=false; let countdownInit=false;
 
   function show(el){el&&el.classList.add('show')} function hide(el){el&&el.classList.remove('show')}
 
@@ -123,8 +123,24 @@
     renderStats();
     renderMine();
     if (R.mode==='prize' && my.id===R.hostId){ loadPending(); $('pendingBox').style.display='block'; } else { $('pendingBox').style.display='none'; }
-    setupCountdown();
+    if (!countdownInit) setupCountdown();
     loadDocuments();
+    ensureSSE();
+  }
+
+  function ensureSSE(){
+    try{
+      if (!R || !R.id || typeof EventSource==='undefined') { usingSSE=false; return; }
+      if (window.__raffleES) { try{ window.__raffleES.close(); }catch(_){ } }
+      const es = new EventSource('/api/raffles/'+encodeURIComponent(R.id)+'/stream');
+      window.__raffleES = es; usingSSE=true;
+      const onSnap = (e)=>{ try{ const data=JSON.parse(e.data||'{}'); const old=R; if (data&&data.raffle){ R=data.raffle; $('potVal').textContent=fmt(R.potFires||0); detectFlashes(old,R); renderGrid(); renderStats(); renderMine(); if (!countdownInit) setupCountdown(); } }catch(_){ } };
+      const onUpd = (e)=>{ try{ const data=JSON.parse(e.data||'{}'); const old=R; if (data&&data.raffle){ R=data.raffle; $('potVal').textContent=fmt(R.potFires||0); detectFlashes(old,R); renderGrid(); renderStats(); renderMine(); } }catch(_){ } };
+      const onErr = ()=>{ try{ es.close(); }catch(_){ } usingSSE=false; setTimeout(poll, refreshMs); };
+      es.addEventListener('snapshot', onSnap);
+      es.addEventListener('update', onUpd);
+      es.addEventListener('error', onErr);
+    }catch(_){ usingSSE=false; setTimeout(poll, refreshMs); }
   }
 
   function detectFlashes(oldR, newR){
@@ -186,6 +202,7 @@
   }
 
   function setupCountdown(){
+    if (countdownInit) return; countdownInit=true;
     const el=$('countdown');
     if (!R.endsAt){ el.textContent='Se cierra al vender todos los números'; return; }
     function tick(){
@@ -273,8 +290,8 @@
     try{ if (navigator.share) await navigator.share({ title:'Rifa', url }); else { await navigator.clipboard.writeText(url); alert('Enlace copiado'); } }catch(_){ }
   });
 
-  async function poll(){ try{ await load(); }catch(_){ } setTimeout(poll, refreshMs); }
-  window.addEventListener('load', ()=>{ load().then(()=>setTimeout(poll, refreshMs)); });
+  async function poll(){ if (usingSSE) return; try{ await load(); }catch(_){ } setTimeout(poll, refreshMs); }
+  window.addEventListener('load', ()=>{ load().then(()=>{ if (!usingSSE) setTimeout(poll, refreshMs); }); });
 })();
 </script>
 
