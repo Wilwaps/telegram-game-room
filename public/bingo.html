@@ -238,12 +238,17 @@
       <h3 class="font-bold mb-2">Números llamados</h3>
       <div id="calledList" class="text-sm flex flex-wrap gap-2"></div>
     </div>
-    <div id="tablaPanel" class="hidden fixed left-1/2 -translate-x-1/2 top-24 z-50 w-[92vw] max-w-5xl bg-panel border border-glass rounded-lg p-3 shadow-2xl">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="font-bold">Tabla</h3>
-        <span id="tablaInfo" class="text-sm text-text/70"></span>
+    <div id="tablaOverlay" class="hidden fixed inset-0 z-50 bg-black/60 flex items-start justify-center pt-24">
+      <div id="tablaPanel" class="w-[92vw] max-w-5xl bg-panel border border-glass rounded-lg p-3 shadow-2xl relative">
+        <button id="tablaClose" class="absolute right-3 top-3 text-text/70 hover:text-text">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+        <div class="flex items-center justify-between mb-2 pr-8">
+          <h3 class="font-bold">Tabla</h3>
+          <span id="tablaInfo" class="text-sm text-text/70"></span>
+        </div>
+        <div id="tablaGrid" class="grid gap-1"></div>
       </div>
-      <div id="tablaGrid" class="grid gap-1"></div>
     </div>
     <div id="lobbyPanel" class="bg-panel border border-glass rounded-lg p-3 mx-auto max-w-5xl">
       <h3 class="font-bold mb-2">Lobby</h3>
@@ -291,6 +296,30 @@
     <div id="claimModal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
       <button id="claimConfirm" class="bg-violet text-text font-bold py-4 px-8 rounded-full text-xl shadow-[0_0_22px_rgba(167,139,250,0.7)]">Cantar</button>
     </div>
+    <div id="gameOverOverlay" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+      <div id="gameOver" class="hidden text-center space-y-4 py-4 bg-panel border border-glass rounded-2xl px-6 max-w-sm w-full">
+        <h2 class="text-4xl font-extrabold text-yellow-400" style="text-shadow:0 0 12px #facc15">¡BINGO!</h2>
+        <p class="text-lg text-yellow-300">Felicidades, <span id="winnerVal" class="font-bold">-</span></p>
+        <div class="flex items-center justify-center gap-6">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-orange-400">local_fire_department</span>
+            <span class="text-3xl font-bold" id="winFires">0</span>
+            <span class="text-sm">🔥</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
+            <span class="text-3xl font-bold" id="winCoins">0</span>
+          </div>
+        </div>
+        <div class="text-sm text-text/70">
+          <p>Host recibe: <b id="hostFires">0</b> 🔥 • <b id="hostCoins">0</b> coins</p>
+        </div>
+        <div class="w-full max-w-xs mx-auto space-y-3">
+          <button id="rematchBtn" class="w-full rounded-full bg-yellow-400 py-3 font-bold text-background-dark shadow-[0_0_10px_#facc15] hidden">Revancha</button>
+          <a href="/games" class="block w-full rounded-full bg-transparent py-3 text-primary/80 hover:text-primary border border-primary/50">Ir al Lobby</a>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -330,6 +359,8 @@
   const tablaPanel = $('tablaPanel');
   const tablaGrid = $('tablaGrid');
   const tablaInfo = $('tablaInfo');
+  const tablaOverlay = $('tablaOverlay');
+  const tablaClose = $('tablaClose');
   const calledSection = $('calledSection');
   const startBtn = $('startBtn');
   const cardsCountSel = $('cardsCount');
@@ -341,6 +372,7 @@
   const claimModal = $('claimModal');
   const claimConfirm = $('claimConfirm');
   const gameOver = $('gameOver');
+  const gameOverOverlay = $('gameOverOverlay');
   const winnerVal = $('winnerVal');
   const roomsList = $('roomsList');
   const publicRoomsList = $('publicRoomsList');
@@ -534,6 +566,7 @@
             let set = userMarks.get(idx); if (!set){ set = new Set(); userMarks.set(idx, set); }
             if (set.has(key)) set.delete(key); else set.add(key);
             cell.classList.toggle('marked');
+            try{ updateClaimVisibility(); }catch(_){ }
           });
           grid.appendChild(cell);
         }
@@ -615,6 +648,7 @@
         updateClaimVisibility();
         // game over
         if (s.status==='finished'){
+          if (gameOverOverlay) gameOverOverlay.classList.remove('hidden');
           gameOver.classList.remove('hidden');
           const w = (s.winners && s.winners[0] && s.winners[0].userId) || '-';
           winnerVal.textContent = w;
@@ -624,7 +658,10 @@
           const isHost2 = (s.hostId === myId);
           const rematchBtn = document.getElementById('rematchBtn');
           if (rematchBtn) rematchBtn.classList.toggle('hidden', !isHost2);
-        } else { gameOver.classList.add('hidden'); }
+        } else {
+          if (gameOverOverlay) gameOverOverlay.classList.add('hidden');
+          gameOver.classList.add('hidden');
+        }
       }catch(_){ }
     });
   }
@@ -679,12 +716,15 @@
   tablaToggle.addEventListener('click', ()=>{
     tablaOpen = !tablaOpen;
     if (tablaOpen) {
-      tablaPanel.classList.remove('hidden');
+      if (tablaOverlay) tablaOverlay.classList.remove('hidden');
       renderTabla(currentBallSet, stateCalled, stateLast);
     } else {
-      tablaPanel.classList.add('hidden');
+      if (tablaOverlay) tablaOverlay.classList.add('hidden');
     }
   });
+  // Cierre de tabla por X y click fuera
+  tablaClose?.addEventListener('click', ()=>{ tablaOpen=false; try{ tablaOverlay.classList.add('hidden'); }catch(_){ } });
+  tablaOverlay?.addEventListener('click', (ev)=>{ if (ev.target === tablaOverlay) { tablaOpen=false; try{ tablaOverlay.classList.add('hidden'); }catch(_){ } } });
   cardsCountSel.addEventListener('change', async ()=>{ if (!roomId) return; const n = Number(cardsCountSel.value||'1')||1; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardsCount: n }) }); }catch(e){ notify(e.message); } });
   readyChk.addEventListener('change', async ()=>{ if (!roomId) return; const r = !!readyChk.checked; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, ready: r, cardsCount: Number(cardsCountSel.value||'1') }) }); }catch(e){ notify(e.message); } });
   claimBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/claim`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardIndex: selectedCardIdx }) }); if (!(j && j.success)) { } }catch(e){ notify(e.message); } });
