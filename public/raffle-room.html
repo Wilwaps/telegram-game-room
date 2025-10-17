@@ -83,6 +83,7 @@
     <div class="text-center">
       <div class="text-sm">Número seleccionado</div>
       <div id="selNum" class="text-5xl font-bold text-accent my-2"></div>
+      <div id="confirmMsg" class="text-sm text-text/80 mb-2"></div>
       <div id="payInfo" class="text-xs text-text/70 space-y-1" style="display:none">
         <div class="mt-2">Datos del anfitrión</div>
         <div id="payData" class="font-mono text-text/80"></div>
@@ -90,7 +91,7 @@
       </div>
       <input id="refInput" class="mt-3 w-full bg-background-dark border border-glass rounded-lg p-2 text-center" placeholder="Referencia (opcional)"/>
       <div class="flex gap-2 mt-4">
-        <button id="cancelBuy" class="flex-1 bg-error/20 text-error py-2 rounded-lg border border-error/40">Cancelar</button>
+        <button id="cancelBuy" class="flex-1 bg-error/20 text-error py-2 rounded-lg border border-error/40">Rechazar</button>
         <button id="okBuy" class="flex-1 bg-accent text-background-dark py-2 rounded-lg">Confirmar</button>
       </div>
     </div>
@@ -226,8 +227,8 @@
       // reflejo inmediato local + flash
       try{ if (R && R.numbers && R.numbers[idx]) { R.numbers[idx] = { idx, state:1, reservedBy: my.id, reservedUntil: Date.now()+45*1000 }; markFlash(idx); renderGrid(); renderStats(); } }catch(_){ }
       selIdx = idx; warnAccepted=false; $('readChk').checked=false; $('selNum').textContent = String(idx).padStart(R.range==='000-999'?3:2,'0');
-      // Mostrar advertencia primero
-      show($('warnOverlay'));
+      // Advertencia solo para modo premio; en fuego/libre ir directo a confirmación
+      if (R.mode==='prize') { show($('warnOverlay')); } else { prepareConfirm(); }
     }catch(_){ alert('Error de red'); }
   }
 
@@ -241,6 +242,16 @@
       const lines = [ `Cédula: ${pay.id||''}`, `Tel: ${pay.phone||''}`, `Banco: ${pay.bank||''}` ].join('\n');
       $('payInfo').style.display='block'; $('payData').textContent=lines;
     } else { $('payInfo').style.display='none'; }
+    // Mensaje dinámico: número y costo (fire/free)
+    try{
+      const numStr = String(selIdx).padStart(R.range==='000-999'?3:2,'0');
+      let costStr = '';
+      if (R.mode==='fire') costStr = `${fmt(R.entryPrice)} 🔥`;
+      else if (R.mode==='free') costStr = 'Gratis';
+      const msg = costStr ? `Estás a punto de comprar el número ${numStr}. Costo: ${costStr}.`
+                           : `Estás a punto de solicitar el número ${numStr}.`;
+      const cm = $('confirmMsg'); if (cm) cm.textContent = msg;
+    }catch(_){ }
     show($('confirmOverlay'));
   }
 
