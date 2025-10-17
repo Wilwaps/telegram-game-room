@@ -10,6 +10,7 @@ class BingoStore extends EventEmitter {
     this.codeIndex = new Map();
     this.sponsorId = SPONSOR_ID;
   }
+  potUserId(id){ return 'pot:' + String(id); }
   newId() { return 'bing_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3); }
   makeCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
 
@@ -52,8 +53,8 @@ class BingoStore extends EventEmitter {
   }
 
   createRoom({ userId, visibility = 'private', costType = 'free', costValue = 1, mode = 'linea', ballSet = 90 }) {
-    const normalizedCost = Math.max(0, Number(costValue || 1) || 1);
-    const finalCost = (['fuego', 'coins'].includes(costType)) ? Math.max(10, normalizedCost) : normalizedCost;
+    // costo por cartón: 1 cuando es coins/fuego; 0 en free
+    const finalCost = (['fuego','coins'].includes(costType)) ? 1 : 0;
     const id = this.newId();
     const state = {
       id,
@@ -85,6 +86,10 @@ class BingoStore extends EventEmitter {
   getState(roomId) {
     const r = this.rooms.get(String(roomId));
     if (!r) return null;
+    // Leer pot real desde cuenta pot
+    const pot = (()=>{ try { return mem.getUser(this.potUserId(r.id)) || null; } catch(_){ return null; } })();
+    const potFires = Math.max(0, Number(pot && pot.fires || 0));
+    const potCoins = Math.max(0, Number(pot && pot.coins || 0));
     const players = Array.from(r.players.values()).map(p => ({ userId: p.userId, ready: p.ready, cardsCount: p.cardsCount, cards: p.cards && p.cards.length ? p.cards : undefined }));
     return {
       id: r.id,
@@ -98,8 +103,8 @@ class BingoStore extends EventEmitter {
       mode: r.mode,
       status: r.status,
       players,
-      potFires: r.potFires,
-      potCoins: r.potCoins,
+      potFires,
+      potCoins,
       called: [...r.called],
       lastCall: r.lastCall,
       winners: [...r.winners],
@@ -134,7 +139,11 @@ class BingoStore extends EventEmitter {
     const uid = String(userId);
     const exists = r.players.has(uid);
     if (!exists && r.status !== 'lobby') throw new Error('already_started');
-    if (!exists) r.players.set(uid, { userId: uid, ready: false, cardsCount: 1, cards: [] });
+    if (!exists) {
+      // límite de 30 jugadores
+      if (r.players.size >= 30) throw new Error('max_players');
+      r.players.set(uid, { userId: uid, ready: false, cardsCount: 1, cards: [] });
+    }
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;
   }
   setOptions(roomId, userId, opts = {}) {
@@ -145,8 +154,9 @@ class BingoStore extends EventEmitter {
     if (typeof opts.visibility !== 'undefined') r.visibility = (opts.visibility === 'public' ? 'public' : 'private');
     if (typeof opts.costType !== 'undefined') r.costType = (['free','fuego','coins'].includes(opts.costType) ? opts.costType : r.costType);
     if (typeof opts.costValue !== 'undefined') {
+      // costo fijo 1 por cartón para coins/fuego
       const raw = Math.max(0, Number(opts.costValue || 1) || 1);
-      r.costValue = (r.costType === 'free') ? raw : Math.max(10, raw);
+      r.costValue = (r.costType === 'free') ? 0 : 1;
     }
     if (typeof opts.mode !== 'undefined') r.mode = (['linea','4c','carton'].includes(opts.mode) ? opts.mode : r.mode);
     if (typeof opts.ballSet !== 'undefined') r.ballSet = (['75','90'].includes(opts.ballSet) ? Number(opts.ballSet) : r.ballSet);
@@ -170,39 +180,41 @@ class BingoStore extends EventEmitter {
     const players = Array.from(r.players.values());
     const actives = players.filter(p => p.ready && p.cardsCount > 0);
     if (actives.length === 0) throw new Error('no_ready_players');
-    let potFires = 0; let potCoins = 0; let hostFiresDeposit = 0; let hostCoinsDeposit = 0;
+    const potId = this.potUserId(r.id);
+    try { mem.ensureUser(potId); } catch(_){ }
+    let paidCount = 0;
     for (const p of actives) {
       const playerCards = Array.from({ length: p.cardsCount }, () => this.generateCard(r.ballSet));
       p.cards = playerCards;
-      const totalPerPlayer = Math.max(0, Math.floor(Number(r.costValue) || 0)) * p.cardsCount;
       const isHost = String(p.userId) === String(r.hostId);
-      if (r.costType === 'fuego' && totalPerPlayer > 0) {
+      if (r.costType === 'fuego') {
+        // host deposita 10 🔥 al pot
         if (isHost) {
-          const tr = mem.transferFires({ fromUserId: p.userId, toUserId: this.sponsorId, amount: totalPerPlayer, reason: 'bingo_host_fire_deposit' });
-          if (!tr || !tr.ok) { p.ready = false; p.cards = []; continue; }
-          hostFiresDeposit += totalPerPlayer;
-        } else {
-          const rs = mem.trySpendFires({ userId: p.userId, amount: totalPerPlayer, reason: 'bingo_entry' });
-          if (!rs || !rs.ok) { p.ready = false; p.cards = []; continue; }
-          potFires += totalPerPlayer;
+          const dep = mem.transferFires({ fromUserId: p.userId, toUserId: potId, amount: 10, reason: 'bingo_host_open_fire' });
+          if (!dep || !dep.ok) { p.ready=false; p.cards=[]; continue; }
+          paidCount++;
         }
-      } else if (r.costType === 'coins' && totalPerPlayer > 0) {
+        const total = Math.max(0, Number(p.cardsCount||0)) * 1;
+        if (total>0){
+          const tr = mem.transferFires({ fromUserId: p.userId, toUserId: potId, amount: total, reason: 'bingo_entry_fire' });
+          if (!tr || !tr.ok) { p.ready=false; p.cards=[]; continue; }
+          paidCount++;
+        }
+      } else if (r.costType === 'coins') {
         if (isHost) {
-          const tr = mem.transferCoins({ fromUserId: p.userId, toUserId: this.sponsorId, amount: totalPerPlayer, reason: 'bingo_host_coin_deposit' });
-          if (!tr || !tr.ok) { p.ready = false; p.cards = []; continue; }
-          hostCoinsDeposit += totalPerPlayer;
-        } else {
-          const rs = mem.trySpendCoins({ userId: p.userId, amount: totalPerPlayer, reason: 'bingo_entry' });
-          if (!rs || !rs.ok) { p.ready = false; p.cards = []; continue; }
-          potCoins += totalPerPlayer;
+          const dep = mem.transferCoins({ fromUserId: p.userId, toUserId: potId, amount: 10, reason: 'bingo_host_open_coin' });
+          if (!dep || !dep.ok) { p.ready=false; p.cards=[]; continue; }
+          paidCount++;
+        }
+        const total = Math.max(0, Number(p.cardsCount||0)) * 1;
+        if (total>0){
+          const tr = mem.transferCoins({ fromUserId: p.userId, toUserId: potId, amount: total, reason: 'bingo_entry_coin' });
+          if (!tr || !tr.ok) { p.ready=false; p.cards=[]; continue; }
+          paidCount++;
         }
       }
     }
-    if (actives.filter(p => p.ready).length === 0) throw new Error('no_paid_players');
-    r.potFires = potFires;
-    r.potCoins = potCoins;
-    r.hostFireDeposit = hostFiresDeposit;
-    r.hostCoinDeposit = hostCoinsDeposit;
+    if (actives.filter(p => p.ready).length === 0 || paidCount===0) throw new Error('no_paid_players');
     r.drawQueue = this.makeBag(r.ballSet);
     r.called = []; r.lastCall = null; r.winners = [];
     r.status = 'playing';
@@ -279,22 +291,23 @@ class BingoStore extends EventEmitter {
         mem.recordGameResult({ userId: oid, game: 'bingo', result: 'loss' });
       }
     } catch(_) {}
-    // Distribución del pozo: 70% ganador, 20% host, 10% sponsor fijo
-    const potFires = Math.max(0, Number(r.potFires || 0));
-    const wFires = Math.floor(potFires * 0.70);
-    const hFires = Math.floor(potFires * 0.20);
-    const sFires = Math.max(0, potFires - (wFires + hFires));
-    if (wFires > 0) mem.addFiresAdmin({ userId: p.userId, amount: wFires, reason: 'bingo_win_70' });
-    if (hFires > 0) mem.addFiresAdmin({ userId: r.hostId, amount: hFires, reason: 'bingo_host_20' });
-    if (sFires > 0) mem.addFiresAdmin({ userId: this.sponsorId, amount: sFires, reason: 'bingo_sponsor_10' });
-
-    const potCoins = Math.max(0, Number(r.potCoins || 0));
-    const wCoins = Math.floor(potCoins * 0.70);
-    const hCoins = Math.floor(potCoins * 0.20);
-    const sCoins = Math.max(0, potCoins - (wCoins + hCoins));
-    if (wCoins > 0) mem.addCoinsAdmin({ userId: p.userId, amount: wCoins, reason: 'bingo_win_coins_70' });
-    if (hCoins > 0) mem.addCoinsAdmin({ userId: r.hostId, amount: hCoins, reason: 'bingo_host_coins_20' });
-    if (sCoins > 0) mem.addCoinsAdmin({ userId: this.sponsorId, amount: sCoins, reason: 'bingo_sponsor_coins_10' });
+    // Distribución del pozo real desde cuenta pot: 70% ganador, 20% host, 10% sponsor
+    const potId = this.potUserId(r.id);
+    const potUser = (()=>{ try { return mem.getUser(potId) || null; } catch(_){ return null; } })();
+    const curF = Math.max(0, Number(potUser && potUser.fires || 0));
+    const curC = Math.max(0, Number(potUser && potUser.coins || 0));
+    let wFires=0,hFires=0,sFires=0,wCoins=0,hCoins=0,sCoins=0;
+    if (r.costType === 'fuego' && curF>0){
+      wFires = Math.floor(curF*0.70); hFires = Math.floor(curF*0.20); sFires = Math.max(0, curF - wFires - hFires);
+      try{ if (wFires>0) mem.transferFires({ fromUserId: potId, toUserId: p.userId, amount: wFires, reason: 'bingo_win_70' }); }catch(_){ }
+      try{ if (hFires>0) mem.transferFires({ fromUserId: potId, toUserId: r.hostId, amount: hFires, reason: 'bingo_host_20' }); }catch(_){ }
+      try{ if (sFires>0) mem.transferFires({ fromUserId: potId, toUserId: this.sponsorId, amount: sFires, reason: 'bingo_sponsor_10' }); }catch(_){ }
+    } else if (r.costType === 'coins' && curC>0){
+      wCoins = Math.floor(curC*0.70); hCoins = Math.floor(curC*0.20); sCoins = Math.max(0, curC - wCoins - hCoins);
+      try{ if (wCoins>0) mem.transferCoins({ fromUserId: potId, toUserId: p.userId, amount: wCoins, reason: 'bingo_win_coins_70' }); }catch(_){ }
+      try{ if (hCoins>0) mem.transferCoins({ fromUserId: potId, toUserId: r.hostId, amount: hCoins, reason: 'bingo_host_coins_20' }); }catch(_){ }
+      try{ if (sCoins>0) mem.transferCoins({ fromUserId: potId, toUserId: this.sponsorId, amount: sCoins, reason: 'bingo_sponsor_coins_10' }); }catch(_){ }
+    }
 
     try {
       mem.recordBingoWin({
@@ -303,8 +316,8 @@ class BingoStore extends EventEmitter {
         hostId: r.hostId,
         mode: r.mode,
         ballSet: r.ballSet,
-        potFires,
-        potCoins,
+        potFires: curF,
+        potCoins: curC,
         winnerFires: wFires,
         hostFires: hFires,
         sponsorFires: sFires,

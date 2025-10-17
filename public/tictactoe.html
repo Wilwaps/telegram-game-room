@@ -233,10 +233,14 @@
 
       <div class="space-y-2">
         <p class="text-text/70 text-sm">Costo de la partida</p>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-3 gap-2">
           <button id="optFree" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]">
             <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
             <span>Libre</span>
+          </button>
+          <button id="optCoins" class="bg-glass text-text py-2 rounded-lg flex items-center justify-center space-x-2">
+            <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
+            <span>Monedas</span>
           </button>
           <button id="optFuego" class="bg-glass text-text py-2 rounded-lg flex items-center justify-center space-x-2">
             <span class="material-symbols-outlined text-orange-500">local_fire_department</span>
@@ -324,6 +328,7 @@
   const optPrivate = $('optPrivate');
   const optPublic = $('optPublic');
   const optFree = $('optFree');
+  const optCoins = $('optCoins');
   const optFuego = $('optFuego');
   const createUsers = $('createUsers');
   const joinCodeInput = $('joinCodeInput');
@@ -644,17 +649,13 @@
         if (markEl) {
           markEl.classList.toggle('mark-active', myMark && s.turn === myMark);
         }
-        // apuestas en juego
+        // apuestas en juego (mostrar pot real desde backend)
         const costType = String(s.costType||'free');
         const costValue = Number(s.costValue||0);
         if (wagerCoinsEl) wagerCoinsEl.textContent = costType === 'coins' ? String(costValue) : '0';
         if (wagerFiresEl) wagerFiresEl.textContent = costType === 'fuego' ? String(costValue) : '0';
         if (wagerPotEl) {
-          let pot = 0;
-          if (costType === 'coins' || costType === 'fuego') {
-            const participants = (s.players?.X ? 1 : 0) + (s.players?.O ? 1 : 0);
-            pot = costValue * participants;
-          }
+          const pot = costType === 'coins' ? Number(s.potCoins||0) : (costType === 'fuego' ? Number(s.potFires||0) : 0);
           wagerPotEl.textContent = String(pot);
         }
         // controles de revancha
@@ -766,8 +767,20 @@
   }
   if (optPrivate) optPrivate.addEventListener('click', async ()=>{ createVisibility='private'; styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await patchOptions().catch(()=>{}); });
   if (optPublic) optPublic.addEventListener('click', async ()=>{ createVisibility='public'; styleToggle(optPublic,optPrivate,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await patchOptions().catch(()=>{}); });
-  if (optFree) optFree.addEventListener('click', async ()=>{ createCostType='free'; createCostValue=0; styleToggle(optFree,optFuego,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); await patchOptions().catch(()=>{}); });
-  if (optFuego) optFuego.addEventListener('click', async ()=>{ createCostType='fuego'; createCostValue=1; styleToggle(optFuego,optFree,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); await patchOptions().catch(()=>{}); });
+
+  function applyCostStyles(){
+    const onCls = ' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]';
+    const offCls = ' bg-glass text-text';
+    const btns = [optFree, optCoins, optFuego];
+    for (const b of btns){ if (!b) continue; b.className = b.className.replace(' bg-yellow-400/20','').replace(' text-yellow-400','').replace(' shadow-[0_0_10px_#facc15]',''); b.className = b.className.replace(' bg-glass','').replace(' text-text',''); b.className += offCls; }
+    if (createCostType==='free' && optFree){ optFree.className = optFree.className.replace(offCls,'') + onCls; }
+    if (createCostType==='coins' && optCoins){ optCoins.className = optCoins.className.replace(offCls,'') + onCls; }
+    if (createCostType==='fuego' && optFuego){ optFuego.className = optFuego.className.replace(offCls,'') + onCls; }
+  }
+
+  if (optFree) optFree.addEventListener('click', async ()=>{ createCostType='free'; createCostValue=0; applyCostStyles(); await patchOptions().catch(()=>{}); });
+  if (optCoins) optCoins.addEventListener('click', async ()=>{ createCostType='coins'; createCostValue=1; applyCostStyles(); await patchOptions().catch(()=>{}); });
+  if (optFuego) optFuego.addEventListener('click', async ()=>{ createCostType='fuego'; createCostValue=1; applyCostStyles(); await patchOptions().catch(()=>{}); });
   if (fabCreate) fabCreate.addEventListener('click', openCreate);
   if (closeCreate) closeCreate.addEventListener('click', closeCreateOverlay);
   if (shareCreate) shareCreate.addEventListener('click', async ()=>{

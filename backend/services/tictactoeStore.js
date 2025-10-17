@@ -8,6 +8,9 @@ class TTTStore extends EventEmitter {
     this.turnTimeoutMs = Math.max(1000, parseInt(process.env.TTT_TURN_TIMEOUT_MS || '30000', 10) || 30000);
     this.codeIndex = new Map(); // code -> roomId
   }
+  potUserId(id) {
+    return 'pot:' + String(id);
+  }
   newId() {
     return 'ttt_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3);
   }
@@ -43,6 +46,9 @@ class TTTStore extends EventEmitter {
   getState(roomId) {
     const r = this.rooms.get(String(roomId));
     if (!r) return null;
+    const pot = (()=>{ try { return mem.getUser(this.potUserId(r.id)) || null; } catch(_){ return null; } })();
+    const potFires = Math.max(0, Number(pot && pot.fires || 0));
+    const potCoins = Math.max(0, Number(pot && pot.coins || 0));
     return {
       id: r.id,
       createdAt: r.createdAt,
@@ -57,6 +63,8 @@ class TTTStore extends EventEmitter {
       visibility: r.visibility,
       costType: r.costType,
       costValue: r.costValue,
+      potFires,
+      potCoins,
       score: { ...r.score },
       round: r.round,
       rematchVotes: { X: !!(r.rematchVotes && r.rematchVotes.X), O: !!(r.rematchVotes && r.rematchVotes.O) },
@@ -96,36 +104,7 @@ class TTTStore extends EventEmitter {
     else if (!r.players.O && r.players.X !== uid) r.players.O = uid;
     const both = r.players.X && r.players.O;
     if (both && r.status !== 'finished') {
-      // Cobro de entrada si aplica
-      let canStart = true;
-      if (r.costType !== 'free' && r.costValue > 0) {
-        const charge = (pid) => {
-          if (pid === 'X' && r.paidFlags.X) return true;
-          if (pid === 'O' && r.paidFlags.O) return true;
-          const targetId = (pid === 'X') ? r.players.X : r.players.O;
-          if (!targetId) return false;
-          if (r.costType === 'coins') {
-            const rs = mem.trySpendCoins({ userId: targetId, amount: r.costValue, reason: 'ttt_entry' });
-            if (rs && rs.ok) { r.paidFlags[pid] = true; return true; }
-            return false;
-          } else if (r.costType === 'fuego') {
-            const rs = mem.trySpendFires({ userId: targetId, amount: r.costValue, reason: 'ttt_entry' });
-            if (rs && rs.ok) { r.paidFlags[pid] = true; return true; }
-            return false;
-          }
-          return true;
-        };
-        const xok = charge('X');
-        const ook = charge('O');
-        canStart = xok && ook;
-      }
-      if (canStart) {
-        r.status = 'playing';
-        if (!r.lastMoveAt) r.lastMoveAt = Date.now();
-        r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
-      } else {
-        r.status = 'waiting';
-      }
+      this.chargeAndMaybeStart(r);
     }
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);
@@ -216,6 +195,8 @@ class TTTStore extends EventEmitter {
           if (oid) mem.recordGameResult({ userId: oid, game: 'tictactoe', result: 'draw' });
         } catch(_) {}
       }
+      // liquidar pot (pago a ganador o reembolso en empate)
+      this.settlePot(r);
     } else {
       r.turn = r.turn === 'X' ? 'O' : 'X';
       r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
@@ -239,10 +220,10 @@ class TTTStore extends EventEmitter {
       r.winner = null;
       r.lastMoveAt = Date.now();
       r.turn = (r.turn === 'X') ? 'O' : 'X';
-      const both = r.players.X && r.players.O;
-      r.status = both ? 'playing' : 'waiting';
-      r.turnDeadline = both ? (r.lastMoveAt + this.turnTimeoutMs) : null;
+      r.paidFlags = { X:false, O:false };
       r.rematchVotes = { X: false, O: false };
+      // intentar cobrar y arrancar
+      this.chargeAndMaybeStart(r);
     }
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);
@@ -273,6 +254,8 @@ class TTTStore extends EventEmitter {
             }
           }
         } catch(_) {}
+        // liquidar pot
+        this.settlePot(r);
         const s = this.getState(r.id);
         this.emit('room_update_' + r.id, s);
       }

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html class="dark" lang="es">
 <head>
   <meta charset="utf-8"/>
@@ -179,18 +179,21 @@
         </div>
       </div>
       <div class="space-y-2">
-        <p class="text-text/70 text-sm">Costo (modo Libre temporal)</p>
-        <div class="grid grid-cols-2 gap-2">
-          <button id="costFree" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]" disabled>
+        <p class="text-text/70 text-sm">Costo</p>
+        <div class="grid grid-cols-3 gap-2">
+          <button id="costFree" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]">
             <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
             <span>Libre</span>
           </button>
-          <button id="costFuego" class="bg-glass text-text py-2 rounded-lg flex items-center justify-center space-x-2 opacity-40" disabled>
+          <button id="costCoins" class="bg-glass text-text py-2 rounded-lg flex items-center justify-center space-x-2">
+            <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
+            <span>Monedas</span>
+          </button>
+          <button id="costFuego" class="bg-glass text-text py-2 rounded-lg flex items-center justify-center space-x-2">
             <span class="material-symbols-outlined text-orange-500">local_fire_department</span>
             <span>Fuego</span>
           </button>
         </div>
-        <p class="text-xs text-text/60">Los costos por Fuego/Monedas se activarán en la siguiente fase.</p>
       </div>
       <div class="space-y-2">
         <p class="text-text/70 text-sm">Unirme por código</p>
@@ -222,7 +225,7 @@
       </div>
       <div class="bg-card border border-glass rounded-lg p-3 flex flex-wrap gap-4 items-center justify-between">
         <div class="flex items-center gap-3">
-          <span class="inline-flex items-center gap-1 text-sm"><span class="material-symbols-outlined text-orange-500">local_fire_department</span> Pozo: <b id="potVal">0</b> 🔥</span>
+          <span class="inline-flex items-center gap-1 text-sm">Pozo: <b id="potVal">0</b> <span id="potUnit">🔥</span></span>
           <span class="inline-flex items-center gap-1 text-sm">Modo: <b id="modeVal">-</b></span>
         </div>
         <div class="flex items-center gap-2 text-sm">
@@ -321,6 +324,7 @@
   const ball75 = $('ball75');
   const ball90 = $('ball90');
   const costFree = $('costFree');
+  const costCoins = $('costCoins');
   const costFuego = $('costFuego');
   const joinCodeInput = $('joinCodeInput');
   const joinFromCreate = $('joinFromCreate');
@@ -420,8 +424,8 @@
   async function syncOptions(){
     if (!createdRoomId) return;
     const payload = { userId: myId, visibility: createVisibility, mode: createMode, ballSet: String(createBallSet) };
-    payload.costType = 'free';
-    payload.costValue = 0;
+    payload.costType = createCostType;
+    payload.costValue = createCostValue;
     try { await api(`/api/games/bingo/rooms/${encodeURIComponent(createdRoomId)}/options`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); } catch(_) {}
   }
 
@@ -467,7 +471,7 @@
   }
 
   async function createRoom(){
-    const payload = { userId: myId, visibility: createVisibility, costType: 'free', costValue: 0, mode: createMode };
+    const payload = { userId: myId, visibility: createVisibility, costType: createCostType, costValue: createCostValue, mode: createMode };
     payload.ballSet = String(createBallSet);
     const j = await api('/api/games/bingo/rooms', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     if (!j || !j.success) throw new Error('create_failed');
@@ -618,7 +622,10 @@
     es.addEventListener('state', (ev)=>{
       try{
         const s = JSON.parse(ev.data);
-        potVal.textContent = String(s.potFires||0);
+        // pozo según tipo de costo
+        const isCoins = (s.costType==='coins');
+        potVal.textContent = String(isCoins ? (s.potCoins||0) : (s.potFires||0));
+        const potUnit = document.getElementById('potUnit'); if (potUnit) potUnit.textContent = isCoins ? '🪙' : '🔥';
         modeVal.textContent = (s.mode==='4c' ? '4 Esquinas' : (s.mode==='carton' ? 'Cartón Lleno' : 'Línea'));
         currentMode = s.mode || 'linea';
         currentStatus = s.status || 'lobby';
@@ -687,8 +694,8 @@
   // Handlers
   fabCreate.addEventListener('click', openCreate);
   closeCreate.addEventListener('click', closeCreateOverlay);
-  optPrivate.addEventListener('click', ()=>{ createVisibility='private'; styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); syncOptions(); });
-  optPublic.addEventListener('click', ()=>{ createVisibility='public'; styleToggle(optPublic,optPrivate,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); syncOptions(); });
+  if (optPrivate) optPrivate.addEventListener('click', async ()=>{ createVisibility='private'; styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await syncOptions(); });
+  if (optPublic) optPublic.addEventListener('click', async ()=>{ createVisibility='public'; styleToggle(optPublic,optPrivate,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await syncOptions(); });
   modeLinea.addEventListener('click', ()=>{ createMode='linea'; styleToggle(modeLinea,mode4c,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(modeLinea,modeCarton,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   mode4c.addEventListener('click', ()=>{ createMode='4c'; styleToggle(mode4c,modeLinea,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(mode4c,modeCarton,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   modeCarton.addEventListener('click', ()=>{ createMode='carton'; styleToggle(modeCarton,modeLinea,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(modeCarton,mode4c,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
