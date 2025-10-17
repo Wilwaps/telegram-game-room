@@ -15,7 +15,7 @@
 </head>
 <body class="bg-background-dark font-display text-text">
   <div class="relative min-h-screen flex flex-col">
-    <main class="flex-1 p-4">
+    <main class="flex-1 p-4 pb-24">
       <div class="max-w-md mx-auto bg-card border border-glass rounded-xl p-4 space-y-4">
         <h1 class="text-xl font-bold text-center">Crear rifa</h1>
         <div>
@@ -50,7 +50,33 @@
             <div class="grid grid-cols-3 gap-2">
               <input id="pay_id" class="bg-background-dark border border-glass rounded-lg p-3" placeholder="Cédula"/>
               <input id="pay_phone" class="bg-background-dark border border-glass rounded-lg p-3" placeholder="Teléfono"/>
-              <select id="pay_bank" class="bg-background-dark border border-glass rounded-lg p-3"><option>Banco</option><option>Banco de Venezuela</option><option>Banesco</option><option>Mercantil</option></select>
+              <select id="pay_bank" class="bg-background-dark border border-glass rounded-lg p-3">
+                <option value="">Banco</option>
+                <option value="0102" data-name="Banco de Venezuela">0102 - Banco de Venezuela</option>
+                <option value="0104" data-name="Banco Venezolano de Crédito">0104 - Banco Venezolano de Crédito</option>
+                <option value="0105" data-name="Banco Mercantil">0105 - Banco Mercantil</option>
+                <option value="0108" data-name="BBVA Provincial">0108 - BBVA Provincial</option>
+                <option value="0114" data-name="Banco del Caribe">0114 - Banco del Caribe</option>
+                <option value="0115" data-name="Banco Exterior">0115 - Banco Exterior</option>
+                <option value="0116" data-name="Banco Occidental de Descuento">0116 - Banco Occidental de Descuento</option>
+                <option value="0128" data-name="Banco Caroní">0128 - Banco Caroní</option>
+                <option value="0134" data-name="Banesco">0134 - Banesco</option>
+                <option value="0137" data-name="Banco Sofitasa">0137 - Banco Sofitasa</option>
+                <option value="0138" data-name="Banco Plaza">0138 - Banco Plaza</option>
+                <option value="0156" data-name="100% Banco">0156 - 100% Banco</option>
+                <option value="0157" data-name="DelSur Banco Universal">0157 - DelSur Banco Universal</option>
+                <option value="0163" data-name="Banco del Tesoro">0163 - Banco del Tesoro</option>
+                <option value="0166" data-name="Banco Agrícola de Venezuela">0166 - Banco Agrícola de Venezuela</option>
+                <option value="0168" data-name="Bancrecer">0168 - Bancrecer</option>
+                <option value="0169" data-name="Mi Banco">0169 - Mi Banco</option>
+                <option value="0171" data-name="Banco Activo">0171 - Banco Activo</option>
+                <option value="0172" data-name="Bancamiga">0172 - Bancamiga</option>
+                <option value="0174" data-name="Banplus">0174 - Banplus</option>
+                <option value="0175" data-name="Banco Bicentenario">0175 - Banco Bicentenario</option>
+                <option value="0177" data-name="BANFANB">0177 - Banco de la Fuerza Armada Nacional Bolivariana (BANFANB)</option>
+                <option value="0190" data-name="CITIBANK">0190 - CITIBANK</option>
+                <option value="0191" data-name="Banco Nacional de Crédito">0191 - Banco Nacional de Crédito</option>
+              </select>
             </div>
           </div>
         </div>
@@ -94,11 +120,14 @@
       time: document.getElementById('time').value
     };
     if (mode==='prize'){
+      const bankEl = document.getElementById('pay_bank');
+      const bankCode = bankEl ? bankEl.value : '';
+      const bankName = bankEl && bankEl.selectedOptions && bankEl.selectedOptions[0] ? (bankEl.selectedOptions[0].dataset.name||'') : '';
       payload.hostMeta = {
         name: document.getElementById('host_name').value,
         phone: document.getElementById('host_phone').value,
         email: document.getElementById('host_email').value,
-        pay: { id: document.getElementById('pay_id').value, phone: document.getElementById('pay_phone').value, bank: document.getElementById('pay_bank').value }
+        pay: { id: document.getElementById('pay_id').value, phone: document.getElementById('pay_phone').value, bank: bankCode, bankCode, bankName }
       };
       payload.prizeMeta = { prize: document.getElementById('prize_name').value };
     }
@@ -111,5 +140,7 @@
   });
 })();
 </script>
+<script src="/js/footer-nav.js"></script>
+<script src="/js/music.js"></script>
 </body>
 </html>
