@@ -14,9 +14,15 @@
   <style>body{min-height:max(884px,100dvh)}</style>
 </head>
 <body class="bg-background-dark font-display text-text">
-  <div class="relative min-h-screen flex flex-col">
-    <main class="flex-1 p-4 pb-24">
-      <div class="max-w-md mx-auto bg-card border border-glass rounded-xl p-4 space-y-4">
+  <div class="min-h-screen bg-background-dark relative">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+    <div id="sheetOverlay" class="relative z-10 min-h-screen flex flex-col">
+      <main class="flex-1"></main>
+      <section class="pb-6 px-4">
+        <div id="createSheet" class="relative max-w-md mx-auto bg-card border border-glass rounded-t-2xl rounded-b-xl p-5 space-y-4 shadow-neon-accent">
+          <button id="closeCreateSheet" class="absolute top-3 right-3 w-9 h-9 rounded-full border border-glass flex items-center justify-center text-text/70 hover:text-text hover:border-accent transition" aria-label="Cerrar">
+            <span class="material-symbols-outlined">close</span>
+          </button>
         <h1 class="text-xl font-bold text-center">Crear rifa</h1>
         <div>
           <label class="text-sm" for="name">Nombre</label>
@@ -97,7 +103,8 @@
         </div>
         <button id="createBtn" class="w-full bg-accent text-background-dark font-bold py-3 rounded-lg">Crear</button>
       </div>
-    </main>
+      </section>
+    </div>
   </div>
 <script>
 (function(){
@@ -107,6 +114,12 @@
   function toggle(){ if (prize.checked){ prizeFields.classList.remove('hidden'); fireFields.classList.add('hidden'); } else { prizeFields.classList.add('hidden'); fireFields.classList.remove('hidden'); } }
   fire.addEventListener('change',toggle); prize.addEventListener('change',toggle);
   toggle();
+  function closeSheet(){ window.location.href = '/raffles'; }
+  const closeBtn = document.getElementById('closeCreateSheet');
+  if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+  const overlay = document.getElementById('sheetOverlay');
+  const sheet = document.getElementById('createSheet');
+  if (overlay) overlay.addEventListener('click', (ev)=>{ try{ if (sheet && !sheet.contains(ev.target)) closeSheet(); }catch(_){ } });
   document.getElementById('createBtn').addEventListener('click', async()=>{
     const u=me();
     const mode = prize.checked ? 'prize' : 'fire';

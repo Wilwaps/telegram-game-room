@@ -16,6 +16,8 @@
     .overlay{position:fixed;inset:0;display:none;z-index:50}
     .num{transition:transform .15s, box-shadow .15s}
     .num:hover{transform:translateY(-1px)}
+    .flash{animation: flashGlow 1s ease-in-out 2}
+    @keyframes flashGlow{0%{box-shadow:0 0 0 rgba(250,204,21,0)}50%{box-shadow:0 0 12px #facc15,0 0 24px #facc15}100%{box-shadow:0 0 0 rgba(250,204,21,0)}}
   </style>
 </head>
 <body class="bg-background-dark font-display text-text">
@@ -44,9 +46,9 @@
       </div>
     </div>
 
-    <div class="relative bg-card rounded-xl border border-glass p-3 w-full max-w-md" id="myBox" style="display:none">
-      <div class="text-center text-sm">Tus números</div>
-      <div id="myNums" class="mt-1 text-center font-mono text-accent"></div>
+    <div class="relative bg-card rounded-xl border border-glass p-1 w-full max-w-md text-[10px] leading-tight" id="myBox" style="display:none">
+      <div class="text-center">Tus números</div>
+      <div id="myNums" class="mt-0.5 text-center font-mono text-accent"></div>
     </div>
 
     <div id="pendingBox" class="relative bg-card rounded-xl border border-glass p-3 w-full max-w-md" style="display:none">
@@ -102,7 +104,8 @@
   function qs(n){ try{ return new URL(window.location.href).searchParams.get(n) }catch(_){ return null } }
   function fmt(n){ try{return new Intl.NumberFormat().format(n||0)}catch(_){return String(n||0)} }
   let R=null, my=null, selIdx=null, warnAccepted=false;
-  const refreshMs=5000;
+  let prevStates=null; const flashSet=new Set(); const flashTimers={};
+  const refreshMs=1500;
 
   function show(el){el&&el.classList.add('show')} function hide(el){el&&el.classList.remove('show')}
 
@@ -110,17 +113,38 @@
     const code = qs('code'); if(!code){ alert('Falta código'); return; }
     const r = await fetch('/api/raffles/code/'+encodeURIComponent(code)).then(r=>r.json()).catch(()=>null);
     if (!(r&&r.success&&r.raffle)){ alert('Sala no encontrada'); return; }
-    R = r.raffle; my = me();
+    const old = R; R = r.raffle; my = me();
     $('raffleName').textContent = R.name || R.code;
     const meta = (R.mode==='fire' ? `Costo: ${fmt(R.entryPrice)} 🔥` : (R.prize?`Premio: ${R.prize}`:'')) + ` · Host: ${R.hostName||R.hostId}`;
     $('raffleMeta').textContent = meta;
     $('potVal').textContent = fmt(R.potFires||0);
+    detectFlashes(old, R);
     renderGrid();
     renderStats();
     renderMine();
     if (R.mode==='prize' && my.id===R.hostId){ loadPending(); $('pendingBox').style.display='block'; } else { $('pendingBox').style.display='none'; }
     setupCountdown();
     loadDocuments();
+  }
+
+  function detectFlashes(oldR, newR){
+    try{
+      if (!oldR || !oldR.numbers) { prevStates = (newR.numbers||[]).map(n=>n.state||0); return; }
+      const a = prevStates || (oldR.numbers||[]).map(n=>n.state||0);
+      const b = (newR.numbers||[]).map(n=>n.state||0);
+      for(let i=0;i<b.length;i++){
+        if ((a[i]||0) !== 1 && b[i]===1){ markFlash(i); }
+      }
+      prevStates = b;
+    }catch(_){ }
+  }
+
+  function markFlash(idx){
+    try{
+      flashSet.add(idx);
+      if (flashTimers[idx]) clearTimeout(flashTimers[idx]);
+      flashTimers[idx] = setTimeout(()=>{ flashSet.delete(idx); }, 1800);
+    }catch(_){ }
   }
 
   async function loadMyProfile(){
@@ -151,7 +175,9 @@
       const st = n.state||0; // 0 avail, 1 reserved, 2 sold
       let cls = 'num flex items-center justify-center h-8 w-8 text-sm font-bold rounded border ';
       if (st===0){ cls += 'bg-card border-glass hover:bg-accent/20 hover:border-accent cursor-pointer'; }
-      else if (st===1){ cls += 'bg-amber-400/20 text-amber-300 border-amber-400/50 shadow-neon-gold cursor-not-allowed'; }
+      else if (st===1){ cls += (flashSet.has(i)
+        ? 'bg-amber-400/20 text-amber-300 border-amber-400/60 flash cursor-not-allowed'
+        : 'bg-amber-400/20 text-amber-300 border-amber-400/50 shadow-[0_0_8px_#facc15,0_0_16px_#facc15] cursor-not-allowed'); }
       else { cls += 'bg-black/30 text-text/40 border-glass cursor-not-allowed'; }
       const el=document.createElement('div'); el.className=cls; el.textContent=String(i).padStart(is3?3:2,'0');
       if (st===0){ el.addEventListener('click', ()=> onPick(i)); }
@@ -180,6 +206,8 @@
       }
       const r = await fetch('/api/raffles/'+encodeURIComponent(R.id)+'/reserve',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: my.id, number: idx }) }).then(r=>r.json());
       if (!(r&&r.success)){ alert('No disponible'); return; }
+      // reflejo inmediato local + flash
+      try{ if (R && R.numbers && R.numbers[idx]) { R.numbers[idx] = { idx, state:1, reservedBy: my.id, reservedUntil: Date.now()+45*1000 }; markFlash(idx); renderGrid(); renderStats(); } }catch(_){ }
       selIdx = idx; warnAccepted=false; $('readChk').checked=false; $('selNum').textContent = String(idx).padStart(R.range==='000-999'?3:2,'0');
       // Mostrar advertencia primero
       show($('warnOverlay'));
