@@ -62,6 +62,11 @@
     @supports (bottom: env(safe-area-inset-bottom)) {
       .claim-float { bottom: calc(112px + env(safe-area-inset-bottom)); }
     }
+    @media (max-width: 480px){
+      #cardsWrap { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+      .bingo-card { padding: 8px; }
+      .bingo-cell { padding: 6px 0; font-size: 0.8rem; }
+    }
   </style>
 </head>
 <body class="bg-background-dark font-display text-text">
@@ -233,7 +238,7 @@
       <h3 class="font-bold mb-2">Números llamados</h3>
       <div id="calledList" class="text-sm flex flex-wrap gap-2"></div>
     </div>
-    <div id="tablaPanel" class="hidden bg-panel border border-glass rounded-lg p-3 mx-auto max-w-5xl mt-2">
+    <div id="tablaPanel" class="hidden fixed left-1/2 -translate-x-1/2 top-24 z-50 w-[92vw] max-w-5xl bg-panel border border-glass rounded-lg p-3 shadow-2xl">
       <div class="flex items-center justify-between mb-2">
         <h3 class="font-bold">Tabla</h3>
         <span id="tablaInfo" class="text-sm text-text/70"></span>
@@ -254,7 +259,7 @@
       <div id="playersList" class="mt-3 text-sm text-text/80"></div>
     </div>
       <div class="cards-scroll pr-1 mx-auto max-w-5xl mt-2">
-        <div id="cardsWrap" class="grid md:grid-cols-2 gap-4"></div>
+        <div id="cardsWrap" class="grid grid-cols-2 gap-3"></div>
       </div>
       <div class="flex gap-2">
         <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Salir</a>
@@ -283,6 +288,9 @@
       </div>
     </div>
     <button id="claimBtn" class="claim-float bg-violet text-text font-bold py-3 px-6 rounded-full shadow-[0_0_18px_rgba(167,139,250,0.65)]">Cantar</button>
+    <div id="claimModal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
+      <button id="claimConfirm" class="bg-violet text-text font-bold py-4 px-8 rounded-full text-xl shadow-[0_0_22px_rgba(167,139,250,0.7)]">Cantar</button>
+    </div>
   </div>
 </section>
 
@@ -330,6 +338,8 @@
   const playersList = $('playersList');
   const cardsWrap = $('cardsWrap');
   const claimBtn = $('claimBtn');
+  const claimModal = $('claimModal');
+  const claimConfirm = $('claimConfirm');
   const gameOver = $('gameOver');
   const winnerVal = $('winnerVal');
   const roomsList = $('roomsList');
@@ -563,13 +573,15 @@
 
   function updateClaimVisibility(){
     try{
-      if (currentStatus !== 'playing') { claimBtn.style.display='none'; return; }
+      if (currentStatus !== 'playing') { claimBtn.style.display='none'; if (claimModal) claimModal.classList.add('hidden'); return; }
       const card = (lastMyCards && lastMyCards[selectedCardIdx]) || null;
-      if (!card) { claimBtn.style.display='none'; return; }
+      if (!card) { claimBtn.style.display='none'; if (claimModal) claimModal.classList.add('hidden'); return; }
       const set = new Set(stateCalled||[]);
       const win = checkCardWinClient(card, set, currentMode);
-      claimBtn.style.display = win ? 'block' : 'none';
-    }catch(_){ claimBtn.style.display='none'; }
+      // ocultar botón flotante en favor del modal
+      claimBtn.style.display = 'none';
+      if (claimModal) claimModal.classList.toggle('hidden', !win);
+    }catch(_){ if (claimModal) claimModal.classList.add('hidden'); claimBtn.style.display='none'; }
   }
 
   function subscribe(){
@@ -669,7 +681,6 @@
     if (tablaOpen) {
       tablaPanel.classList.remove('hidden');
       renderTabla(currentBallSet, stateCalled, stateLast);
-      try { setTimeout(()=>{ try{ tablaPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }); }catch(_){ } }, 50); } catch(_){ }
     } else {
       tablaPanel.classList.add('hidden');
     }
@@ -677,6 +688,13 @@
   cardsCountSel.addEventListener('change', async ()=>{ if (!roomId) return; const n = Number(cardsCountSel.value||'1')||1; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardsCount: n }) }); }catch(e){ notify(e.message); } });
   readyChk.addEventListener('change', async ()=>{ if (!roomId) return; const r = !!readyChk.checked; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/ready`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, ready: r, cardsCount: Number(cardsCountSel.value||'1') }) }); }catch(e){ notify(e.message); } });
   claimBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/claim`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardIndex: selectedCardIdx }) }); if (!(j && j.success)) { } }catch(e){ notify(e.message); } });
+  claimConfirm?.addEventListener('click', async ()=>{
+    if (!roomId) return;
+    try{
+      await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/claim`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, cardIndex: selectedCardIdx }) });
+    }catch(e){ notify(e.message); }
+    finally { try{ claimModal.classList.add('hidden'); }catch(_){ } }
+  });
   document.getElementById('rematchBtn')?.addEventListener('click', async ()=>{
     if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { } }catch(e){ notify(e.message); }
   });
