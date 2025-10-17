@@ -55,38 +55,6 @@
     <span class="sr-only">Crear rifa</span>
   </button>
 
-  <nav class="fixed bottom-0 left-0 right-0 bg-panel border-t border-glass px-2 py-1">
-    <div class="flex justify-around text-xs text-center text-text/80">
-      <a class="nav-item flex-1 p-2 rounded-lg" href="/profile" style="--tw-bg-accent:#facc15; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">person</span>
-        <span>Perfil</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">door_open</span>
-        <span>Lobby</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">sports_esports</span>
-        <span>Juegos</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg bg-yellow-400/20 text-yellow-400 shadow-neon-gold" href="/raffles" style="--tw-bg-accent:#facc15; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">confirmation_number</span>
-        <span>Rifas</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined" style="color:inherit">storefront</span>
-        <span class="text-xs">Mercado</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">groups</span>
-        <span>Rol</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">schedule</span>
-        <span>Próximo</span>
-      </a>
-    </div>
-  </nav>
 </div>
 
 <script>
@@ -152,19 +120,12 @@
       else { alert('Código no encontrado'); }
     }catch(_){ alert('Error de red'); }
   });
-  $('codeBtnNav').addEventListener('click', async()=>{
-    const c = String(($('codeInputNav').value||'').trim()).toUpperCase(); if(!c) return;
-    try{
-      const r = await fetch('/api/raffles/code/'+encodeURIComponent(c));
-      if (r.ok) { window.location.href = '/raffles/room?code='+encodeURIComponent(c); }
-      else { alert('Código no encontrado'); }
-    }catch(_){ alert('Error de red'); }
-  });
   const fab = document.getElementById('raffleCreateFab');
   if (fab) fab.addEventListener('click', ()=>{ window.location.href = '/raffles/create'; });
   window.addEventListener('load', load);
 })();
 </script>
+<script src="/js/footer-nav.js"></script>
 <script src="/js/music.js"></script>
 </body>
 </html>

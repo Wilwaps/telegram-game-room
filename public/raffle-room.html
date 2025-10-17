@@ -14,7 +14,6 @@
   <style>
     body{min-height:max(884px,100dvh)}
     .overlay{position:fixed;inset:0;display:none;z-index:50}
-    .overlay.show{display:flex}
     .num{transition:transform .15s, box-shadow .15s}
     .num:hover{transform:translateY(-1px)}
   </style>
@@ -60,39 +59,6 @@
       <div id="docsList" class="mt-2 space-y-2 text-sm"></div>
     </div>
   </main>
-
-  <nav class="fixed bottom-0 left-0 right-0 bg-panel border-t border-glass px-2 py-1">
-    <div class="flex justify-around text-xs text-center text-text/80">
-      <a class="nav-item flex-1 p-2 rounded-lg" href="/profile" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">person</span>
-        <span>Perfil</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">door_open</span>
-        <span>Lobby</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="/games" style="--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">sports_esports</span>
-        <span>Juegos</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg bg-yellow-400/20 text-yellow-400 shadow-neon-gold" href="/raffles" style="--tw-bg-accent:#facc15; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">confirmation_number</span>
-        <span>Rifas</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined" style="color:inherit">storefront</span>
-        <span class="text-xs">Mercado</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">groups</span>
-        <span>Rol</span>
-      </a>
-      <a class="nav-item flex-1 p-2 rounded-lg" href="#" style="--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14">
-        <span class="material-symbols-outlined">schedule</span>
-        <span>Próximo</span>
-      </a>
-    </div>
-  </nav>
 </div>
 
 <!-- Overlay 1: Descargo de responsabilidad -->
@@ -309,7 +275,8 @@
 })();
 </script>
 
-<script src="/js/app-user.js"></script>
-<script src="/js/music.js"></script>
+  <script src="/js/app-user.js"></script>
+  <script src="/js/footer-nav.js"></script>
+  <script src="/js/music.js"></script>
 </body>
 </html>
