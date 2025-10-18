@@ -417,6 +417,20 @@ router.post('/telegram/verify', async (req, res) => {
     let dbUserId = null;
     try { if (userRepo) { const out = await userRepo.upsertTelegramUser({ tgId: parsed.user.id, username: parsed.user.username, displayName: [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ') }); dbUserId = out.userId; } } catch(_){}
     const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');
+    // Merge con sesión previa (si existía y no era tg)
+    try {
+      const raw = String(req.headers.cookie || '');
+      let oldSid = '';
+      for (const part of raw.split(/;\s*/)) { const [k, v] = part.split('='); if (k === 'sid') { oldSid = v; break; } }
+      const sess = oldSid ? auth.getSession(oldSid) : null;
+      const tgUserId = 'tg:' + String(parsed.user.id);
+      if (sess && sess.userId && sess.userId !== tgUserId) {
+        const cur = String(sess.userId);
+        if (!cur.startsWith('tg:')) {
+          try { store.mergeUsers({ primaryId: tgUserId, secondaryId: cur }); } catch (_) {}
+        }
+      }
+    } catch (_) {}
     const { sid, userId } = auth.createSessionForTelegram({ telegramId: parsed.user.id, name, ua: String(req.headers['user-agent'] || '') });
     setSessionCookie(res, sid);
     res.json({ success:true, sid, userId, dbUserId });

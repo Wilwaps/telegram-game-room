@@ -40,11 +40,26 @@
   async function ensureTelegramSession(){
     try{
       const tg = window.Telegram && window.Telegram.WebApp;
-      const init = tg && tg.initData;
-      const done = sessionStorage.getItem('tgLoginDone');
-      if (!init || done) return;
-      await fetch('/api/auth/login-telegram',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ initData: String(init) }) });
-      sessionStorage.setItem('tgLoginDone','1');
+      if (!tg) return;
+      const init = tg.initData;
+      const unsafe = tg.initDataUnsafe;
+      if (!init || !unsafe || !unsafe.user || !unsafe.user.id) return;
+      const key = 'tgLoginDone:'+String(unsafe.user.id);
+      if (sessionStorage.getItem(key) === 'ok') return;
+      const resp = await fetch('/api/auth/telegram/verify',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ initData: String(init) }) });
+      if (resp.ok) {
+        sessionStorage.setItem(key,'ok');
+        try {
+          const data = await resp.json();
+          const newId = data && data.userId ? String(data.userId) : '';
+          if (newId.startsWith('tg:')) {
+            const current = resolveUserId();
+            if (!current.startsWith('tg:')) { setTimeout(()=>window.location.reload(), 150); }
+          }
+        } catch(_){ }
+      } else {
+        sessionStorage.removeItem(key);
+      }
     }catch(_){ }
   }
   try { ensureTelegramSession(); } catch(_){ }

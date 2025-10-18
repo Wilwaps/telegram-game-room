@@ -60,7 +60,7 @@ app.use(helmet({
       "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
       "img-src": ["'self'", "data:", "https:", "blob:"],
       "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
-      "connect-src": ["'self'", "https:", "wss:", "https://api.telegram.org", "https://*.telegram.org", "https://*.sentry.io", "https://o*.ingest.sentry.io"],
+      "connect-src": ["'self'", "https:", "wss:", "https://api.telegram.org", "https://*.telegram.org", "https://*.sentry.io", "https://*.ingest.sentry.io"],
       "media-src": ["'self'", "https://www.soundhelix.com", "https://api.telegram.org", "https://*.telegram.org"],
       "frame-ancestors": ["'self'", "https://*.telegram.org", "https://web.telegram.org", "https://t.me", "https://*.t.me"],
       "upgrade-insecure-requests": []

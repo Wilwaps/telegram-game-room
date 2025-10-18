@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const store = require('../services/memoryStore');
 const inbox = require('../services/messageStore');
+const { preferSessionUserId } = require('../middleware/sessionUser');
 
 router.get('/:userId', (req, res) => {
   try {
@@ -37,3 +38,21 @@ router.get('/:userId', (req, res) => {
 });
 
 module.exports = router;
+
+// Actualizar datos de perfil (display name)
+router.post('/update', (req, res) => {
+  try {
+    const { userId, displayName } = req.body || {};
+    const id = preferSessionUserId(req, userId);
+    if (!id) return res.status(400).json({ success:false, error:'invalid_user' });
+    const u = store.ensureUser(id);
+    if (typeof displayName === 'string') {
+      const dn = displayName.trim();
+      if (dn) u.userName = dn;
+    }
+    store.users.set(u.userId, u);
+    return res.json({ success:true, user: { userId: u.userId, userName: u.userName } });
+  } catch (err) {
+    return res.status(500).json({ success:false, error:'profile_update_error' });
+  }
+});
