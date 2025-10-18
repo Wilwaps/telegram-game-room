@@ -122,6 +122,9 @@
         <div class="row" style="justify-content:flex-start; gap:12px;">
           <span class="muted">Estado</span>
           <span id="wel-status" class="kpi" style="font-size:18px">-</span>
+          <label class="muted" style="display:flex; align-items:center; gap:6px;">
+            <input id="wel-toggle" type="checkbox" /> Activar
+          </label>
         </div>
         <div class="list" id="wel-info"></div>
         <hr style="border:none; border-top:1px solid rgba(255,255,255,.08); margin:12px 0;">
@@ -231,6 +234,7 @@
         const ev = j.event; const now = Date.now();
         const active = !!ev.active && now < Number(ev.endsAt||0);
         statusEl.textContent = active ? 'Activo' : 'Inactivo';
+        const tgl = document.getElementById('wel-toggle'); if (tgl) tgl.checked = active;
         infoEl.innerHTML = '';
         const mk = (k,v)=>{ const row=document.createElement('div'); row.className='row'; row.innerHTML=`<span class="muted">${k}</span><span>${v}</span>`; infoEl.appendChild(row); };
         mk('Monedas', fmt(ev.coins||0));
@@ -272,6 +276,19 @@
         if (j&&j.success){ alertEl.textContent='Evento desactivado.'; await fetchWelcomeStatus(); }
         else { alertEl.textContent='Error: '+(j&&j.error||'disable_error'); }
       }catch(e){ alertEl.textContent='Error de red'; }
+    }
+
+    async function onWelToggle(e){
+      const tgl = e.currentTarget;
+      const wantActive = !!tgl.checked;
+      tgl.disabled = true;
+      try{
+        if (wantActive) { await activateWelcome(); }
+        else { await disableWelcome(); }
+      } finally {
+        tgl.disabled = false;
+        try { await fetchWelcomeStatus(); } catch(_){ }
+      }
     }
     function startSSE(){
       const es = new EventSource('/api/economy/supply/stream');
@@ -361,6 +378,7 @@
     document.getElementById('wel-refresh').addEventListener('click', fetchWelcomeStatus);
     const applyBtn = document.getElementById('wel-apply'); if (applyBtn) applyBtn.addEventListener('click', activateWelcome);
     document.getElementById('wel-disable').addEventListener('click', disableWelcome);
+    const welTgl = document.getElementById('wel-toggle'); if (welTgl) welTgl.addEventListener('change', onWelToggle);
     if (typeof fetchCircInitStatus === 'function') {
       fetchCircInitStatus();
       const cr=document.getElementById('circ-refresh'); if(cr){ cr.addEventListener('click', fetchCircInitStatus); }
