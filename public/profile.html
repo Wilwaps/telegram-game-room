@@ -144,8 +144,17 @@
   <main class="flex-1 p-4 pb-24">
     <div class="flex flex-col items-center space-y-6">
       <div id="greet" class="w-full max-w-md text-center text-sm text-text/90 bg-card border border-glass rounded-lg p-2" style="display:none"></div>
-      <div class="relative">
+      <div class="relative flex flex-col items-center gap-3">
         <img alt="User profile image" class="w-32 h-32 rounded-full border-2 border-glass" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcO4sAoIKsqz6c_1ao9l8oLKrRoHcgQgvKXMVZ1GjrD6yIt1wIHUoUejWNVg5YeFSUNG2AzXPMsQBpnk9JKm7nj3Fl0c_-Jqff4R7sYxnLt9HXJtqXN5mHa4LpYy8ze_U0XA5E_p63z6cQCqLqyvstKocyRXYEASAUSo6DzvZTIfgZsyx7Xqbw8vV7RblR_FBppp7LTCsFU7QanKpaRmqO3o8B9Vxmy_1-jF73jvsjIbKoT9uvlznwhPR06j9c8xcPEZp403DWuA_j"/>
+        <div class="flex items-center gap-2 bg-card/60 border border-glass rounded-full px-4 py-1">
+          <span id="profileName" class="text-lg font-bold text-text"></span>
+          <button id="copyPlatformId" class="flex items-center gap-1 text-xs font-semibold text-accent hover:text-primary transition-colors" title="Copiar ID plataforma">
+            <span class="material-symbols-outlined text-base">content_copy</span>
+            <span>Copiar</span>
+          </button>
+        </div>
+        <div id="platformIdLabel" class="text-xs text-text/60"></div>
+        <div id="copyToast" class="hidden text-xs text-text/80 bg-glass px-3 py-1 rounded-full">ID copiado</div>
       </div>
 
       <div class="bg-card rounded-lg p-4 w-full max-w-md bg-gradient-to-br from-card to-accent/10">
@@ -204,6 +213,16 @@
   (function(){
     const $ = (id) => document.getElementById(id);
     const fmt = (n) => new Intl.NumberFormat().format(n ?? 0);
+    const nameEl = $('profileName');
+    const platformIdEl = $('platformIdLabel');
+    const copyBtn = $('copyPlatformId');
+    const copyToast = $('copyToast');
+    function hash10(str){ try{ let h=2166136261>>>0; const s=String(str||''); for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } const d=String(h); return d.length>=10?d.slice(0,10):d.padStart(10,'0'); }catch(_){ return '0000000000'; } }
+    function platformId(uid){ return hash10(uid); }
+    function fallbackName(uid){ const pid = platformId(uid); return `User ${pid.slice(-6)}`; }
+    function resolveDisplayName(data){ if(!data) return ''; const tgName = (data.userName||'').trim(); if (tgName) return tgName; return fallbackName(data.userId||''); }
+    function renderProfileHeader(data){ if(!data) return; const uid = String(data.userId||''); const pid = platformId(uid); const displayName = resolveDisplayName(data); if (nameEl) nameEl.textContent = displayName; if (platformIdEl) platformIdEl.textContent = pid ? `ID Plataforma: ${pid}` : ''; if (copyBtn) { copyBtn.dataset.pid = pid; copyBtn.disabled = !pid; } }
+    function showToast(){ if(!copyToast) return; copyToast.classList.remove('hidden'); clearTimeout(showToast._timer); showToast._timer = setTimeout(()=>{ copyToast.classList.add('hidden'); }, 1500); }
     let uid = null;
     let profileSnap = null;
     let unread = 0;
@@ -237,6 +256,7 @@
         const fires = Number(j.user.fires||0);
         const coins = Number(j.user.coins||0);
         const earned = Number(j.user.earnedCoins||0);
+        renderProfileHeader(profileSnap);
         const exp = Number(j.user.exp||0);
         const fEl = $('firesVal'); if (fEl) fEl.textContent = fmt(fires);
         const cEl = $('coinsVal'); if (cEl) cEl.textContent = fmt(coins);
@@ -363,6 +383,14 @@
     });
     $('inboxBtn')?.addEventListener('click', openInbox);
     $('closeInbox')?.addEventListener('click', ()=> hide($('inboxOverlay')));
+    copyBtn?.addEventListener('click', async ()=>{
+      try{
+        const pid = copyBtn.dataset.pid || '';
+        if (!pid) return;
+        await navigator.clipboard.writeText(pid);
+        showToast();
+      }catch(_){ alert('No se pudo copiar el ID'); }
+    });
     window.addEventListener('load', async ()=>{
       await loadProfile(); await loadInboxUnread(); await checkWelcomeBanner(); setInterval(loadInboxUnread, 10000);
       try {

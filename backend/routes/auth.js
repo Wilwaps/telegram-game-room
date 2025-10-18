@@ -2,6 +2,8 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const auth = require('../services/authStore');
+const Sentry = require('@sentry/node');
+const logger = require('../config/logger');
 const store = require('../services/memoryStore');
 let roles = null; try { roles = require('../services/roles'); } catch(_) { roles = { getRoles: ()=> ['general'] }; }
 let userRepo = null; try { userRepo = require('../repos/userRepo'); } catch(_) { userRepo = null; }
@@ -246,7 +248,11 @@ router.post('/login-telegram-widget', (req, res) => {
     }
     try {
       const isReplay = auth.checkAndStoreTelegramReplay({ hash: String(payload.hash||''), authDate: parsed.authDate, ttlSec: replayTtlSec });
-      if (isReplay) return res.status(409).json({ success:false, error:'replay_detected' });
+      if (isReplay) {
+        try { Sentry.captureMessage('tg_verify_replay', { level: 'warning', extra: { ...tl, ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
+        logger.warn('[tg.verify] replay_detected');
+        return res.status(409).json({ success:false, error:'replay_detected' });
+      }
     } catch(_) {}
     const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');
     const { sid, userId } = auth.createSessionForTelegram({ telegramId: parsed.user.id, name, ua: String(req.headers['user-agent'] || '') });
@@ -413,7 +419,12 @@ router.post('/telegram/verify', async (req, res) => {
     const { initData } = req.body || {};
     const token = process.env.TELEGRAM_BOT_TOKEN || '';
     const parsed = verifyTelegramInitData(String(initData||''), token);
-    if (!parsed || !parsed.user || !parsed.user.id) return res.status(400).json({ success:false, error:'invalid_telegram_data' });
+    const tl = { tokenLoaded: !!token };
+    if (!parsed || !parsed.user || !parsed.user.id) {
+      try { Sentry.captureMessage('tg_verify_invalid_data', { level: 'warning', extra: { ...tl, reason: 'parsed_missing', ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
+      logger.warn('[tg.verify] invalid_telegram_data');
+      return res.status(400).json({ success:false, error:'invalid_telegram_data' });
+    }
     let dbUserId = null;
     try { if (userRepo) { const out = await userRepo.upsertTelegramUser({ tgId: parsed.user.id, username: parsed.user.username, displayName: [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ') }); dbUserId = out.userId; } } catch(_){}
     const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');
@@ -433,6 +444,8 @@ router.post('/telegram/verify', async (req, res) => {
     } catch (_) {}
     const { sid, userId } = auth.createSessionForTelegram({ telegramId: parsed.user.id, name, ua: String(req.headers['user-agent'] || '') });
     setSessionCookie(res, sid);
+    try { Sentry.captureMessage('tg_verify_success', { level: 'info', extra: { ...tl, maskedUserId: String(parsed.user.id).replace(/^(\d{0,2})(.*)(\d{2})$/, '$1***$3'), ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
+    logger.info('[tg.verify] success');
     res.json({ success:true, sid, userId, dbUserId });
   } catch (_) { res.status(500).json({ success:false, error:'telegram_verify_error' }); }
 });

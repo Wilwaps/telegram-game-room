@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const store = require('../services/memoryStore');
+let rolesSvc = null; try { rolesSvc = require('../services/roles'); } catch(_) { rolesSvc = null; }
 let adminAuth = null; try { adminAuth = require('../middleware/adminAuth'); } catch(_) { adminAuth = (req,res,next)=>next(); }
 let userRepo = null; try { userRepo = require('../repos/userRepo'); } catch(_) { userRepo = null; }
 
@@ -21,7 +22,14 @@ router.get('/list', (req, res) => {
     const mapped = items.map(u => {
       const expectedId = u.telegramId ? ('tg:' + String(u.telegramId)) : (u.email ? ('em:' + String(u.email).toLowerCase()) : null);
       const isOnline = Number(u.lastSeenAt || 0) > now - ONLINE_WINDOW_MS;
-      return { ...u, isOnline, expectedId, idMatch: expectedId ? (expectedId === u.userId) : true };
+      let roles = '';
+      try {
+        if (rolesSvc && typeof rolesSvc.getRoles === 'function') {
+          const list = rolesSvc.getRoles(u.userId) || [];
+          roles = Array.isArray(list) ? list.join(',') : String(list || '');
+        }
+      } catch(_) {}
+      return { ...u, roles, isOnline, expectedId, idMatch: expectedId ? (expectedId === u.userId) : true };
     });
     res.json({ success: true, items: mapped, nextCursor, total, now, onlineWindowMs: ONLINE_WINDOW_MS });
   } catch (err) {

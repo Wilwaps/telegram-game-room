@@ -91,6 +91,11 @@ app.use((req, res, next) => {
       if (k === 'uid' || k === 'uidp') { uid = v; }
       else if (k === 'sid') { sid = v; }
     }
+    // Fallback para WebViews que bloquean cookies: permitir cabecera x-session-id
+    try {
+      const sidHeader = String(req.headers['x-session-id'] || '');
+      if (!sid && sidHeader) sid = sidHeader;
+    } catch(_) {}
     if (sid) {
       try {
         const sess = auth.getSession(sid);

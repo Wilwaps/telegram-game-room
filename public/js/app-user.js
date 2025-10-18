@@ -1,4 +1,28 @@
 (function(){
+  function patchFetchWithSid(){
+    try{
+      if (window.__FETCH_PATCHED_FOR_SID__) return;
+      const orig = window.fetch.bind(window);
+      window.fetch = function(input, init){
+        try{
+          const url = (typeof input === 'string') ? input : (input && input.url) || '';
+          const sameOrigin = !/^https?:\/\//i.test(url) || url.startsWith(window.location.origin) || url.startsWith('/');
+          if (sameOrigin){
+            const headers = new Headers((init && init.headers) || {});
+            if (!headers.has('x-session-id')){
+              const sidCookie = (document.cookie.match(/(?:^|; )sid=([^;]+)/)||[])[1] || '';
+              const sid = sidCookie || sessionStorage.getItem('sid') || localStorage.getItem('sid') || '';
+              if (sid) headers.set('x-session-id', sid);
+            }
+            init = Object.assign({}, init, { headers });
+          }
+        }catch(_){ }
+        return orig(input, init);
+      };
+      window.__FETCH_PATCHED_FOR_SID__ = true;
+    }catch(_){ }
+  }
+  try { patchFetchWithSid(); } catch(_){ }
   function getCookie(name){
     try{
       const m = document.cookie.match(new RegExp('(?:^|; )'+name+'=([^;]*)'));
@@ -51,6 +75,8 @@
         sessionStorage.setItem(key,'ok');
         try {
           const data = await resp.json();
+          if (data && data.sid){ try { sessionStorage.setItem('sid', String(data.sid)); localStorage.setItem('sid', String(data.sid)); } catch(_){ } }
+          try { patchFetchWithSid(); } catch(_){ }
           const newId = data && data.userId ? String(data.userId) : '';
           if (newId.startsWith('tg:')) {
             const current = resolveUserId();
