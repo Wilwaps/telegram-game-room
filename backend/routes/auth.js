@@ -4,6 +4,7 @@ const router = express.Router();
 const auth = require('../services/authStore');
 const store = require('../services/memoryStore');
 let roles = null; try { roles = require('../services/roles'); } catch(_) { roles = { getRoles: ()=> ['general'] }; }
+let userRepo = null; try { userRepo = require('../repos/userRepo'); } catch(_) { userRepo = null; }
 
 function setSessionCookie(res, sid) {
   const maxAge = 30 * 24 * 3600; // 30 días
@@ -407,3 +408,34 @@ router.post('/debug-telegram-init', (req, res) => {
 });
 
 module.exports = router;
+router.post('/telegram/verify', async (req, res) => {
+  try {
+    const { initData } = req.body || {};
+    const token = process.env.TELEGRAM_BOT_TOKEN || '';
+    const parsed = verifyTelegramInitData(String(initData||''), token);
+    if (!parsed || !parsed.user || !parsed.user.id) return res.status(400).json({ success:false, error:'invalid_telegram_data' });
+    let dbUserId = null;
+    try { if (userRepo) { const out = await userRepo.upsertTelegramUser({ tgId: parsed.user.id, username: parsed.user.username, displayName: [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ') }); dbUserId = out.userId; } } catch(_){}
+    const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');
+    const { sid, userId } = auth.createSessionForTelegram({ telegramId: parsed.user.id, name, ua: String(req.headers['user-agent'] || '') });
+    setSessionCookie(res, sid);
+    res.json({ success:true, sid, userId, dbUserId });
+  } catch (_) { res.status(500).json({ success:false, error:'telegram_verify_error' }); }
+});
+
+router.post('/login', async (req, res) => {
+  try {
+    if (!userRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const { email, password } = req.body || {};
+    const out = await userRepo.loginWithEmailDb({ email, password });
+    const ua = String(req.headers['user-agent'] || '');
+    const sid = crypto.randomBytes(18).toString('hex');
+    try { auth.sessions.set(sid, { userId: 'db:'+out.userId, ua, createdAt: Date.now() }); } catch(_){ }
+    setSessionCookie(res, sid);
+    res.json({ success:true, sid, userId: 'db:'+out.userId });
+  } catch (err) {
+    const msg = (err && err.message) || 'login_error';
+    const code = (msg === 'invalid_params' || msg === 'user_not_found' || msg === 'invalid_credentials') ? 403 : 500;
+    res.status(code).json({ success:false, error: msg });
+  }
+});

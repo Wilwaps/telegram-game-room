@@ -6,6 +6,20 @@ function hashPassword(password) {
   const h = crypto.createHash('sha256').update(salt + '::' + String(password || '')).digest('hex');
   return `${salt}:${h}`;
 }
+function verifyPassword(password, stored) {
+  const parts = String(stored || '').split(':');
+  if (parts.length !== 2) return false;
+  const [salt, h] = parts;
+  const calc = crypto.createHash('sha256').update(salt + '::' + String(password || '')).digest('hex');
+  try { return crypto.timingSafeEqual(Buffer.from(calc), Buffer.from(h)); } catch (_) { return false; }
+}
+
+async function ensureWallet(client, userId) {
+  await client.query(
+    'INSERT INTO wallets (user_id, fires_balance, coins_balance) VALUES ($1,0,0) ON CONFLICT (user_id) DO NOTHING',
+    [userId]
+  );
+}
 
 async function ensureRole(client, roleName) {
   const name = String(roleName || 'client').toLowerCase();
@@ -19,11 +33,12 @@ async function ensureRole(client, roleName) {
   return rid;
 }
 
-async function createUserWithPassword({ username, password, email, phone, displayName, roleName }) {
+async function createUserWithPassword({ username, password, email, phone, displayName, roleName, tgId }) {
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
-    const uname = String(username || '').trim().toLowerCase();
+    const tg = String(tgId);
+    const uname = String(username || '').trim().toLowerCase() || null;
     if (!uname) throw new Error('invalid_username');
     if (!password) throw new Error('invalid_password');
     const disp = String(displayName || username || '').trim();
@@ -42,10 +57,7 @@ async function createUserWithPassword({ username, password, email, phone, displa
       [userId, 'password', uname, passHash]
     );
 
-    await client.query(
-      'INSERT INTO wallets (user_id, fires_balance, coins_balance) VALUES ($1,0,0) ON CONFLICT (user_id) DO NOTHING',
-      [userId]
-    );
+    await ensureWallet(client, userId);
 
     const roleId = await ensureRole(client, roleName || 'client');
     if (roleId) {

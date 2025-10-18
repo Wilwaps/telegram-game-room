@@ -53,6 +53,7 @@
             <th>Fuegos</th>
             <th>Esperado</th>
             <th>Coincide</th>
+            <th>Rol</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -65,6 +66,7 @@
     const $ = (id)=>document.getElementById(id);
     const rows = $('rows');
     function adminHeaders(){ try{ const u=localStorage.getItem('adminUser')||''; const c=localStorage.getItem('adminCode')||''; if(!u||!c) return {}; return {'x-admin-username':u,'x-admin-code':c}; }catch(_){ return {}; } }
+    function hasAdmin(){ const h=adminHeaders(); return !!(h['x-admin-username']&&h['x-admin-code']); }
     function fmtTS(t){ if(!t) return '-'; try{ return new Date(Number(t)).toLocaleString(); }catch(_){ return '-'; } }
     async function load(){
       const q = $('q').value||''; const onlineOnly = $('onlineOnly').checked; let j=null;
@@ -81,19 +83,23 @@
       for (const u of arr){
         const tr = document.createElement('tr');
         if (u.idMatch === false) tr.style.outline = '1px solid rgba(239,68,68,.6)';
+        tr.__data = u;
         tr.innerHTML = `
           <td>${fmtTS(u.created_at || u.createdAt)}</td>
           <td>${fmtTS(u.last_seen_at || u.lastSeenAt)} <span class="badge ${u.isOnline?'online':'offline'}">${u.isOnline?'online':'offline'}</span></td>
           <td class="font-mono">${u.userId || u.id}</td>
           <td class="font-mono">${u.telegramId||'-'}</td>
-          <td><input data-id="${u.userId}" data-field="phone" class="bg-card border border-glass rounded px-2 py-1 w-36" value="${u.phone||''}"/></td>
-          <td><input data-id="${u.userId}" data-field="email" class="bg-card border border-glass rounded px-2 py-1 w-52" value="${u.email||''}"/></td>
+          <td><input data-id="${u.id || u.userId}" data-field="phone" class="bg-card border border-glass rounded px-2 py-1 w-36" value="${u.phone||''}"/></td>
+          <td><input data-id="${u.id || u.userId}" data-field="email" class="bg-card border border-glass rounded px-2 py-1 w-52" value="${u.email||''}"/></td>
           <td class="text-orange-400 font-bold">${u.fires||u.fires_balance||0}</td>
           <td class="font-mono">${u.expectedId||'-'}</td>
           <td>${u.idMatch?'<span class="badge online">OK</span>':'<span class="badge offline">NO</span>'}</td>
           <td>
-            <button data-id="${u.userId}" class="save bg-accent text-background-dark px-2 py-1 rounded mr-1">Guardar</button>
-            ${(!u.idMatch && u.expectedId)?`<button data-id="${u.userId}" data-primary="${u.expectedId}" class="merge bg-red-500/80 text-text px-2 py-1 rounded">Arreglar</button>`:''}
+            <select class="roleSel bg-card border border-glass rounded px-2 py-1" data-id="${u.id || u.userId}"></select>
+          </td>
+          <td>
+            <button data-id="${u.id || u.userId}" class="save bg-accent text-background-dark px-2 py-1 rounded mr-1">Guardar</button>
+            ${(!u.idMatch && u.expectedId)?`<button data-id="${u.id || u.userId}" data-primary="${u.expectedId}" class="merge bg-red-500/80 text-text px-2 py-1 rounded">Arreglar</button>`:''}
           </td>
         `;
         rows.appendChild(tr);
@@ -101,13 +107,33 @@
       bind();
     }
     function bind(){
+      // Rellenar selects de rol
+      const roleOptions = window.__rolesCache || [];
+      for (const sel of document.querySelectorAll('select.roleSel')){
+        sel.innerHTML = roleOptions.map(r=>`<option value="${r.name}">${r.name}</option>`).join('');
+        const tr = sel.closest('tr');
+        const email = tr?.querySelector('input[data-field="email"]')?.value||'';
+        const rolesStr = (tr?.__data && tr.__data.roles) || '';
+        const current = String((rolesStr||'').split(',')[0]||'client');
+        sel.value = current || 'client';
+        sel.addEventListener('change', async (e)=>{
+          if (!hasAdmin()) return alert('Faltan credenciales admin');
+          const id = e.currentTarget.getAttribute('data-id');
+          try{
+            const r = await fetch('/api/admin/users/set-role', { method:'POST', headers:{ 'Content-Type':'application/json', ...adminHeaders() }, body: JSON.stringify({ userId:id, role: e.currentTarget.value })});
+            const j = await r.json(); if (!(j&&j.success)) alert('No se pudo asignar rol');
+          }catch(_){ alert('Error de red'); }
+        });
+      }
       for (const btn of document.querySelectorAll('button.save')){
         btn.addEventListener('click', async (e)=>{
           const id = e.currentTarget.getAttribute('data-id');
           const email = document.querySelector(`input[data-id="${id}"][data-field="email"]`)?.value||'';
           const phone = document.querySelector(`input[data-id="${id}"][data-field="phone"]`)?.value||'';
           try{
-            const r = await fetch('/api/admin/users/set-contact',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId:id, email, phone }) });
+            const url = hasAdmin()? '/api/admin/users/db-set-contact' : '/api/admin/users/set-contact';
+            const headers = hasAdmin()? { 'Content-Type':'application/json', ...adminHeaders() } : { 'Content-Type':'application/json' };
+            const r = await fetch(url,{ method:'POST', headers, body: JSON.stringify({ userId:id, email, phone }) });
             const j = await r.json();
             if (j && j.success) { e.currentTarget.textContent='Guardado'; setTimeout(()=> e.currentTarget.textContent='Guardar', 1000); }
           } catch(_){ alert('No se pudo guardar'); }
@@ -128,7 +154,7 @@
       }
     }
     $('adminCredBtn').addEventListener('click', ()=>{ try{ const u=prompt('Usuario admin'); const c=prompt('Código admin'); if(u&&c){ localStorage.setItem('adminUser',u); localStorage.setItem('adminCode',c); loadRoles(); } }catch(_){ } });
-    async function loadRoles(){ try{ const r = await fetch('/api/admin/users/db-roles',{ headers: adminHeaders() }); if(!r.ok) return; const j = await r.json(); const sel = $('new_role'); sel.innerHTML=''; const roles=(j&&j.roles)||[]; for(const it of roles){ const opt=document.createElement('option'); opt.value=it.name; opt.textContent=it.name; sel.appendChild(opt);} }catch(_){ } }
+    async function loadRoles(){ try{ const r = await fetch('/api/admin/users/db-roles',{ headers: adminHeaders() }); if(!r.ok) return; const j = await r.json(); const sel = $('new_role'); sel.innerHTML=''; const roles=(j&&j.roles)||[]; window.__rolesCache = roles; for(const it of roles){ const opt=document.createElement('option'); opt.value=it.name; opt.textContent=it.name; sel.appendChild(opt);} }catch(_){ } }
     $('createUserBtn').addEventListener('click', async ()=>{
       const username = $('new_username').value||''; const password = $('new_password').value||''; const role = $('new_role').value||'client';
       const email = $('new_email').value||''; const phone = $('new_phone').value||''; const displayName = $('new_display').value||'';

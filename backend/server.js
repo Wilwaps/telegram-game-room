@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const { PORT, security } = require('./config/config');
 const logger = require('./config/logger');
 const economyRoutes = require('./routes/economy');
+const authRoutes = require('./routes/auth');
 const xpRoutes = require('./routes/xp');
 const economyExtRoutes = require('./routes/economy_ext');
 const telegramRoutes = require('./routes/telegram');
@@ -114,6 +115,31 @@ app.use((req, res, next) => {
     } else {
       try { store.touchUser('anon:' + uid, { ua }); } catch (_) {}
     }
+    // Log a Postgres (connection_logs) y actualizar last_seen_at cuando aplique
+    try {
+      if (db && db.query) {
+        const ip = (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim();
+        const platform = String(req.headers['sec-ch-ua-platform'] || '').replace(/\"/g,'') || (/(Android|iPhone|iPad|Windows|Mac|Linux)/i.exec(ua)?.[1] || 'unknown');
+        const sess = String(req.sessionUserId || '');
+        const run = async () => {
+          let pgUserId = null;
+          if (sess.startsWith('db:')) { pgUserId = sess.slice(3); }
+          else if (sess.startsWith('tg:')) {
+            const tg = sess.slice(3);
+            const r = await db.query('SELECT id FROM users WHERE tg_id = $1 LIMIT 1', [tg]);
+            if (r.rows && r.rows[0]) pgUserId = r.rows[0].id;
+          }
+          if (pgUserId) {
+            try { await db.query('UPDATE users SET last_seen_at = NOW(), updated_at = NOW() WHERE id = $1', [pgUserId]); } catch(_){}
+            try { await db.query('INSERT INTO connection_logs (user_id, ua, platform, ip) VALUES ($1,$2,$3,$4)', [pgUserId, ua, platform, ip]); } catch(_){}
+          } else {
+            try { await db.query('INSERT INTO connection_logs (ua, platform, ip) VALUES ($1,$2,$3)', [ua, platform, ip]); } catch(_){}
+          }
+        };
+        // no bloquear request
+        Promise.resolve(run()).catch(()=>{});
+      }
+    } catch (_) {}
   } catch (_) {}
   next();
 });
@@ -156,6 +182,7 @@ app.use('/api', limiter);
 
 // Rutas API
 app.use('/api/economy', economyRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/xp', xpRoutes);
 app.use('/api/economy', economyExtRoutes);
 app.use('/api/economy', fireRequestsRoutes);
