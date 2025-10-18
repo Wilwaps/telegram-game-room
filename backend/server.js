@@ -278,12 +278,17 @@ app.listen(PORT, () => {
     }
   } catch(_) {}
   try {
-    const ev = store.getWelcomeEvent();
-    if (!(ev && ev.active && Date.now() < Number(ev.endsAt || 0))) {
-      store.setWelcomeEventActive({ coins: 100, fires: 10, durationHours: 72 });
-      logger.info('Welcome event activated');
+    const autoStart = String(process.env.WELCOME_AUTOSTART || 'false').toLowerCase() === 'true';
+    if (autoStart) {
+      const ev = store.getWelcomeEvent();
+      if (!(ev && ev.active && Date.now() < Number(ev.endsAt || 0))) {
+        store.setWelcomeEventActive({ coins: 100, fires: 10, durationHours: 72 });
+        logger.info('Welcome event activated');
+      } else {
+        logger.info('Welcome event already active, skip activation');
+      }
     } else {
-      logger.info('Welcome event already active, skip activation');
+      logger.info('Welcome auto-start disabled');
     }
   } catch (_) {}
   try {
