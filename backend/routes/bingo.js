@@ -4,12 +4,12 @@ const useSql = String(process.env.BINGO_BACKEND||'').toLowerCase()==='sql';
 const store = useSql ? require('../services/bingoStoreSql') : require('../services/bingoStore');
 const { preferSessionUserId } = require('../middleware/sessionUser');
 
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
   res.json({ success: true, service: 'bingo', status: 'ok' });
 });
 
 // Crear sala
-router.post('/rooms', (req, res) => {
+router.post('/rooms', async (req, res) => {
   try {
     const userId = preferSessionUserId(req, req.body && req.body.userId);
     const visibility = (req.body && req.body.visibility) || undefined;
@@ -18,7 +18,7 @@ router.post('/rooms', (req, res) => {
     const mode = (req.body && req.body.mode) || undefined;
     const ballSet = (req.body && req.body.ballSet) || undefined;
     if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
-    const state = store.createRoom({ userId, visibility, costType, costValue, mode, ballSet });
+    const state = await store.createRoom({ userId, visibility, costType, costValue, mode, ballSet });
     res.json({ success: true, state });
   } catch (e) {
     res.status(500).json({ success: false, error: 'create_error' });
@@ -26,11 +26,11 @@ router.post('/rooms', (req, res) => {
 });
 
 // Salas del usuario
-router.get('/my-rooms', (req, res) => {
+router.get('/my-rooms', async (req, res) => {
   try {
     const userId = preferSessionUserId(req, req.query && req.query.userId);
     if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
-    const rooms = store.listRoomsByUser(userId);
+    const rooms = await store.listRoomsByUser(userId);
     res.json({ success: true, rooms });
   } catch (e) {
     res.status(500).json({ success: false, error: 'list_error' });
@@ -38,9 +38,9 @@ router.get('/my-rooms', (req, res) => {
 });
 
 // Salas públicas
-router.get('/public-rooms', (req, res) => {
+router.get('/public-rooms', async (req, res) => {
   try {
-    const rooms = store.listPublicRooms();
+    const rooms = await store.listPublicRooms();
     res.json({ success: true, rooms });
   } catch (e) {
     res.status(500).json({ success: false, error: 'public_list_error' });
@@ -48,10 +48,10 @@ router.get('/public-rooms', (req, res) => {
 });
 
 // Buscar por código
-router.get('/code/:code', (req, res) => {
+router.get('/code/:code', async (req, res) => {
   try {
     const code = String(req.params.code || '').trim();
-    const state = store.findByCode(code);
+    const state = await store.findByCode(code);
     if (!state) return res.status(404).json({ success: false, error: 'room_not_found' });
     res.json({ success: true, state });
   } catch (e) {
@@ -60,14 +60,14 @@ router.get('/code/:code', (req, res) => {
 });
 
 // Unirse por código
-router.post('/join-code', (req, res) => {
+router.post('/join-code', async (req, res) => {
   try {
     const code = String(req.body && req.body.code || '').trim();
     const userId = preferSessionUserId(req, req.body && req.body.userId);
     if (!code || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
-    const meta = store.findByCode(code);
+    const meta = await store.findByCode(code);
     if (!meta) return res.status(404).json({ success: false, error: 'room_not_found' });
-    const state = store.joinRoom(meta.id, userId);
+    const state = await store.joinRoom(meta.id, userId);
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'join_code_error';
@@ -77,12 +77,12 @@ router.post('/join-code', (req, res) => {
 });
 
 // Unirse a sala
-router.post('/rooms/:id/join', (req, res) => {
+router.post('/rooms/:id/join', async (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = preferSessionUserId(req, req.body && req.body.userId);
     if (!roomId || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
-    const state = store.joinRoom(roomId, userId);
+    const state = await store.joinRoom(roomId, userId);
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'join_error';
@@ -92,7 +92,7 @@ router.post('/rooms/:id/join', (req, res) => {
 });
 
 // Opciones de sala (solo host)
-router.patch('/rooms/:id/options', (req, res) => {
+router.patch('/rooms/:id/options', async (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = preferSessionUserId(req, req.body && req.body.userId);
@@ -101,7 +101,7 @@ router.patch('/rooms/:id/options', (req, res) => {
     const costValue = (req.body && req.body.costValue);
     const mode = (req.body && req.body.mode);
     const ballSet = (req.body && req.body.ballSet);
-    const state = store.setOptions(roomId, userId, { visibility, costType, costValue, mode, ballSet });
+    const state = await store.setOptions(roomId, userId, { visibility, costType, costValue, mode, ballSet });
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'options_error';
@@ -111,13 +111,13 @@ router.patch('/rooms/:id/options', (req, res) => {
 });
 
 // Ready/unready + cantidad de cartones
-router.patch('/rooms/:id/ready', (req, res) => {
+router.patch('/rooms/:id/ready', async (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = preferSessionUserId(req, req.body && req.body.userId);
     const ready = (req.body && req.body.ready);
     const cardsCount = (req.body && req.body.cardsCount);
-    const state = store.setReady(roomId, userId, { ready, cardsCount });
+    const state = await store.setReady(roomId, userId, { ready, cardsCount });
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'ready_error';
@@ -127,11 +127,11 @@ router.patch('/rooms/:id/ready', (req, res) => {
 });
 
 // Iniciar partida (host)
-router.post('/rooms/:id/start', (req, res) => {
+router.post('/rooms/:id/start', async (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = preferSessionUserId(req, req.body && req.body.userId);
-    const state = store.start({ roomId, userId });
+    const state = await store.start({ roomId, userId });
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'start_error';
@@ -141,11 +141,11 @@ router.post('/rooms/:id/start', (req, res) => {
 });
 
 // Extraer siguiente número (host)
-router.post('/rooms/:id/draw', (req, res) => {
+router.post('/rooms/:id/draw', async (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = preferSessionUserId(req, req.body && req.body.userId);
-    const state = store.draw({ roomId, userId });
+    const state = await store.draw({ roomId, userId });
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'draw_error';
@@ -155,12 +155,12 @@ router.post('/rooms/:id/draw', (req, res) => {
 });
 
 // Cantar Bingo
-router.post('/rooms/:id/claim', (req, res) => {
+router.post('/rooms/:id/claim', async (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = preferSessionUserId(req, req.body && req.body.userId);
     const cardIndex = (req.body && req.body.cardIndex);
-    const state = store.claim(roomId, userId, { cardIndex });
+    const state = await store.claim(roomId, userId, { cardIndex });
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'claim_error';
@@ -170,11 +170,11 @@ router.post('/rooms/:id/claim', (req, res) => {
 });
 
 // Revancha (reiniciar a lobby)
-router.post('/rooms/:id/rematch', (req, res) => {
+router.post('/rooms/:id/rematch', async (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = preferSessionUserId(req, req.body && req.body.userId);
-    const state = store.rematch(roomId, userId);
+    const state = await store.rematch(roomId, userId);
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'rematch_error';
@@ -184,9 +184,9 @@ router.post('/rooms/:id/rematch', (req, res) => {
 });
 
 // Estado actual de la sala
-router.get('/rooms/:id/state', (req, res) => {
+router.get('/rooms/:id/state', async (req, res) => {
   try {
-    const state = store.getState(String(req.params.id || ''));
+    const state = await store.getState(String(req.params.id || ''));
     if (!state) return res.status(404).json({ success: false, error: 'room_not_found' });
     res.json({ success: true, state });
   } catch (e) {
@@ -195,9 +195,9 @@ router.get('/rooms/:id/state', (req, res) => {
 });
 
 // SSE de sala
-router.get('/rooms/:id/stream', (req, res) => {
+router.get('/rooms/:id/stream', async (req, res) => {
   const roomId = String(req.params.id || '');
-  const state = store.getState(roomId);
+  const state = await store.getState(roomId);
   if (!state) return res.status(404).end();
 
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });

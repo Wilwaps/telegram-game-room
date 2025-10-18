@@ -5,6 +5,8 @@ const router = express.Router();
 const store = require('../services/memoryStore');
 const adminAuth = require('../middleware/adminAuth');
 const { preferSessionUserId } = require('../middleware/sessionUser');
+let roles = null; try { roles = require('../services/roles'); } catch(_) { roles = { getRoles: ()=>[] }; }
+const auth = require('../services/authStore');
 
 function postJSON(urlStr, data) {
   return new Promise((resolve) => {
@@ -38,6 +40,34 @@ async function notifyAdminNewRequest(req, { request }) {
   } catch (_) {}
 }
 
+function getSessUserId(req){
+  try{
+    const raw = String(req.headers.cookie || '');
+    let sid='';
+    for(const part of raw.split(/;\s*/)){ const [k,v]=part.split('='); if(k==='sid'){ sid=v; break; } }
+    const sess = sid ? auth.getSession(sid) : null;
+    return (sess && sess.userId) ? String(sess.userId) : '';
+  }catch(_){ return ''; }
+}
+
+function rolesAllow(req){
+  try{
+    const uid = getSessUserId(req);
+    if (!uid) return false;
+    const rs = (roles && typeof roles.getRoles==='function') ? roles.getRoles(uid) : [];
+    const ok = rs.includes('tote') || rs.includes('admin');
+    if (ok) { req.admin = { userName: uid }; }
+    return ok;
+  }catch(_){ return false; }
+}
+
+function toteOrAdmin(req, res, next){
+  try{
+    if (rolesAllow(req)) return next();
+    return adminAuth(req, res, next);
+  }catch(_){ return res.status(500).json({ success:false, error:'auth_error' }); }
+}
+
 // POST /api/economy/fire-requests/create { userId, amount, reference }
 router.post('/fire-requests/create', (req, res) => {
   try {
@@ -66,7 +96,7 @@ router.get('/fire-requests/my/:userId', (req, res) => {
 });
 
 // GET /api/economy/fire-requests/pending (admin)
-router.get('/fire-requests/pending', adminAuth, (req, res) => {
+router.get('/fire-requests/pending', toteOrAdmin, (req, res) => {
   try {
     const { limit, offset } = req.query || {};
     const out = store.listFireRequests({ status: 'pending', limit, offset });
@@ -77,7 +107,7 @@ router.get('/fire-requests/pending', adminAuth, (req, res) => {
 });
 
 // GET /api/economy/fire-requests/list?status=(accepted|rejected|pending) (admin)
-router.get('/fire-requests/list', adminAuth, (req, res) => {
+router.get('/fire-requests/list', toteOrAdmin, (req, res) => {
   try {
     const { status, limit, offset } = req.query || {};
     const out = store.listFireRequests({ status, limit, offset });
@@ -88,7 +118,7 @@ router.get('/fire-requests/list', adminAuth, (req, res) => {
 });
 
 // POST /api/economy/fire-requests/:id/accept (admin)
-router.post('/fire-requests/:id/accept', adminAuth, (req, res) => {
+router.post('/fire-requests/:id/accept', toteOrAdmin, (req, res) => {
   try {
     const { id } = req.params;
     const adminUserName = req.admin?.userName || 'admin';
@@ -102,7 +132,7 @@ router.post('/fire-requests/:id/accept', adminAuth, (req, res) => {
 });
 
 // POST /api/economy/fire-requests/:id/reject (admin)
-router.post('/fire-requests/:id/reject', adminAuth, (req, res) => {
+router.post('/fire-requests/:id/reject', toteOrAdmin, (req, res) => {
   try {
     const { id } = req.params;
     const adminUserName = req.admin?.userName || 'admin';

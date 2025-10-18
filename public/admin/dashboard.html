@@ -48,9 +48,12 @@
             <th>Últ. visto</th>
             <th>ID Plataforma</th>
             <th>ID Telegram</th>
+            <th>Usuario / Nombre</th>
             <th>Teléfono</th>
             <th>Correo</th>
             <th>Fuegos</th>
+            <th>Monedas</th>
+            <th>Último dispositivo</th>
             <th>Esperado</th>
             <th>Coincide</th>
             <th>Rol</th>
@@ -60,49 +63,90 @@
         <tbody id="rows"></tbody>
       </table>
     </div>
+    <div id="rowsMeta" class="text-xs text-text/60"></div>
   </div>
   <script>
   (function(){
     const $ = (id)=>document.getElementById(id);
     const rows = $('rows');
+    const rowsMeta = $('rowsMeta');
+    const numberFmt = new Intl.NumberFormat();
+    function fmt(n){ return numberFmt.format(Number(n||0)); }
+    function fmtTS(t){ if(!t) return '-'; try{ return new Date(Number(t)).toLocaleString(); }catch(_){ return '-'; } }
+    function fmtDur(ms){ const n=Math.max(0,Number(ms||0)); if(n===0) return '0s'; const s=Math.floor(n/1000); if(s<60) return `${s}s`; const m=Math.floor(s/60); if(m<60) return `${m}m ${s%60}s`; const h=Math.floor(m/60); if(h<24) return `${h}h ${m%60}m`; const d=Math.floor(h/24); return `${d}d ${h%24}h`; }
+    function shortTxt(text,max=36){ const s=String(text||''); return s.length>max?`${s.slice(0,max-3)}...`:s; }
     function adminHeaders(){ try{ const u=localStorage.getItem('adminUser')||''; const c=localStorage.getItem('adminCode')||''; if(!u||!c) return {}; return {'x-admin-username':u,'x-admin-code':c}; }catch(_){ return {}; } }
     function hasAdmin(){ const h=adminHeaders(); return !!(h['x-admin-username']&&h['x-admin-code']); }
-    function fmtTS(t){ if(!t) return '-'; try{ return new Date(Number(t)).toLocaleString(); }catch(_){ return '-'; } }
+    function guessOnline(lastSeen, windowMs){ if(!lastSeen) return false; const win=Math.max(15_000, Number(windowMs||120_000)); return (Date.now()-Number(lastSeen)) < win; }
+    function normalizeUser(raw, source, onlineWindowMs){
+      const u=raw||{};
+      const baseId=String(u.userId||u.id||u.username||'').trim();
+      const createdAt=Number(u.created_at ?? u.createdAt ?? u.firstSeenAt ?? 0);
+      const lastSeenAt=Number(u.last_seen_at ?? u.lastSeenAt ?? u.updated_at ?? 0);
+      const email=String(u.email||'').trim();
+      const phone=String(u.phone||'').trim();
+      const userName=u.userName || u.username || u.display_name || u.name || '';
+      const fires=Number(u.fires ?? u.fires_balance ?? 0);
+      const coins=Number(u.coins ?? u.coins_balance ?? 0);
+      const rolesRaw=u.roles;
+      const roles=Array.isArray(rolesRaw)?rolesRaw.join(','):String(rolesRaw||'');
+      const telegramRaw = u.telegramId ?? u.telegram_id ?? (baseId.startsWith('tg:') ? baseId.slice(3) : '');
+      const telegramId = String(telegramRaw || '').trim();
+      const expectedId = u.expectedId || (telegramId ? `tg:${telegramId}` : (email ? `em:${email.toLowerCase()}` : null));
+      const idMatch = (typeof u.idMatch === 'boolean') ? u.idMatch : (!expectedId || !baseId ? true : expectedId.toLowerCase() === baseId.toLowerCase());
+      const lastDevice = u.lastDevice || u.last_device || '';
+      const lastDurationMs = Number(u.lastDurationMs ?? u.last_duration_ms ?? 0);
+      const isOnline = (typeof u.isOnline === 'boolean') ? u.isOnline : guessOnline(lastSeenAt, onlineWindowMs);
+      return { source, raw:u, key: baseId || String(u.id||''), createdAt, lastSeenAt, email, phone, userName, fires, coins, roles, telegramId, expectedId, idMatch, lastDevice, lastDurationMs, userId: baseId, isOnline, onlineWindowMs };
+    }
     async function load(){
-      const q = $('q').value||''; const onlineOnly = $('onlineOnly').checked; let j=null;
+      const q = $('q').value||''; const onlineOnly = $('onlineOnly').checked; let data=null; let source='memory'; let onlineWindowMs=120000;
       try{
         const rdb = await fetch(`/api/admin/users/db-list?search=${encodeURIComponent(q)}&limit=100&offset=0`, { headers: adminHeaders() });
-        if (rdb.ok) { j = await rdb.json(); }
+        if (rdb.ok) { const dj = await rdb.json(); if (dj && dj.success) { data = dj; source = 'db'; } }
       }catch(_){ }
-      if (!j) {
+      if (!data) {
         const r = await fetch(`/api/admin/users/list?search=${encodeURIComponent(q)}&onlineOnly=${onlineOnly}`);
-        j = await r.json();
+        const mj = await r.json();
+        if (mj && mj.success) { data = mj; source = 'memory'; }
       }
       rows.innerHTML='';
-      const arr = (j&&j.success&&Array.isArray(j.items))?j.items:[];
-      for (const u of arr){
+      const arrRaw = (data && Array.isArray(data.items)) ? data.items : [];
+      if (data && typeof data.onlineWindowMs === 'number') onlineWindowMs = data.onlineWindowMs;
+      const normalized = arrRaw.map(u=>normalizeUser(u, source, onlineWindowMs));
+      for (const u of normalized){
         const tr = document.createElement('tr');
         if (u.idMatch === false) tr.style.outline = '1px solid rgba(239,68,68,.6)';
         tr.__data = u;
+        const key = u.key || u.userId || '';
+        const tgDisplay = u.telegramId ? `tg:${u.telegramId}` : '-';
+        const roleList = (u.roles||'').split(',').map(s=>s.trim()).filter(Boolean);
         tr.innerHTML = `
-          <td>${fmtTS(u.created_at || u.createdAt)}</td>
-          <td>${fmtTS(u.last_seen_at || u.lastSeenAt)} <span class="badge ${u.isOnline?'online':'offline'}">${u.isOnline?'online':'offline'}</span></td>
-          <td class="font-mono">${u.userId || u.id}</td>
-          <td class="font-mono">${u.telegramId||'-'}</td>
-          <td><input data-id="${u.id || u.userId}" data-field="phone" class="bg-card border border-glass rounded px-2 py-1 w-36" value="${u.phone||''}"/></td>
-          <td><input data-id="${u.id || u.userId}" data-field="email" class="bg-card border border-glass rounded px-2 py-1 w-52" value="${u.email||''}"/></td>
-          <td class="text-orange-400 font-bold">${u.fires||u.fires_balance||0}</td>
+          <td>${fmtTS(u.createdAt)}</td>
+          <td>${fmtTS(u.lastSeenAt)} <span class="badge ${u.isOnline?'online':'offline'}">${u.isOnline?'online':'offline'}</span><div class="text-xs text-text/40">${fmtDur(u.lastDurationMs)}</div></td>
+          <td class="font-mono">${u.userId||'-'}</td>
+          <td class="font-mono">${tgDisplay}</td>
+          <td>${u.userName||'-'}</td>
+          <td><input data-key="${key}" data-field="phone" class="bg-card border border-glass rounded px-2 py-1 w-36" value="${u.phone||''}"/></td>
+          <td><input data-key="${key}" data-field="email" class="bg-card border border-glass rounded px-2 py-1 w-52" value="${u.email||''}"/></td>
+          <td class="text-orange-400 font-bold">${fmt(u.fires)}</td>
+          <td class="text-accent font-bold">${fmt(u.coins)}</td>
+          <td><code>${shortTxt(u.lastDevice||'-', 42)}</code></td>
           <td class="font-mono">${u.expectedId||'-'}</td>
           <td>${u.idMatch?'<span class="badge online">OK</span>':'<span class="badge offline">NO</span>'}</td>
           <td>
-            <select class="roleSel bg-card border border-glass rounded px-2 py-1" data-id="${u.id || u.userId}"></select>
+            <select class="roleSel bg-card border border-glass rounded px-2 py-1" data-key="${key}" data-roles="${roleList.join(',')}"></select>
           </td>
           <td>
-            <button data-id="${u.id || u.userId}" class="save bg-accent text-background-dark px-2 py-1 rounded mr-1">Guardar</button>
-            ${(!u.idMatch && u.expectedId)?`<button data-id="${u.id || u.userId}" data-primary="${u.expectedId}" class="merge bg-red-500/80 text-text px-2 py-1 rounded">Arreglar</button>`:''}
+            <button data-key="${key}" class="save bg-accent text-background-dark px-2 py-1 rounded mr-1">Guardar</button>
+            ${(!u.idMatch && u.expectedId)?`<button data-secondary="${key}" data-primary="${u.expectedId}" class="merge bg-red-500/80 text-text px-2 py-1 rounded">Arreglar</button>`:''}
           </td>
         `;
         rows.appendChild(tr);
+      }
+      if (rowsMeta){
+        const ts = new Date().toLocaleString();
+        rowsMeta.textContent = `Fuente: ${source === 'db' ? 'Base de datos' : 'Memoria en tiempo real'} · Registros: ${normalized.length} · Ventana online: ${Math.round(onlineWindowMs/1000)}s · Actualizado: ${ts}`;
       }
       bind();
     }
@@ -112,13 +156,12 @@
       for (const sel of document.querySelectorAll('select.roleSel')){
         sel.innerHTML = roleOptions.map(r=>`<option value="${r.name}">${r.name}</option>`).join('');
         const tr = sel.closest('tr');
-        const email = tr?.querySelector('input[data-field="email"]')?.value||'';
         const rolesStr = (tr?.__data && tr.__data.roles) || '';
         const current = String((rolesStr||'').split(',')[0]||'client');
         sel.value = current || 'client';
         sel.addEventListener('change', async (e)=>{
           if (!hasAdmin()) return alert('Faltan credenciales admin');
-          const id = e.currentTarget.getAttribute('data-id');
+          const id = e.currentTarget.getAttribute('data-key');
           try{
             const r = await fetch('/api/admin/users/set-role', { method:'POST', headers:{ 'Content-Type':'application/json', ...adminHeaders() }, body: JSON.stringify({ userId:id, role: e.currentTarget.value })});
             const j = await r.json(); if (!(j&&j.success)) alert('No se pudo asignar rol');
@@ -127,9 +170,9 @@
       }
       for (const btn of document.querySelectorAll('button.save')){
         btn.addEventListener('click', async (e)=>{
-          const id = e.currentTarget.getAttribute('data-id');
-          const email = document.querySelector(`input[data-id="${id}"][data-field="email"]`)?.value||'';
-          const phone = document.querySelector(`input[data-id="${id}"][data-field="phone"]`)?.value||'';
+          const id = e.currentTarget.getAttribute('data-key');
+          const email = document.querySelector(`input[data-key="${id}"][data-field="email"]`)?.value||'';
+          const phone = document.querySelector(`input[data-key="${id}"][data-field="phone"]`)?.value||'';
           try{
             const url = hasAdmin()? '/api/admin/users/db-set-contact' : '/api/admin/users/set-contact';
             const headers = hasAdmin()? { 'Content-Type':'application/json', ...adminHeaders() } : { 'Content-Type':'application/json' };
@@ -141,7 +184,7 @@
       }
       for (const btn of document.querySelectorAll('button.merge')){
         btn.addEventListener('click', async (e)=>{
-          const secondaryId = e.currentTarget.getAttribute('data-id');
+          const secondaryId = e.currentTarget.getAttribute('data-secondary');
           const primaryId = e.currentTarget.getAttribute('data-primary');
           if (!primaryId || !secondaryId || primaryId===secondaryId) return;
           try{

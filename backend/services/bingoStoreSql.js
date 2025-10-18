@@ -7,7 +7,7 @@ class BingoStoreSql extends EventEmitter {
   constructor(){ super(); }
 
   onRoom(roomId, fn){ const ev = 'room_update_'+String(roomId); this.on(ev, fn); return () => this.off(ev, fn); }
-  emitRoom(roomId){ try{ this.emit('room_update_'+String(roomId), null); }catch(_){} }
+  async emitRoom(roomId){ try{ const s = await this.getState(roomId); this.emit('room_update_'+String(roomId), s); }catch(_){} }
 
   // Utils
   sizeBag(ballSet){ const n = [75,90].includes(Number(ballSet))? Number(ballSet) : 90; return n; }

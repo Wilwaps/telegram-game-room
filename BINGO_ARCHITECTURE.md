@@ -33,7 +33,7 @@
 5. Host "canta" números (manual o automático)
 6. Servidor transmite números en tiempo real
 7. Jugador hace "Bingo" → servidor valida
-8. Si válido: distribución 50/30/20 y finaliza
+8. Si válido: distribución 70/20/10 y finaliza
 9. Si inválido: penalización y continúa
 
 ---
@@ -142,7 +142,7 @@ class BingoService {
   validatePattern(card, pattern) // line/double/full
   
   // Distribución
-  async distributePot(room, winnerId) // 50/30/20
+  async distributePot(room, winnerId) // 70/20/10
   async refundEntries(room) // Reembolso 100% si host sale
   
   // Estado
@@ -271,7 +271,7 @@ const Bingo = {
 - [ ] Generación de `drawOrder` y cartones
 - [ ] Canto de números (manual y automático)
 - [ ] Validación de bingo
-- [ ] Distribución 50/30/20
+- [ ] Distribución 70/20/10
 - [ ] Pool global admin
 
 ### Fase 4: Frontend (4-5h)
