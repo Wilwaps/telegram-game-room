@@ -202,7 +202,19 @@ class RaffleStoreSql extends EventEmitter {
       const cur = q.rows[0]; if (!cur) throw new Error('not_found');
       if (!(cur.state === 'available' || (cur.state==='reserved' && String(cur.reserved_by_ext||'')===String(userId||'')))) throw new Error('not_available');
       if (mode === 'fire'){
-        // incrementar pot y (en versión extendida) debitar wallet del usuario (se hará cuando marquemos DB-only wallets activos)
+        // Debitar wallet del usuario y sumar al pot
+        const dbUserId = await this.mapExtToDbUserId(String(userId||''));
+        if (!dbUserId) throw new Error('user_not_mapped');
+        const wq = await client.query('SELECT id, fires_balance FROM wallets WHERE user_id=$1 FOR UPDATE', [dbUserId]);
+        if (!wq.rows[0]) {
+          await client.query('INSERT INTO wallets(user_id, fires_balance, coins_balance, updated_at) VALUES ($1,0,0,NOW()) ON CONFLICT (user_id) DO NOTHING', [dbUserId]);
+        }
+        const wq2 = await client.query('SELECT id, fires_balance FROM wallets WHERE user_id=$1 FOR UPDATE', [dbUserId]);
+        const wal = wq2.rows[0];
+        const bal = Number(wal && wal.fires_balance || 0);
+        if (bal < price) throw new Error('insufficient_fires');
+        await client.query('UPDATE wallets SET fires_balance = fires_balance - $2, updated_at=NOW() WHERE id=$1', [wal.id, price]);
+        await client.query('INSERT INTO wallet_transactions(wallet_id, type, amount_fire, reference, meta, created_at) VALUES ($1,$2,$3,$4,$5,NOW())', [wal.id, 'raffle_buy', -price, String(id), { number: idx }]);
         await client.query('UPDATE raffles SET pot_fires = COALESCE(pot_fires,0) + $2 WHERE id=$1', [id, price]);
       } else if (mode === 'prize') {
         throw new Error('invalid_mode_for_confirm');
@@ -224,20 +236,36 @@ class RaffleStoreSql extends EventEmitter {
         await client.query('BEGIN');
         const rs = await client.query('SELECT id, mode, host_id, host_meta, pot_fires FROM raffles WHERE id=$1 FOR UPDATE', [r.id||r]);
         const row = rs.rows[0]; if (!row) { await client.query('ROLLBACK'); return; }
+        // elegir ganador entre vendidos
+        let winnerExt = null;
+        const sold = await client.query('SELECT number_idx, sold_to_ext FROM raffle_numbers WHERE raffle_id=$1 AND state=\'sold\'', [row.id]);
+        if (sold.rows && sold.rows.length>0) {
+          const pick = sold.rows[Math.floor(Math.random()*sold.rows.length)];
+          winnerExt = pick.sold_to_ext || null;
+        }
         await client.query('UPDATE raffles SET status=\'closed\' WHERE id=$1', [row.id]);
         if (row.mode === 'fire'){
           const pot = Number(row.pot_fires||0);
           if (pot>0){
             const g = Math.floor(pot*0.70); const h = Math.floor(pot*0.20); const s = Math.max(0, pot-g-h);
             const hostDbId = row.host_id || null;
-            // Sponsor TG fijo
             const sponsorDbId = await this.mapExtToDbUserId('tg:1417856820');
-            if (g>0) await client.query('INSERT INTO wallet_transactions(wallet_id,type,amount_fire,reference,meta,created_at) SELECT w.id, $1, $2, $3, $4, NOW() FROM wallets w WHERE w.user_id = $5', ['raffle_payout_winner', g, String(row.id), { raffleId: row.id }, null]);
-            if (h>0 && hostDbId) await client.query('INSERT INTO wallet_transactions(wallet_id,type,amount_fire,reference,meta,created_at) SELECT w.id, $1, $2, $3, $4, NOW() FROM wallets w WHERE w.user_id = $5', ['raffle_payout_host', h, String(row.id), { raffleId: row.id }, hostDbId]);
-            if (s>0 && sponsorDbId) await client.query('INSERT INTO wallet_transactions(wallet_id,type,amount_fire,reference,meta,created_at) SELECT w.id, $1, $2, $3, $4, NOW() FROM wallets w WHERE w.user_id = $5', ['raffle_payout_sponsor', s, String(row.id), { raffleId: row.id }, sponsorDbId]);
+            // ganador
+            const winDbId = winnerExt ? await this.mapExtToDbUserId(String(winnerExt)) : null;
+            const credit = async (userId, amount, type) => {
+              if (!userId || amount<=0) return;
+              await client.query('INSERT INTO wallets (user_id, fires_balance, coins_balance, updated_at) VALUES ($1,0,0,NOW()) ON CONFLICT (user_id) DO NOTHING', [userId]);
+              const w = await client.query('SELECT id FROM wallets WHERE user_id=$1 FOR UPDATE', [userId]);
+              const wid = w.rows[0]?.id; if (!wid) return;
+              await client.query('UPDATE wallets SET fires_balance = fires_balance + $2, updated_at=NOW() WHERE id=$1', [wid, amount]);
+              await client.query('INSERT INTO wallet_transactions(wallet_id,type,amount_fire,reference,meta,created_at) VALUES ($1,$2,$3,$4,$5,NOW())', [wid, type, amount, String(row.id), { raffleId: row.id }]);
+            };
+            await credit(winDbId, g, 'raffle_payout_winner');
+            await credit(hostDbId, h, 'raffle_payout_host');
+            await credit(sponsorDbId, s, 'raffle_payout_sponsor');
           }
         }
-        await client.query('UPDATE raffles SET status=\'completed\' WHERE id=$1', [row.id]);
+        await client.query('UPDATE raffles SET status=\'completed\', pot_fires=0 WHERE id=$1', [row.id]);
         await client.query('COMMIT');
       }catch(e){ try{ await client.query('ROLLBACK'); }catch(_){} }
       finally{ client.release(); }

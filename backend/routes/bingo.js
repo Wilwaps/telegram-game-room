@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const store = require('../services/bingoStore');
+const useSql = String(process.env.BINGO_BACKEND||'').toLowerCase()==='sql';
+const store = useSql ? require('../services/bingoStoreSql') : require('../services/bingoStore');
 const { preferSessionUserId } = require('../middleware/sessionUser');
 
 router.get('/health', (req, res) => {

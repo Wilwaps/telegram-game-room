@@ -11,10 +11,10 @@
 ### Economía de Fuegos
 - **Entrada**: 1 fuego por cartón
 - **Pot (bote)**: acumula todos los fuegos gastados en cartones
-- **Distribución al finalizar**:
-  - 50% → Ganador
-  - 30% → Host
-  - 20% → Pool global (solo visible para admin @Wilcnct)
+- **Distribución al finalizar (70/20/10)**:
+  - 70% → Ganador
+  - 20% → Host
+  - 10% → Pool global (admin @Wilcnct, TGID 1417856820)
 
 ### Cierre por Salida del Host
 - **Si NO hay ganador**: 
