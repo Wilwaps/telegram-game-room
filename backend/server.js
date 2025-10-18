@@ -21,6 +21,7 @@ const messagesRoutes = require('./routes/messages');
 const musicRoutes = require('./routes/music');
 const store = require('./services/memoryStore');
 const auth = require('./services/authStore');
+let db = null; try { db = require('./db'); } catch(_) { db = null; }
 const welcomeRoutes = require('./routes/welcome');
 const adminWelcomeRoutes = require('./routes/admin_welcome');
 
@@ -213,6 +214,17 @@ app.get('/health', (req, res) => {
   res.json({ success: true, status: 'ok', time: Date.now() });
 });
 
+// DB healthcheck (PostgreSQL)
+app.get('/api/db/health', async (req, res) => {
+  try {
+    if (!db || !db.query) return res.status(503).json({ success:false, error:'db_not_configured' });
+    const r = await db.query('select 1 as ok');
+    return res.json({ success:true, db: (r && r.rows && r.rows[0] && r.rows[0].ok) === 1 });
+  } catch (e) {
+    return res.status(500).json({ success:false, error:'db_unavailable' });
+  }
+});
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ success: false, error: 'not_found' });
@@ -228,6 +240,16 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   logger.info(`Server listening on port ${PORT}`);
+  // Verificar conexión a DB (si está configurada)
+  try {
+    if (db && db.query) {
+      db.query('select version()').then(()=>{
+        logger.info('PostgreSQL conectado correctamente');
+      }).catch((err)=>{
+        logger.warn('PostgreSQL no disponible', { error: String(err && err.message || err) });
+      });
+    }
+  } catch(_) {}
   try {
     const ev = store.getWelcomeEvent();
     if (!(ev && ev.active && Date.now() < Number(ev.endsAt || 0))) {
