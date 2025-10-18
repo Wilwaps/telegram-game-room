@@ -118,4 +118,30 @@ router.post('/create', adminAuth, async (req, res) => {
   }
 });
 
+// POST /api/admin/users/db-set-contact { userId, email?, phone?, username?, displayName? }
+router.post('/db-set-contact', adminAuth, async (req, res) => {
+  try {
+    if (!userRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const { userId, email, phone, username, displayName } = req.body || {};
+    if (!userId) return res.status(400).json({ success:false, error:'invalid_user' });
+    const out = await userRepo.updateUserContact({ userId, email, phone, username, displayName });
+    res.json({ success:true, ...out });
+  } catch (err) {
+    res.status(500).json({ success:false, error:'db_set_contact_error' });
+  }
+});
+
+// POST /api/admin/users/set-role { userId, role }
+router.post('/set-role', adminAuth, async (req, res) => {
+  try {
+    if (!userRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const { userId, role } = req.body || {};
+    if (!userId || !role) return res.status(400).json({ success:false, error:'invalid_params' });
+    const out = await userRepo.setUserRole({ userId, roleName: role });
+    res.json({ success:true, ...out });
+  } catch (err) {
+    res.status(500).json({ success:false, error:'set_role_error' });
+  }
+});
+
 module.exports = router;

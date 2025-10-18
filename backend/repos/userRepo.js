@@ -98,4 +98,34 @@ async function listRoles() {
   return rs.rows || [];
 }
 
-module.exports = { createUserWithPassword, listUsersDb, listRoles };
+async function updateUserContact({ userId, email, phone, username, displayName }) {
+  const fields = [];
+  const params = [];
+  if (typeof email !== 'undefined') { params.push(String(email||'').trim() || null); fields.push(`email = $${params.length}`); }
+  if (typeof phone !== 'undefined') { params.push(String(phone||'').trim() || null); fields.push(`phone = $${params.length}`); }
+  if (typeof username !== 'undefined') { params.push(String(username||'').trim().toLowerCase() || null); fields.push(`username = $${params.length}`); }
+  if (typeof displayName !== 'undefined') { params.push(String(displayName||'').trim() || null); fields.push(`display_name = $${params.length}`); }
+  if (!fields.length) return { updated: false };
+  params.push(userId);
+  const sql = `UPDATE users SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${params.length} RETURNING id`;
+  const rs = await db.query(sql, params);
+  return { updated: !!(rs.rows && rs.rows[0]) };
+}
+
+async function setUserRole({ userId, roleName }) {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const rid = await ensureRole(client, roleName || 'client');
+    if (!rid) throw new Error('role_not_found');
+    await client.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
+    await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [userId, rid]);
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    throw err;
+  } finally { client.release(); }
+}
+
+module.exports = { createUserWithPassword, listUsersDb, listRoles, updateUserContact, setUserRole };
