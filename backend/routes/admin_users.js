@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const store = require('../services/memoryStore');
+let adminAuth = null; try { adminAuth = require('../middleware/adminAuth'); } catch(_) { adminAuth = (req,res,next)=>next(); }
+let userRepo = null; try { userRepo = require('../repos/userRepo'); } catch(_) { userRepo = null; }
 
 // GET /api/admin/users/list?search=&limit=&cursor=&onlineOnly=true
 router.get('/list', (req, res) => {
@@ -73,6 +75,46 @@ router.post('/reset', (req, res) => {
     return res.json({ success:true, user: u });
   } catch (err) {
     return res.status(500).json({ success:false, error:'reset_error' });
+  }
+});
+
+// GET /api/admin/users/db-roles
+router.get('/db-roles', adminAuth, async (req, res) => {
+  try {
+    if (!userRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const roles = await userRepo.listRoles();
+    res.json({ success:true, roles });
+  } catch (err) {
+    res.status(500).json({ success:false, error:'roles_error' });
+  }
+});
+
+// GET /api/admin/users/db-list?search=&limit=&offset=
+router.get('/db-list', adminAuth, async (req, res) => {
+  try {
+    if (!userRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const search = String(req.query.search || '');
+    const limit = parseInt(req.query.limit || '50', 10) || 50;
+    const offset = parseInt(req.query.offset || '0', 10) || 0;
+    const items = await userRepo.listUsersDb({ search, limit, offset });
+    res.json({ success:true, items });
+  } catch (err) {
+    res.status(500).json({ success:false, error:'db_list_error' });
+  }
+});
+
+// POST /api/admin/users/create { username, password, role, email?, phone?, displayName? }
+router.post('/create', adminAuth, async (req, res) => {
+  try {
+    if (!userRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const { username, password, role, email, phone, displayName } = req.body || {};
+    if (!username || !password) return res.status(400).json({ success:false, error:'invalid_params' });
+    const out = await userRepo.createUserWithPassword({ username, password, email, phone, displayName, roleName: role });
+    res.json({ success:true, userId: out.userId });
+  } catch (err) {
+    const msg = (err && err.message) || 'create_user_error';
+    const code = (msg === 'invalid_username' || msg === 'invalid_password') ? 400 : 500;
+    res.status(code).json({ success:false, error: msg });
   }
 });
 

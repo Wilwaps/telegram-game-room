@@ -20,6 +20,24 @@
         <input id="q" class="bg-card border border-glass rounded-lg px-3 py-1.5" placeholder="Buscar..."/>
         <label class="text-sm flex items-center gap-1"><input id="onlineOnly" type="checkbox" class="rounded" checked/> Solo Online</label>
         <button id="refreshBtn" class="bg-accent text-background-dark px-3 py-1.5 rounded-lg font-bold">Refrescar</button>
+        <button id="adminCredBtn" class="bg-[#1f2937] border border-glass px-3 py-1.5 rounded-lg">Credenciales</button>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-2 gap-3">
+      <div class="bg-card rounded-lg p-3 border border-glass space-y-2">
+        <div class="font-semibold">Crear usuario</div>
+        <div class="grid grid-cols-2 gap-2">
+          <input id="new_username" class="bg-background-dark border border-glass rounded px-2 py-1" placeholder="Usuario"/>
+          <input id="new_password" type="password" class="bg-background-dark border border-glass rounded px-2 py-1" placeholder="Contraseña"/>
+          <input id="new_display" class="bg-background-dark border border-glass rounded px-2 py-1" placeholder="Nombre"/>
+          <input id="new_email" class="bg-background-dark border border-glass rounded px-2 py-1" placeholder="Email"/>
+          <input id="new_phone" class="bg-background-dark border border-glass rounded px-2 py-1" placeholder="Teléfono"/>
+          <select id="new_role" class="bg-background-dark border border-glass rounded px-2 py-1"></select>
+        </div>
+        <div class="flex gap-2">
+          <button id="createUserBtn" class="bg-accent text-background-dark px-3 py-1.5 rounded-lg font-bold">Crear</button>
+          <span id="createStatus" class="text-sm"></span>
+        </div>
       </div>
     </div>
     <div class="overflow-x-auto">
@@ -46,24 +64,31 @@
   (function(){
     const $ = (id)=>document.getElementById(id);
     const rows = $('rows');
+    function adminHeaders(){ try{ const u=localStorage.getItem('adminUser')||''; const c=localStorage.getItem('adminCode')||''; if(!u||!c) return {}; return {'x-admin-username':u,'x-admin-code':c}; }catch(_){ return {}; } }
     function fmtTS(t){ if(!t) return '-'; try{ return new Date(Number(t)).toLocaleString(); }catch(_){ return '-'; } }
     async function load(){
-      const q = $('q').value||''; const onlineOnly = $('onlineOnly').checked;
-      const r = await fetch(`/api/admin/users/list?search=${encodeURIComponent(q)}&onlineOnly=${onlineOnly}`);
-      const j = await r.json();
+      const q = $('q').value||''; const onlineOnly = $('onlineOnly').checked; let j=null;
+      try{
+        const rdb = await fetch(`/api/admin/users/db-list?search=${encodeURIComponent(q)}&limit=100&offset=0`, { headers: adminHeaders() });
+        if (rdb.ok) { j = await rdb.json(); }
+      }catch(_){ }
+      if (!j) {
+        const r = await fetch(`/api/admin/users/list?search=${encodeURIComponent(q)}&onlineOnly=${onlineOnly}`);
+        j = await r.json();
+      }
       rows.innerHTML='';
       const arr = (j&&j.success&&Array.isArray(j.items))?j.items:[];
       for (const u of arr){
         const tr = document.createElement('tr');
         if (u.idMatch === false) tr.style.outline = '1px solid rgba(239,68,68,.6)';
         tr.innerHTML = `
-          <td>${fmtTS(u.createdAt)}</td>
-          <td>${fmtTS(u.lastSeenAt)} <span class="badge ${u.isOnline?'online':'offline'}">${u.isOnline?'online':'offline'}</span></td>
-          <td class="font-mono">${u.userId}</td>
+          <td>${fmtTS(u.created_at || u.createdAt)}</td>
+          <td>${fmtTS(u.last_seen_at || u.lastSeenAt)} <span class="badge ${u.isOnline?'online':'offline'}">${u.isOnline?'online':'offline'}</span></td>
+          <td class="font-mono">${u.userId || u.id}</td>
           <td class="font-mono">${u.telegramId||'-'}</td>
           <td><input data-id="${u.userId}" data-field="phone" class="bg-card border border-glass rounded px-2 py-1 w-36" value="${u.phone||''}"/></td>
           <td><input data-id="${u.userId}" data-field="email" class="bg-card border border-glass rounded px-2 py-1 w-52" value="${u.email||''}"/></td>
-          <td class="text-orange-400 font-bold">${u.fires||0}</td>
+          <td class="text-orange-400 font-bold">${u.fires||u.fires_balance||0}</td>
           <td class="font-mono">${u.expectedId||'-'}</td>
           <td>${u.idMatch?'<span class="badge online">OK</span>':'<span class="badge offline">NO</span>'}</td>
           <td>
@@ -102,10 +127,23 @@
         });
       }
     }
+    $('adminCredBtn').addEventListener('click', ()=>{ try{ const u=prompt('Usuario admin'); const c=prompt('Código admin'); if(u&&c){ localStorage.setItem('adminUser',u); localStorage.setItem('adminCode',c); loadRoles(); } }catch(_){ } });
+    async function loadRoles(){ try{ const r = await fetch('/api/admin/users/db-roles',{ headers: adminHeaders() }); if(!r.ok) return; const j = await r.json(); const sel = $('new_role'); sel.innerHTML=''; const roles=(j&&j.roles)||[]; for(const it of roles){ const opt=document.createElement('option'); opt.value=it.name; opt.textContent=it.name; sel.appendChild(opt);} }catch(_){ } }
+    $('createUserBtn').addEventListener('click', async ()=>{
+      const username = $('new_username').value||''; const password = $('new_password').value||''; const role = $('new_role').value||'client';
+      const email = $('new_email').value||''; const phone = $('new_phone').value||''; const displayName = $('new_display').value||'';
+      const st = $('createStatus'); st.textContent='';
+      try{
+        const r = await fetch('/api/admin/users/create',{ method:'POST', headers:{ 'Content-Type':'application/json', ...adminHeaders() }, body: JSON.stringify({ username, password, role, email, phone, displayName }) });
+        const j = await r.json();
+        if (j && j.success){ st.textContent='Creado'; $('new_username').value=''; $('new_password').value=''; await load(); setTimeout(()=> st.textContent='', 1500); }
+        else { st.textContent=j.error||'Error'; }
+      }catch(_){ st.textContent='Error de red'; }
+    });
     $('refreshBtn').addEventListener('click', load);
     $('q').addEventListener('keydown', (e)=>{ if(e.key==='Enter') load(); });
     $('onlineOnly').addEventListener('change', load);
-    load(); setInterval(load, 10000);
+    loadRoles(); load(); setInterval(load, 10000);
   })();
   </script>
   </body>
