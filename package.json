@@ -22,6 +22,9 @@
     "format": "prettier --write \"**/*.{js,json,md}\"",
     "setup": "npm install && node scripts/setup.js",
     "db:seed": "node scripts/seed.js",
+    "db:migrate": "knex migrate:latest",
+    "db:rollback": "knex migrate:rollback",
+    "db:seed:knex": "knex seed:run",
     "logs": "pm2 logs telegram-game-room"
   },
   "keywords": [
