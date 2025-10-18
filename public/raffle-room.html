@@ -38,6 +38,13 @@
       </div>
     </div>
 
+    <div id="hostInfoBox" class="relative bg-panel rounded-xl border border-accent/30 p-4 w-full max-w-md shadow-neon-accent hidden">
+      <div class="text-[11px] uppercase tracking-wide text-accent/80">Panel del anfitrión (Premio)</div>
+      <div class="mt-1 text-lg font-bold text-accent" id="hostPrizeName"></div>
+      <div class="mt-2 text-xs text-text/70" id="hostPrizeMeta"></div>
+      <div class="mt-3 text-xs text-text/70 space-y-1" id="hostPayLines"></div>
+    </div>
+
     <div class="relative bg-panel rounded-xl border border-glass p-3 w-full max-w-md">
       <div id="grid" class="grid grid-cols-10 gap-2"></div>
       <div class="mt-3 flex items-center justify-between text-xs text-text/70">
@@ -51,9 +58,15 @@
       <div id="myNums" class="mt-0.5 text-center font-mono text-accent"></div>
     </div>
 
-    <div id="pendingBox" class="relative bg-card rounded-xl border border-glass p-3 w-full max-w-md" style="display:none">
-      <div class="text-center text-sm">Solicitudes Pendientes (Host)</div>
-      <div id="pendingList" class="mt-2 space-y-2 text-sm"></div>
+    <div id="pendingBox" class="relative bg-panel rounded-xl border border-violet/30 p-4 w-full max-w-md shadow-neon-violet-faint hidden">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <div class="text-[11px] uppercase tracking-wide text-violet/80">Solicitudes pendientes</div>
+          <div class="text-xs text-text/60">Aprueba o rechaza las compras en progreso</div>
+        </div>
+        <span class="material-symbols-outlined text-violet text-2xl" style="text-shadow:0 0 10px rgba(167,139,250,0.5)">inventory</span>
+      </div>
+      <div id="pendingList" class="space-y-3"></div>
     </div>
 
     <div id="docsBox" class="relative bg-card rounded-xl border border-glass p-3 w-full max-w-md" style="display:none">
@@ -86,13 +99,13 @@
       <div id="confirmMsg" class="text-sm text-text/80 mb-2"></div>
       <div id="payInfo" class="text-xs text-text/70 space-y-1" style="display:none">
         <div class="mt-2">Datos del anfitrión</div>
-        <div id="payData" class="font-mono text-text/80"></div>
-        <button id="copyPay" class="mt-1 bg-accent/20 text-accent text-xs px-2 py-1 rounded">Copiar</button>
+        <div id="payData" class="font-mono text-text/80 whitespace-pre-line"></div>
+        <button id="copyPay" class="mt-2 bg-accent/20 text-accent text-xs px-3 py-1.5 rounded border border-accent/40">Copiar datos</button>
       </div>
       <input id="refInput" class="mt-3 w-full bg-background-dark border border-glass rounded-lg p-2 text-center" placeholder="Referencia (opcional)"/>
       <div class="flex gap-2 mt-4">
         <button id="cancelBuy" class="flex-1 bg-error/20 text-error py-2 rounded-lg border border-error/40">Rechazar</button>
-        <button id="okBuy" class="flex-1 bg-accent text-background-dark py-2 rounded-lg">Confirmar</button>
+        <button id="okBuy" class="flex-1 bg-accent text-background-dark py-2 rounded-lg">Aceptar y participar</button>
       </div>
     </div>
   </div>
@@ -116,14 +129,23 @@
     if (!(r&&r.success&&r.raffle)){ alert('Sala no encontrada'); return; }
     const old = R; R = r.raffle; my = me();
     $('raffleName').textContent = R.name || R.code;
-    const meta = (R.mode==='fire' ? `Costo: ${fmt(R.entryPrice)} 🔥` : (R.prize?`Premio: ${R.prize}`:'')) + ` · Host: ${R.hostName||R.hostId}`;
+    const meta = (R.mode==='fire' ? `Costo: ${fmt(R.entryPrice)} 🔥`
+      : R.mode==='free' ? 'Modo: Gratis'
+      : (R.prize?`Premio: ${R.prize}`:'')) + ` · Host: ${R.hostName||R.hostId}`;
     $('raffleMeta').textContent = meta;
     $('potVal').textContent = fmt(R.potFires||0);
     detectFlashes(old, R);
     renderGrid();
     renderStats();
     renderMine();
-    if (R.mode==='prize' && my.id===R.hostId){ loadPending(); $('pendingBox').style.display='block'; } else { $('pendingBox').style.display='none'; }
+    if (R.mode==='prize' && my.id===R.hostId){
+      renderHostInfo();
+      loadPending();
+      $('pendingBox').classList.remove('hidden');
+    } else {
+      $('hostInfoBox').classList.add('hidden');
+      $('pendingBox').classList.add('hidden');
+    }
     if (!countdownInit) setupCountdown();
     loadDocuments();
     ensureSSE();
@@ -239,8 +261,12 @@
     const isPrize = R.mode==='prize';
     if (isPrize){
       const hm = R.hostMeta||{}; const pay = (hm.pay||{});
-      const lines = [ `Cédula: ${pay.id||''}`, `Tel: ${pay.phone||''}`, `Banco: ${pay.bank||''}` ].join('\n');
-      $('payInfo').style.display='block'; $('payData').textContent=lines;
+      const lines = [
+        pay.id ? `Cédula: ${pay.id}` : null,
+        pay.phone ? `Teléfono: ${pay.phone}` : null,
+        (pay.bankName||pay.bank) ? `Banco: ${pay.bankName||pay.bank}` : null
+      ].filter(Boolean).join('\n');
+      $('payInfo').style.display='block'; $('payData').textContent=lines || 'Datos no disponibles';
     } else { $('payInfo').style.display='none'; }
     // Mensaje dinámico: número y costo (fire/free)
     try{
@@ -248,6 +274,7 @@
       let costStr = '';
       if (R.mode==='fire') costStr = `${fmt(R.entryPrice)} 🔥`;
       else if (R.mode==='free') costStr = 'Gratis';
+      else if (R.mode==='prize' && R.entryPrice) costStr = `${fmt(R.entryPrice)} Bs`; // valor referencial
       const msg = costStr ? `Estás a punto de comprar el número ${numStr}. Costo: ${costStr}.`
                            : `Estás a punto de solicitar el número ${numStr}.`;
       const cm = $('confirmMsg'); if (cm) cm.textContent = msg;
@@ -271,16 +298,49 @@
 
   async function hardReload(){ const code=qs('code'); window.location.href = '/raffles/room?code='+encodeURIComponent(code||''); }
 
+  function renderHostInfo(){
+    try{
+      const prize = (R.prizeMeta&&R.prizeMeta.prize) ? R.prizeMeta.prize : 'Premio sin nombre';
+      $('hostPrizeName').textContent = prize;
+      const pay = ((R.hostMeta||{}).pay)||{};
+      const payLines = [];
+      if (pay.id) payLines.push(`Cédula: ${pay.id}`);
+      if (pay.phone) payLines.push(`Teléfono: ${pay.phone}`);
+      if (pay.bankName || pay.bank) payLines.push(`Banco: ${pay.bankName||pay.bank}`);
+      $('hostPayLines').innerHTML = payLines.map(line => `<div>${line}</div>`).join('') || '<div>Sin datos de pago.</div>';
+      $('hostPrizeMeta').textContent = `Reservas activas: ${fmt(R.reserved)} · Vendidos: ${fmt(R.sold)}`;
+      $('hostInfoBox').classList.remove('hidden');
+    }catch(_){ $('hostInfoBox').classList.add('hidden'); }
+  }
+
   async function loadPending(){
     try{
       const rr = await fetch('/api/raffles/'+encodeURIComponent(R.id)+'/pending').then(r=>r.json());
       if (!(rr&&rr.success)) return;
       const cont=$('pendingList'); cont.innerHTML='';
+      if (!rr.items.length){ cont.innerHTML = '<div class="text-xs text-text/60 text-center">Sin solicitudes pendientes.</div>'; }
       for(const it of rr.items){
-        const el = document.createElement('div');
-        el.className='bg-background-dark border border-glass rounded-lg p-2 flex items-center justify-between';
-        el.innerHTML = `<div><div>Número: <b>${String(it.idx).padStart(R.range==='000-999'?3:2,'0')}</b></div><div class='text-xs text-text/70'>Ref: <span class='font-mono'>${it.reference||''}</span></div></div><div class='flex gap-2'><button data-n='${it.idx}' data-a='1' class='btnAp bg-success/20 text-success px-2 py-1 rounded'>Aceptar</button><button data-n='${it.idx}' data-a='0' class='btnAp bg-error/20 text-error px-2 py-1 rounded'>Rechazar</button></div>`;
-        cont.appendChild(el);
+        const numTxt = String(it.idx).padStart(R.range==='000-999'?3:2,'0');
+        const avatarLetter = (it.userId||'?').slice(-1).toUpperCase();
+        const card = document.createElement('div');
+        card.className='bg-card border border-glass rounded-lg p-3 shadow-inner';
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-accent/10 text-accent font-bold flex items-center justify-center border border-accent/40">${avatarLetter}</div>
+              <div>
+                <div class="text-sm font-semibold text-text">${it.userId||'Participante'}</div>
+                <div class="text-xs text-text/70">Número: <span class="font-bold text-accent text-base">${numTxt}</span></div>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button data-n='${it.idx}' data-a='1' class="btnAp bg-success/20 text-success px-3 py-1.5 rounded border border-success/40 flex items-center gap-1"><span class="material-symbols-outlined text-sm">check</span><span>Aceptar</span></button>
+              <button data-n='${it.idx}' data-a='0' class="btnAp bg-error/20 text-error px-3 py-1.5 rounded border border-error/40 flex items-center gap-1"><span class="material-symbols-outlined text-sm">close</span><span>Rechazar</span></button>
+            </div>
+          </div>
+          <div class="mt-3 pt-2 border-t border-glass text-xs text-text/70">Referencia: <span class="font-mono text-text/80">${it.reference||'-'}</span></div>
+        `;
+        cont.appendChild(card);
       }
       for(const b of document.querySelectorAll('.btnAp')){
         b.addEventListener('click', async(e)=>{
