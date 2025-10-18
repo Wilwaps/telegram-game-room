@@ -75,6 +75,9 @@
     function fmtTS(t){ if(!t) return '-'; try{ return new Date(Number(t)).toLocaleString(); }catch(_){ return '-'; } }
     function fmtDur(ms){ const n=Math.max(0,Number(ms||0)); if(n===0) return '0s'; const s=Math.floor(n/1000); if(s<60) return `${s}s`; const m=Math.floor(s/60); if(m<60) return `${m}m ${s%60}s`; const h=Math.floor(m/60); if(h<24) return `${h}h ${m%60}m`; const d=Math.floor(h/24); return `${d}d ${h%24}h`; }
     function shortTxt(text,max=36){ const s=String(text||''); return s.length>max?`${s.slice(0,max-3)}...`:s; }
+    function hash10(s){ try{ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } const d=String(h); return (d.length>=10? d.slice(0,10) : d.padStart(10,'0')); }catch(_){ return '0000000000'; } }
+    function platformId10(baseId){ const raw=String(baseId||''); return hash10(raw); }
+    function displayNameFor(u){ try{ if (u.telegramId) { return shortTxt(u.userName||'', 32) || `User ${platformId10(u.userId).slice(-6)}`; } return `User ${platformId10(u.userId).slice(-6)}`; }catch(_){ return 'User 000000'; } }
     function adminHeaders(){ try{ const u=localStorage.getItem('adminUser')||''; const c=localStorage.getItem('adminCode')||''; if(!u||!c) return {}; return {'x-admin-username':u,'x-admin-code':c}; }catch(_){ return {}; } }
     function hasAdmin(){ const h=adminHeaders(); return !!(h['x-admin-username']&&h['x-admin-code']); }
     function guessOnline(lastSeen, windowMs){ if(!lastSeen) return false; const win=Math.max(15_000, Number(windowMs||120_000)); return (Date.now()-Number(lastSeen)) < win; }
@@ -124,9 +127,9 @@
         tr.innerHTML = `
           <td>${fmtTS(u.createdAt)}</td>
           <td>${fmtTS(u.lastSeenAt)} <span class="badge ${u.isOnline?'online':'offline'}">${u.isOnline?'online':'offline'}</span><div class="text-xs text-text/40">${fmtDur(u.lastDurationMs)}</div></td>
-          <td class="font-mono">${u.userId||'-'}</td>
+          <td class="font-mono">${platformId10(u.userId||'')}</td>
           <td class="font-mono">${tgDisplay}</td>
-          <td>${u.userName||'-'}</td>
+          <td>${displayNameFor(u)}</td>
           <td><input data-key="${key}" data-field="phone" class="bg-card border border-glass rounded px-2 py-1 w-36" value="${u.phone||''}"/></td>
           <td><input data-key="${key}" data-field="email" class="bg-card border border-glass rounded px-2 py-1 w-52" value="${u.email||''}"/></td>
           <td class="text-orange-400 font-bold">${fmt(u.fires)}</td>

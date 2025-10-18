@@ -37,5 +37,16 @@
     const t = resolveFromTelegram(); if (t) return t;
     return ensureAnon();
   }
+  async function ensureTelegramSession(){
+    try{
+      const tg = window.Telegram && window.Telegram.WebApp;
+      const init = tg && tg.initData;
+      const done = sessionStorage.getItem('tgLoginDone');
+      if (!init || done) return;
+      await fetch('/api/auth/login-telegram',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ initData: String(init) }) });
+      sessionStorage.setItem('tgLoginDone','1');
+    }catch(_){ }
+  }
+  try { ensureTelegramSession(); } catch(_){ }
   window.AppUser = Object.freeze({ resolveUserId });
 })();
