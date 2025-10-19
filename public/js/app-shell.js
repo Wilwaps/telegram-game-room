@@ -2,6 +2,7 @@
   // SPA-lite App Shell
   const sameOrigin = (u)=>{ try{ const url=new URL(u, location.origin); return url.origin===location.origin; }catch(_){ return false; } };
   const cache = new Map();
+  let navCtl = null;
   let root = null;
 
   function ensureRoot(){
@@ -18,22 +19,28 @@
     try{
       const scripts = container.querySelectorAll('script');
       scripts.forEach((old)=>{
+        // Evitar recargar scripts externos (src) ya presentes globalmente
+        if (old.src) { try { old.remove(); } catch(_){} return; }
         const s = document.createElement('script');
-        // copy attributes
         for (const attr of old.attributes){ s.setAttribute(attr.name, attr.value); }
-        if (old.src){ s.src = old.src; s.defer = false; s.async = false; }
-        else { s.textContent = old.textContent || ''; }
+        s.textContent = old.textContent || '';
         old.replaceWith(s);
       });
     }catch(_){ }
   }
 
-  async function fetchDoc(url){
+  async function fetchDoc(url, signal){
     try{
-      // Siempre solicitar versión fresca para evitar vistas obsoletas en navegación SPA
-      const r = await fetch(url, { headers: { 'X-Requested-With': 'AppShell', 'Cache-Control': 'no-cache' } });
+      // Cache efímero (8s) para navegación inmediata / prefetch
+      const TTL = 8000;
+      const now = Date.now();
+      const hit = cache.get(url);
+      if (hit && (now - (hit.ts||0) < TTL) && typeof hit.text === 'string') return hit.text;
+      const r = await fetch(url, { headers: { 'X-Requested-With': 'AppShell', 'Cache-Control': 'no-cache' }, signal });
       if (!r.ok) throw new Error('http_'+r.status);
-      return await r.text();
+      const text = await r.text();
+      try{ cache.set(url, { text, ts: now }); }catch(_){ }
+      return text;
     }catch(_){ return null; }
   }
 
@@ -54,8 +61,18 @@
   async function navigate(url, push=true){
     try{
       if (!sameOrigin(url)) { location.href = url; return; }
+      // Evitar navegación redundante a misma URL (sin considerar hash)
+      try{
+        const dest = new URL(url, location.href);
+        const cur = new URL(location.href);
+        if (dest.origin===cur.origin && dest.pathname===cur.pathname && dest.search===cur.search) {
+          return;
+        }
+      }catch(_){ }
       const rootEl = ensureRoot(); if (!rootEl) { location.href = url; return; }
-      const raw = await fetchDoc(url);
+      try{ if (navCtl) { try{ navCtl.abort(); }catch(_){ } } }catch(_){ }
+      navCtl = new AbortController();
+      const raw = await fetchDoc(url, navCtl.signal);
       if (!raw) { location.href = url; return; }
       const page = extractPage(raw);
       if (!page) { location.href = url; return; }
@@ -64,12 +81,15 @@
       document.title = page.title;
       reexecuteScripts(rootEl);
       // ejecutar scripts inline externos al contenedor original (p.ej. bloques al final del body)
-      try{ (page.extraInline||[]).forEach(code=>{ const s=document.createElement('script'); s.textContent=code||''; rootEl.appendChild(s); }); }catch(_){ }
+      try{
+        const codes = page.extraInline||[];
+        for (const code of codes){ Promise.resolve().then(()=>{ const s=document.createElement('script'); s.textContent=code||''; rootEl.appendChild(s); }); }
+      }catch(_){ }
       if (push) history.pushState({ url }, page.title, url);
       try{ document.dispatchEvent(new CustomEvent('AppShell:afterNavigate', { detail: { url } })); }catch(_){ }
       // focus to top for better UX
       try{ window.scrollTo({ top: 0, behavior: 'instant' }); }catch(_){ window.scrollTo(0,0); }
-    }catch(_){ location.href = url; }
+    }catch(err){ if (!(err && err.name==='AbortError')) { location.href = url; } }
   }
 
   function onClick(e){

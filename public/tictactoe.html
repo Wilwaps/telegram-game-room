@@ -690,8 +690,10 @@
     }
   }
 
-  // init
-  (async function init(){
+  // init (SPA)
+  let __tttBooted = false;
+  async function boot(){
+    if (__tttBooted) return; __tttBooted = true;
     myId = getUserId();
     meEl.textContent = myId;
     const rid = getQuery('room');
@@ -699,7 +701,9 @@
     if (codeParam) { await joinByCode(codeParam).catch(async ()=>{ setStatus('Sala no encontrada'); await loadLobby(); }); return; }
     if (rid) { await joinRoom(rid).catch(async ()=>{ setStatus('Sala no disponible'); await loadLobby(); }); return; }
     await loadLobby();
-  })();
+  }
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+  document.addEventListener('AppShell:afterNavigate', ()=>{ __tttBooted=false; boot(); });
 
   if (newBtn) newBtn.addEventListener('click', async ()=>{ await createRoom(); });
   if (copyBtn) copyBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(roomLinkEl.href); copyBtn.textContent='Copiado'; setTimeout(()=>copyBtn.textContent='Copiar enlace', 1200);}catch(_){ } });

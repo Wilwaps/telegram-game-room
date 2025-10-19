@@ -403,7 +403,11 @@
       try{
         if (__profileBooted) { return; }
         __profileBooted = true;
-        await loadProfile(); await loadInboxUnread(); await checkWelcomeBanner();
+        await Promise.all([
+          (async()=>{ try{ await loadProfile(); }catch(_){ } })(),
+          (async()=>{ try{ await loadInboxUnread(); }catch(_){ } })(),
+          (async()=>{ try{ await checkWelcomeBanner(); }catch(_){ } })()
+        ]);
         try { if (!__inboxTimer) { __inboxTimer = setInterval(loadInboxUnread, 10000); } } catch(_){ }
         try {
           let allow = false;

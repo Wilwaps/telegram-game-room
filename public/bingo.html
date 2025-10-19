@@ -730,8 +730,10 @@
     if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/rematch`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { } }catch(e){ notify(e.message); }
   });
 
-  // init
-  (async function init(){
+  // init (SPA)
+  let __bingoBooted = false;
+  async function boot(){
+    if (__bingoBooted) return; __bingoBooted = true;
     myId = getUserId(); meEl.textContent = myId;
     // perfil
     try{
@@ -751,7 +753,9 @@
     if (activeCard) {
       activeCard.addEventListener('click', async ()=>{ if (lobbyRoomId) { try{ await joinRoom(lobbyRoomId); setTimeout(()=>{ try{ lobbyPanel && lobbyPanel.scrollIntoView({block:'start'}); }catch(_){ } }, 50);}catch(e){ notify(e.message); } } });
     }
-  })();
+  }
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+  document.addEventListener('AppShell:afterNavigate', ()=>{ try{ if (location.pathname.startsWith('/games/bingo')) { __bingoBooted=false; boot(); } }catch(_){ } });
 })();
 </script>
 <script src="/js/footer-nav.js"></script>

@@ -99,12 +99,17 @@
   </main>
 </div>
 <script>
-  document.getElementById('play-ttt').addEventListener('click', () => {
-    window.location.href = '/games/tictactoe';
-  });
-  const pb = document.getElementById('play-bingo');
-  if (pb) pb.addEventListener('click', ()=> { window.location.href = '/games/bingo'; });
-</script>
+  (function(){
+    let __gamesBooted = false;
+    function boot(){
+      if (__gamesBooted) return; __gamesBooted = true;
+      const t = document.getElementById('play-ttt'); if (t) t.addEventListener('click', ()=>{ window.location.href='/games/tictactoe'; });
+      const pb = document.getElementById('play-bingo'); if (pb) pb.addEventListener('click', ()=> { window.location.href='/games/bingo'; });
+    }
+    if (document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+    document.addEventListener('AppShell:afterNavigate', ()=>{ try{ if (location.pathname.startsWith('/games')) { __gamesBooted=false; boot(); } }catch(_){ } });
+  })();
+  </script>
 <script src="/js/footer-nav.js"></script>
 </body>
 <script src="/js/music.js"></script>

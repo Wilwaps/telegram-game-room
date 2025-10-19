@@ -60,8 +60,13 @@
       const cont=$('list');
       cont.innerHTML='';
       if(!(j&&j.success)) return;
-      for(const it of j.items){
-        const prof = await getProfile(it.userId);
+      const items = Array.isArray(j.items) ? j.items : [];
+      const uids = Array.from(new Set(items.map(it=> it.userId)));
+      const profArr = await Promise.all(uids.map(uid=> getProfile(uid)));
+      const pmap = new Map(uids.map((uid,idx)=>[uid, profArr[idx]||null]));
+      const frag = document.createDocumentFragment();
+      for(const it of items){
+        const prof = pmap.get(it.userId);
         const name = (prof && (prof.userName||prof.name)) ? (prof.userName||prof.name) : (String(it.userId).slice(0,24));
         const card=document.createElement('div');
         card.className='bg-card rounded-xl p-4 border border-glass space-y-4';
@@ -93,8 +98,9 @@
           </div>
           ${actions}
         `;
-        cont.appendChild(card);
+        frag.appendChild(card);
       }
+      cont.appendChild(frag);
       if (curStatus==='pending'){
         for(const b of document.querySelectorAll('.btn-acc')){
           b.addEventListener('click',async(e)=>{

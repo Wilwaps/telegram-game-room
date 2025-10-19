@@ -282,8 +282,16 @@
     infoClose.addEventListener('click', ()=> infoOverlay.classList.add('hidden'));
     infoOk.addEventListener('click', ()=> infoOverlay.classList.add('hidden'));
 
-    loadActiveRoom();
-    loadRaffles();
+    let __lobbyBooted = false;
+    function boot(){ if (__lobbyBooted) return; __lobbyBooted = true; loadActiveRoom(); loadRaffles(); }
+    if (document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+    document.addEventListener('AppShell:afterNavigate', ()=>{
+      try{
+        const onLobby = location.pathname.startsWith('/lobby');
+        if (!onLobby){ try{ lobbyES && lobbyES.close && lobbyES.close(); }catch(_){ } lobbyES=null; lobbyRoomId=null; }
+        else { __lobbyBooted = false; boot(); }
+      }catch(_){ }
+    });
   })();
   </script>
 </body>

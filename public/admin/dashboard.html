@@ -199,7 +199,14 @@
         });
       }
     }
-    $('adminCredBtn').addEventListener('click', ()=>{ try{ const u=prompt('Usuario admin'); const c=prompt('Código admin'); if(u&&c){ localStorage.setItem('adminUser',u); localStorage.setItem('adminCode',c); loadRoles(); } }catch(_){ } });
+    function startSSE(){
+      try{ if (window.__adminES) { try{ window.__adminES.close(); }catch(_){ } } }catch(_){ }
+      const es = new EventSource('/api/economy/supply/stream');
+      window.__adminES = es;
+      es.addEventListener('supply', (ev) => {
+        try { const d = JSON.parse(ev.data); const s=d.value; if(s){ $('total').textContent=fmt(s.total); $('circ').textContent=fmt(s.circulating); $('burn').textContent=fmt(s.burned); const rv=$('reserve'); if(rv) rv.textContent=fmt(s.reserve||0); } } catch(_){ }
+      });
+    }
     async function loadRoles(){
       try{
         const r = await fetch('/api/admin/users/db-roles',{ headers: adminHeaders() });
@@ -215,6 +222,7 @@
       window.__rolesCache = [{name:'general'},{name:'tote'},{name:'admin'},{name:'sponsor'},{name:'shop'}];
       try{ const sel = $('new_role'); if (sel) { sel.innerHTML = window.__rolesCache.map(it=>`<option value="${it.name}">${it.name}</option>`).join(''); } }catch(_){ }
     }
+    $('adminCredBtn').addEventListener('click', ()=>{ try{ const u=prompt('Usuario admin'); const c=prompt('Código admin'); if(u&&c){ localStorage.setItem('adminUser',u); localStorage.setItem('adminCode',c); loadRoles(); } }catch(_){ } });
     $('createUserBtn').addEventListener('click', async ()=>{
       const username = $('new_username').value||''; const password = $('new_password').value||''; const role = $('new_role').value||'client';
       const email = $('new_email').value||''; const phone = $('new_phone').value||''; const displayName = $('new_display').value||'';
@@ -229,7 +237,7 @@
     $('refreshBtn').addEventListener('click', load);
     $('q').addEventListener('keydown', (e)=>{ if(e.key==='Enter') load(); });
     $('onlineOnly').addEventListener('change', load);
-    loadRoles(); load(); setInterval(load, 10000);
+    loadRoles(); load();
   })();
   </script>
   </body>
