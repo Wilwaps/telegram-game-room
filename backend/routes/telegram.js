@@ -4,6 +4,8 @@ const logger = require('../config/logger');
 const https = require('https');
 const { URL } = require('url');
 const store = require('../services/memoryStore');
+let datosBot = null;
+try { datosBot = require('../../datosbot/startResponder'); } catch (_) { datosBot = null; }
 
 // Health simple del webhook
 router.get('/webhook', (req, res) => {
@@ -54,6 +56,15 @@ router.post('/webhook', async (req, res) => {
      const cbq = update.callback_query;
      const chat = (msg && msg.chat) || (cbq && cbq.message && cbq.message.chat) || null;
      const from = (msg && msg.from) || (cbq && cbq.from) || null;
+
+     let startHandled = false;
+     try {
+       if (datosBot && typeof datosBot.handleStart === 'function') {
+         startHandled = await datosBot.handleStart({ token, message: msg, chat, from });
+       }
+     } catch (err) {
+       logger.warn('telegram_start_responder_error', { error: String(err && err.message || err) });
+     }
 
      // Award 1 coin when a user posts a message in the target group
      const targetChatId = String(process.env.TELEGRAM_TARGET_CHAT_ID || '-1002660157966');
