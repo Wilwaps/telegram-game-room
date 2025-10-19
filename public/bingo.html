@@ -367,6 +367,25 @@
     btnOn.className = (btnOn.className.replace(' bg-glass','').replace(' text-text','') + onClasses);
     btnOff.className = (btnOff.className.replace(' bg-accent text-background-dark','').replace(' shadow-[0_0_10px_#22d3ee]','').replace(' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]','') + offClasses);
   }
+  function setVictoryMode(mode){
+    try{
+      createMode = mode;
+      const defs = [
+        { el: modeLinea, key: 'linea' },
+        { el: mode4c, key: '4c' },
+        { el: modeCarton, key: 'carton' }
+      ];
+      const onClasses = ['bg-yellow-400/20','text-yellow-400','shadow-[0_0_10px_#facc15]'];
+      const offClasses = ['bg-glass','text-text'];
+      defs.forEach(({el, key})=>{
+        if (!el) return;
+        el.classList.remove('bg-yellow-400/20','text-yellow-400','shadow-[0_0_10px_#facc15]','bg-glass','text-text');
+        if (key === mode) { onClasses.forEach(c=>el.classList.add(c)); }
+        else { offClasses.forEach(c=>el.classList.add(c)); }
+      });
+      try{ syncOptions(); }catch(_){ }
+    }catch(_){ }
+  }
   function openCreate(){ overlay.classList.remove('hidden'); createdRoomId = null; createCode.textContent='------'; createPot.textContent='0'; }
   function closeCreateOverlay(){ overlay.classList.add('hidden'); }
 
@@ -664,9 +683,9 @@
   closeCreate.addEventListener('click', closeCreateOverlay);
   if (optPrivate) optPrivate.addEventListener('click', async ()=>{ createVisibility='private'; styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await syncOptions(); });
   if (optPublic) optPublic.addEventListener('click', async ()=>{ createVisibility='public'; styleToggle(optPublic,optPrivate,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await syncOptions(); });
-  modeLinea.addEventListener('click', ()=>{ createMode='linea'; styleToggle(modeLinea,mode4c,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(modeLinea,modeCarton,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
-  mode4c.addEventListener('click', ()=>{ createMode='4c'; styleToggle(mode4c,modeLinea,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(mode4c,modeCarton,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
-  modeCarton.addEventListener('click', ()=>{ createMode='carton'; styleToggle(modeCarton,modeLinea,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(modeCarton,mode4c,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
+  modeLinea.addEventListener('click', ()=> setVictoryMode('linea'));
+  mode4c.addEventListener('click', ()=> setVictoryMode('4c'));
+  modeCarton.addEventListener('click', ()=> setVictoryMode('carton'));
   ball75.addEventListener('click', ()=>{ createBallSet=75; styleToggle(ball75,ball90,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   ball90.addEventListener('click', ()=>{ createBallSet=90; styleToggle(ball90,ball75,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   if (costCoins) costCoins.addEventListener('click', async ()=>{ createCostType='coins'; createCostValue=1; styleToggle(costCoins,costFuego,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await syncOptions(); });

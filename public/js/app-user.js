@@ -99,6 +99,7 @@
       if (!init || !unsafe || !unsafe.user || !unsafe.user.id) return;
       const key = 'tgLoginDone:'+String(unsafe.user.id);
       if (sessionStorage.getItem(key) === 'ok') return;
+      const hadSidBefore = !!(((document.cookie.match(/(?:^|; )sid=([^;]+)/)||[])[1] || sessionStorage.getItem('sid') || localStorage.getItem('sid')));
       const resp = await fetch('/api/auth/telegram/verify',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ initData: String(init) }) });
       if (resp.ok) {
         sessionStorage.setItem(key,'ok');
@@ -108,6 +109,8 @@
           try { patchFetchWithSid(); } catch(_){ }
           try { schedulePresencePing(); } catch(_){ }
           try { await fetch('/api/auth/me', { headers: { 'Cache-Control':'no-store' } }); } catch(_){ }
+          const gotSidNow = !!(data && data.sid);
+          if (!hadSidBefore && gotSidNow) { setTimeout(()=>window.location.reload(), 150); return; }
           const newId = data && data.userId ? String(data.userId) : '';
           if (newId.startsWith('tg:')) {
             const current = resolveUserId();
