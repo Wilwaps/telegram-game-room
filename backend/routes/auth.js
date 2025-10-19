@@ -441,6 +441,13 @@ router.post('/telegram/verify', async (req, res) => {
           try { store.mergeUsers({ primaryId: tgUserId, secondaryId: cur }); } catch (_) {}
         }
       }
+      // Fallback de fusión con anon UID enviado por cliente (cuando no hay cookies)
+      try {
+        const anonUid = String(req.headers['x-anon-uid'] || '').trim();
+        if (anonUid && anonUid.startsWith('anon:') && anonUid !== tgUserId) {
+          try { store.mergeUsers({ primaryId: tgUserId, secondaryId: anonUid }); } catch (_){ }
+        }
+      } catch(_) {}
     } catch (_) {}
     const { sid, userId } = auth.createSessionForTelegram({ telegramId: parsed.user.id, name, ua: String(req.headers['user-agent'] || '') });
     setSessionCookie(res, sid);

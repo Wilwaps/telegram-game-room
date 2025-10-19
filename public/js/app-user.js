@@ -14,6 +14,16 @@
               const sid = sidCookie || sessionStorage.getItem('sid') || localStorage.getItem('sid') || '';
               if (sid) headers.set('x-session-id', sid);
             }
+            if (!headers.has('x-anon-uid')){
+              let anon = '';
+              try { anon = sessionStorage.getItem('anonId') || ''; } catch(_){ }
+              if (!anon){
+                const cu = (document.cookie.match(/(?:^|; )uid=([^;]+)/)||[])[1] || (document.cookie.match(/(?:^|; )uidp=([^;]+)/)||[])[1] || '';
+                if (cu) anon = 'anon:'+cu;
+              }
+              if (!anon){ try { anon = localStorage.getItem('anon_uid') || ''; } catch(_){ } }
+              if (anon) headers.set('x-anon-uid', anon);
+            }
             init = Object.assign({}, init, { headers });
           }
         }catch(_){ }

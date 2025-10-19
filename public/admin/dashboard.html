@@ -160,8 +160,8 @@
         sel.innerHTML = roleOptions.map(r=>`<option value="${r.name}">${r.name}</option>`).join('');
         const tr = sel.closest('tr');
         const rolesStr = (tr?.__data && tr.__data.roles) || '';
-        const current = String((rolesStr||'').split(',')[0]||'client');
-        sel.value = current || 'client';
+        const current = String((rolesStr||'').split(',')[0]||'general');
+        sel.value = current || 'general';
         sel.addEventListener('change', async (e)=>{
           if (!hasAdmin()) return alert('Faltan credenciales admin');
           const id = e.currentTarget.getAttribute('data-key');
@@ -200,7 +200,21 @@
       }
     }
     $('adminCredBtn').addEventListener('click', ()=>{ try{ const u=prompt('Usuario admin'); const c=prompt('Código admin'); if(u&&c){ localStorage.setItem('adminUser',u); localStorage.setItem('adminCode',c); loadRoles(); } }catch(_){ } });
-    async function loadRoles(){ try{ const r = await fetch('/api/admin/users/db-roles',{ headers: adminHeaders() }); if(!r.ok) return; const j = await r.json(); const sel = $('new_role'); sel.innerHTML=''; const roles=(j&&j.roles)||[]; window.__rolesCache = roles; for(const it of roles){ const opt=document.createElement('option'); opt.value=it.name; opt.textContent=it.name; sel.appendChild(opt);} }catch(_){ } }
+    async function loadRoles(){
+      try{
+        const r = await fetch('/api/admin/users/db-roles',{ headers: adminHeaders() });
+        const sel = $('new_role'); sel.innerHTML='';
+        if(r.ok){
+          const j = await r.json();
+          const roles=(j&&j.roles)||[]; window.__rolesCache = roles;
+          for(const it of roles){ const opt=document.createElement('option'); opt.value=it.name; opt.textContent=it.name; sel.appendChild(opt); }
+          return;
+        }
+      }catch(_){ }
+      // Fallback si no hay credenciales admin o la ruta no está disponible
+      window.__rolesCache = [{name:'general'},{name:'tote'},{name:'admin'},{name:'sponsor'},{name:'shop'}];
+      try{ const sel = $('new_role'); if (sel) { sel.innerHTML = window.__rolesCache.map(it=>`<option value="${it.name}">${it.name}</option>`).join(''); } }catch(_){ }
+    }
     $('createUserBtn').addEventListener('click', async ()=>{
       const username = $('new_username').value||''; const password = $('new_password').value||''; const role = $('new_role').value||'client';
       const email = $('new_email').value||''; const phone = $('new_phone').value||''; const displayName = $('new_display').value||'';
