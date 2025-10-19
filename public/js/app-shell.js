@@ -47,7 +47,15 @@
   function extractPage(html){
     try{
       const doc = new DOMParser().parseFromString(html, 'text/html');
-      const cand = doc.querySelector('#page') || doc.querySelector('main') || doc.body;
+      let cand = doc.querySelector('#page') || doc.querySelector('main') || doc.body;
+      try{
+        const m = doc.querySelector('main');
+        if (m){
+          const ids = ['fabCreate','createOverlay','roomView','claimModal','gameOverOverlay'];
+          const outside = ids.some(id=>{ const el=doc.getElementById(id); return el && !m.contains(el); });
+          if (outside) cand = doc.body; // Incluir overlays/fab que viven fuera de <main>
+        }
+      }catch(_){ }
       // recoger scripts inline que estén fuera del contenedor extraído (páginas que ponen JS al final del body)
       const extraInline = [];
       try{
@@ -66,10 +74,20 @@
         const dest = new URL(url, location.href);
         const cur = new URL(location.href);
         if (dest.origin===cur.origin && dest.pathname===cur.pathname && dest.search===cur.search) {
+          try{ document.dispatchEvent(new CustomEvent('AppShell:afterNavigate', { detail: { url } })); }catch(_){ }
+          try{ window.scrollTo({ top: 0, behavior: 'instant' }); }catch(_){ window.scrollTo(0,0); }
           return;
         }
       }catch(_){ }
       const rootEl = ensureRoot(); if (!rootEl) { location.href = url; return; }
+      // Limpiar restos de vistas anteriores fuera del contenedor raíz (FAB/overlays de Bingo, etc.)
+      try{
+        const strayIds = ['fabCreate','createOverlay','roomView','claimModal','gameOverOverlay','sheetOverlay','createSheet'];
+        strayIds.forEach(id=>{
+          const el = document.getElementById(id);
+          if (el && !rootEl.contains(el)) { try{ el.remove(); }catch(_){} }
+        });
+      }catch(_){ }
       try{ if (navCtl) { try{ navCtl.abort(); }catch(_){ } } }catch(_){ }
       navCtl = new AbortController();
       const raw = await fetchDoc(url, navCtl.signal);

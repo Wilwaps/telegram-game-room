@@ -338,6 +338,7 @@
   let currentBallSet = 90;
   let currentMode = 'linea';
   let currentStatus = 'lobby';
+  let currentCostType = 'fuego';
   let tablaOpen = false;
   let stateCalled = [];
   let stateLast = null;
@@ -353,6 +354,7 @@
   let lobbyES = null;
   let lobbyRoomId = null;
   let claimModalShown = false;
+  let myFiresBalance = 0;
 
   function getUserId(){
     try { if (window.AppUser && typeof AppUser.resolveUserId==='function') return AppUser.resolveUserId(); } catch(_){ }
@@ -400,9 +402,11 @@
   }
   function notify(msg){
     try{
+      let m = String(msg||'Error');
+      try{ if(/insufficient|not_enough|saldo/i.test(m)) m = 'Saldo insuficiente de 🔥 para esta acción'; }catch(_){ }
       const el = document.createElement('div');
       el.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-red-500 text-white px-3 py-2 rounded shadow z-50 text-sm';
-      el.textContent = String(msg||'Error');
+      el.textContent = m;
       document.body.appendChild(el);
       setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 2000);
     }catch(_){ alert(String(msg||'Error')); }
@@ -610,7 +614,8 @@
       try{
         const s = JSON.parse(ev.data);
         // pozo según tipo de costo
-        const isCoins = (s.costType==='coins');
+        currentCostType = s.costType || 'fuego';
+        const isCoins = (currentCostType==='coins');
         potVal.textContent = String(isCoins ? (s.potCoins||0) : (s.potFires||0));
         const potUnit = document.getElementById('potUnit'); if (potUnit) potUnit.textContent = isCoins ? '🪙' : '🔥';
         modeVal.textContent = (s.mode==='4c' ? '4 Esquinas' : (s.mode==='carton' ? 'Cartón Lleno' : 'Línea'));
@@ -627,6 +632,12 @@
         const isHost = (s.hostId === myId);
         drawBtn.classList.toggle('hidden', !(isHost && s.status==='playing'));
         startBtn.classList.toggle('hidden', !(isHost && s.status==='lobby'));
+        try{
+          const needFires = (currentCostType==='fuego');
+          const disable = !!(isHost && s.status==='lobby' && needFires && Number(myFiresBalance||0) <= 0);
+          startBtn.disabled = disable;
+          if (disable) startBtn.title = 'Saldo insuficiente de 🔥'; else startBtn.removeAttribute('title');
+        }catch(_){ }
         lobbyPanel.style.display = (s.status==='lobby') ? 'block' : 'none';
         // llamados solo en playing/finished
         if (calledSection) calledSection.classList.toggle('hidden', !(s.status==='playing' || s.status==='finished'));
@@ -702,7 +713,14 @@
     const code = (codeInput.value||'').trim(); if (!code) return;
     try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); } }catch(e){ notify(e.message); }
   });
-  startBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); if (j && j.success) { /* auto scroll to top */ try{ roomView.scrollTop = 0; }catch(_){ } } }catch(e){ notify(e.message); } });
+  startBtn.addEventListener('click', async ()=>{
+    if (!roomId) return;
+    try{
+      if (currentCostType==='fuego' && Number(myFiresBalance||0) <= 0){ notify('Saldo insuficiente de 🔥 para iniciar'); return; }
+      const j = await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) });
+      if (j && j.success) { try{ roomView.scrollTop = 0; }catch(_){ } }
+    }catch(e){ notify(e.message); }
+  });
   drawBtn.addEventListener('click', async ()=>{ if (!roomId) return; try{ await api(`/api/games/bingo/rooms/${encodeURIComponent(roomId)}/draw`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) }); }catch(e){ notify(e.message); } });
   tablaToggle.addEventListener('click', ()=>{
     tablaOpen = !tablaOpen;
@@ -744,6 +762,7 @@
         const fEl = document.getElementById('meFires'); if (fEl) fEl.textContent = String(fires);
         const cEl = document.getElementById('meCoins'); if (cEl) cEl.textContent = String(coins);
         const fOv = document.getElementById('meFiresOverlay'); if (fOv) fOv.textContent = String(fires);
+        myFiresBalance = fires;
       }
     }catch(_){ }
     const rid = getQuery('room');
