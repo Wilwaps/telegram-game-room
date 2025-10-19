@@ -33,6 +33,17 @@
     }catch(_){ }
   }
   try { patchFetchWithSid(); } catch(_){ }
+  function schedulePresencePing(){
+    try{
+      const sid = (sessionStorage.getItem('sid') || localStorage.getItem('sid') || '').trim();
+      if (!sid) return;
+      if (window.__PRESENCE_PING_TIMER__) return;
+      const ping = ()=>{ try{ fetch('/api/auth/me', { headers: { 'Cache-Control':'no-store' } }).catch(()=>{}); }catch(_){ } };
+      ping();
+      window.__PRESENCE_PING_TIMER__ = setInterval(ping, 25000);
+    }catch(_){ }
+  }
+  try { schedulePresencePing(); } catch(_){ }
   function getCookie(name){
     try{
       const m = document.cookie.match(new RegExp('(?:^|; )'+name+'=([^;]*)'));
@@ -78,6 +89,13 @@
       try { if (typeof tg.ready === 'function') tg.ready(); } catch(_){ }
       const init = tg.initData;
       const unsafe = tg.initDataUnsafe;
+      // Diagnóstico: enviar initData al backend para validar presencia y firma (una vez)
+      try{
+        if (init && !window.__TG_INIT_DEBUG_SENT__) {
+          window.__TG_INIT_DEBUG_SENT__ = true;
+          fetch('/api/auth/debug-telegram-init', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ initData: String(init) }) }).catch(()=>{});
+        }
+      }catch(_){ }
       if (!init || !unsafe || !unsafe.user || !unsafe.user.id) return;
       const key = 'tgLoginDone:'+String(unsafe.user.id);
       if (sessionStorage.getItem(key) === 'ok') return;
@@ -88,6 +106,8 @@
           const data = await resp.json();
           if (data && data.sid){ try { sessionStorage.setItem('sid', String(data.sid)); localStorage.setItem('sid', String(data.sid)); } catch(_){ } }
           try { patchFetchWithSid(); } catch(_){ }
+          try { schedulePresencePing(); } catch(_){ }
+          try { await fetch('/api/auth/me', { headers: { 'Cache-Control':'no-store' } }); } catch(_){ }
           const newId = data && data.userId ? String(data.userId) : '';
           if (newId.startsWith('tg:')) {
             const current = resolveUserId();
