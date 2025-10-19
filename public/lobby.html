@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lobby • Telegram Game Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="/config.js"></script>
+  <script src="https://browser.sentry-cdn.com/7.121.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
+  <script src="/js/sentry-config.js"></script>
+  <script src="/js/sentry-client.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/js/app-user.js"></script>
+  <script src="/js/footer-nav.js" defer></script>
+  <script src="/js/music.js" defer></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#06e4f9',
+            'background-dark': '#0B0E14',
+            accent: '#22d3ee',
+            card: '#121A2B',
+            panel: '#0F1524',
+            text: '#E6EDF3',
+            glass: 'rgba(255,255,255,0.1)',
+            success: '#22C55E',
+            error: '#EF4444'
+          },
+          fontFamily: { display: ['Space Grotesk'] },
+          borderRadius: { DEFAULT: '0.5rem', lg: '0.75rem', xl: '1rem' },
+          boxShadow: {
+            'neon-accent': '0 0 14px rgba(34,211,238,0.55)',
+            'neon-violet': '0 0 14px rgba(167,139,250,0.55)',
+            'neon-fire': '0 0 18px rgba(255,140,0,0.6), 0 0 26px rgba(255,69,0,0.55)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { min-height: max(884px, 100dvh); }
+    .card { background: linear-gradient(160deg, rgba(18,26,43,0.92), rgba(11,14,20,0.95)); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); transition: transform .3s ease, box-shadow .3s ease; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 14px 38px rgba(34,211,238,0.12); }
+    .badge { display:inline-flex; align-items:center; gap:6px; background:rgba(34,211,238,0.12); color:#aef6ff; border:1px solid rgba(34,211,238,0.45); padding:6px 12px; border-radius:999px; font-size:12px; letter-spacing:.2px; }
+    .fuego-box { background: linear-gradient(160deg, rgba(255,140,0,0.18), rgba(255,69,0,0.18)); border: 1px solid rgba(255,99,71,0.45); box-shadow: var(--tw-shadow-neon-fire); }
+    .overlay-backdrop { background: rgba(11,14,20,0.75); backdrop-filter: blur(6px); }
+    .overlay-card { background: linear-gradient(160deg, rgba(18,26,43,0.96), rgba(11,14,20,0.98)); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; box-shadow: 0 18px 60px rgba(0,0,0,0.45); }
+  </style>
+</head>
+<body class="bg-background-dark font-display text-text">
+  <div class="min-h-screen flex flex-col">
+    <main class="flex-1 p-4 pb-24">
+      <h1 class="text-3xl font-bold text-center text-accent mb-6">Lobby</h1>
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <section id="active-room" class="card col-span-1">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-xl font-semibold text-accent">Tu sala activa</h2>
+            <span class="badge"><span class="material-symbols-outlined text-base">stadia_controller</span><span>En vivo</span></span>
+          </div>
+          <div id="active-room-content" class="space-y-3 text-sm text-text/80"></div>
+        </section>
+
+        <section id="raffles" class="card col-span-1">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-xl font-semibold text-accent">Rifas</h2>
+            <span class="badge"><span class="material-symbols-outlined text-base">confirmation_number</span><span>Tus tickets</span></span>
+          </div>
+          <div id="raffles-host" class="space-y-2"></div>
+          <div id="raffles-playing" class="space-y-2"></div>
+          <div id="raffles-empty" class="text-xs text-text/60"></div>
+        </section>
+
+        <section id="profile" class="card fuego-box col-span-1">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-xl font-semibold text-orange-300">Buscando fuego</h2>
+            <span class="material-symbols-outlined text-3xl text-orange-400" style="font-variation-settings:'FILL' 1;">local_fire_department</span>
+          </div>
+          <p class="text-sm text-text/80 mb-3">¿Listo para calentar la sala? Mira tu progreso y personaliza tu perfil.</p>
+          <button id="profile-btn" class="w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-background-dark font-bold py-3 rounded-lg shadow-neon-fire hover:opacity-95 transition">Ir a mi perfil</button>
+        </section>
+
+        <section id="info" class="card col-span-1 sm:col-span-2 xl:col-span-3 flex flex-col md:flex-row items-start gap-3">
+          <div class="flex-1 space-y-2">
+            <h2 class="text-xl font-semibold text-accent">Información</h2>
+            <p class="text-sm text-text/70">Resumen rápido del mundo y cómo conseguir recursos.</p>
+          </div>
+          <button id="info-btn" class="bg-accent/20 text-accent border border-accent/40 px-4 py-2 rounded-lg hover:bg-accent/30 transition flex items-center gap-1">
+            <span class="material-symbols-outlined text-base">info</span>
+            <span>Ver detalles</span>
+          </button>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="info-overlay" class="hidden fixed inset-0 z-40">
+    <div class="overlay-backdrop absolute inset-0"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="overlay-card relative w-full max-w-lg p-6 space-y-4">
+        <button id="info-close" class="absolute top-3 right-3 text-text/60 hover:text-text"><span class="material-symbols-outlined">close</span></button>
+        <h3 class="text-2xl font-bold text-accent text-center">Bienvenidos a XYX WORLD</h3>
+        <div class="space-y-3 text-sm text-text/80 leading-relaxed">
+          <p>Las monedas las ganas por escribir en el grupo del Proyecto F. (<a href="https://t.me/+c-hx2q4dGmMxMWYx" target="_blank" class="text-accent underline">Proyecto F.</a>) y en eventos, recompensas y otros.</p>
+          <p>Los fuegos los pagas en Bolívares <strong>1 Bs = 1 🔥</strong>. También puedes conseguirlos como recompensa ganando en los modos Fuego.</p>
+          <p>CONSULTAS POR EL GRUPO.</p>
+        </div>
+        <div class="flex justify-end">
+          <button id="info-ok" class="bg-accent text-background-dark font-bold px-4 py-2 rounded-lg">Entendido</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    const activeContent = document.getElementById('active-room-content');
+    const profileBtn = document.getElementById('profile-btn');
+    const infoBtn = document.getElementById('info-btn');
+    const infoOverlay = document.getElementById('info-overlay');
+    const infoClose = document.getElementById('info-close');
+    const infoOk = document.getElementById('info-ok');
+    const rafflesHost = document.getElementById('raffles-host');
+    const rafflesPlaying = document.getElementById('raffles-playing');
+    const rafflesEmpty = document.getElementById('raffles-empty');
+    const lobbyTips = {
+      ttt: [
+        '¡Apúrate! El reloj corre y tu rival no perdona.',
+        'Tu turno está a punto de expirar, piensa rápido.',
+        'Una jugada maestra puede darte la victoria ahora mismo.',
+        'Defiende tu tablero, el rival está contraatacando.',
+        'No dejes el tablero solo, vuelve al combate.',
+        'Tu estrategia está a segundos de rendir frutos.',
+        'Recuerda: cada movimiento cuenta, no lo desperdicies.',
+        'Estás a una jugada de convertirte en leyenda.',
+        'Tu rival acecha, muestra por qué lideras la sala.',
+        'Ajusta la táctica, ¡se siente la presión en el aire!'
+      ],
+      bingo: [
+        'Ya te falta poco para completar tu cartón, no tardes mucho.',
+        'Los números restantes están a tu favor, regresa y canta BINGO.',
+        'Tu cartón brilla, solo necesitas un empujón final.',
+        'La sala espera tu victoria, no dejes pasar la oportunidad.',
+        'Los números se alinean para ti, aprovecha el momentum.',
+        'Ese cartón está a punto de incendiarse de emoción.',
+        'Regresa y demuestra que el azar está de tu lado.',
+        'Una ronda más y te llevas la sala, vuelve al juego.',
+        'Los demás jugadores empiezan a temer tu cartón.',
+        'Cada bola cuenta, no pierdas la pista de tu cartón.'
+      ],
+      none: [
+        '¿Una partida? Descubre nuevos retos en la sala de juegos.',
+        'Es un gran momento para crear tu próxima sala.',
+        'Tu próxima victoria podría comenzar ahora, entra a Juegos.',
+        '¿Sin partidas activas? El lobby está libre, lánzate a jugar.',
+        'Crea una sala y reta a tus amigos desde la sección de Juegos.'
+      ]
+    };
+
+    function rand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+    async function loadActiveRoom(){
+      try {
+        const r = await fetch('/api/games/lobby/active');
+        const j = await r.json();
+        renderActiveRoom(j);
+      } catch(_) {
+        renderActiveRoom(null);
+      }
+    }
+
+    function renderActiveRoom(data){
+      activeContent.innerHTML = '';
+      if (!(data && data.success)) {
+        const msg = document.createElement('div');
+        msg.className = 'bg-panel rounded-lg border border-glass p-4 text-sm space-y-2';
+        msg.innerHTML = `<p>${rand(lobbyTips.none)}</p><button class="bg-accent/20 text-accent border border-accent/40 px-3 py-2 rounded-lg hover:bg-accent/30" onclick="window.location.href='/games'">Ir a Juegos</button>`;
+        activeContent.appendChild(msg);
+        return;
+      }
+      const { type, roomId, remainingNumbers, countdownSeconds, players, link } = data;
+      const tip = rand(type==='bingo' ? lobbyTips.bingo : lobbyTips.ttt);
+      const card = document.createElement('div');
+      card.className = 'bg-panel rounded-lg border border-glass p-4 space-y-3';
+      const subtitle = document.createElement('div');
+      subtitle.className = 'text-xs text-text/60 uppercase tracking-wide';
+      subtitle.textContent = type==='bingo' ? 'Sala de Bingo activa' : 'Sala de La Vieja activa';
+      card.appendChild(subtitle);
+      const tipEl = document.createElement('p');
+      tipEl.className = 'text-sm text-text/80';
+      tipEl.textContent = tip;
+      card.appendChild(tipEl);
+      if (type==='bingo' && Array.isArray(remainingNumbers)) {
+        const nums = document.createElement('div');
+        nums.className = 'text-xs text-accent font-mono';
+        nums.textContent = 'Números pendientes: ' + (remainingNumbers.length ? remainingNumbers.join(', ') : '¡Bingo listo!');
+        card.appendChild(nums);
+      }
+      if (typeof countdownSeconds === 'number' && countdownSeconds > 0) {
+        const timer = document.createElement('div');
+        timer.className = 'text-sm text-error font-semibold';
+        timer.textContent = 'Tiempo restante: ' + Math.ceil(countdownSeconds) + 's';
+        card.appendChild(timer);
+      }
+      if (players && players.length) {
+        const playersEl = document.createElement('div');
+        playersEl.className = 'text-xs text-text/60';
+        playersEl.textContent = 'Jugadores: ' + players.join(', ');
+        card.appendChild(playersEl);
+      }
+      const btn = document.createElement('button');
+      btn.className = 'w-full bg-gradient-to-r from-orange-500 to-yellow-400 text-background-dark font-bold py-3 rounded-lg shadow-neon-fire hover:opacity-95 transition';
+      btn.textContent = 'Volver a la sala';
+      btn.addEventListener('click', ()=>{ window.location.href = link || '/games'; });
+      card.appendChild(btn);
+      activeContent.appendChild(card);
+    }
+
+    async function loadRaffles(){
+      try {
+        const r = await fetch('/api/raffles/lobby');
+        const j = await r.json();
+        renderRaffles(j);
+      } catch (_) {
+        rafflesEmpty.textContent = 'No se pudieron cargar tus rifas.';
+      }
+    }
+
+    function renderRaffles(data){
+      rafflesHost.innerHTML = '';
+      rafflesPlaying.innerHTML = '';
+      rafflesEmpty.textContent = '';
+      if (!(data && data.success)) {
+        rafflesEmpty.textContent = 'Aún no participas en rifas.';
+        return;
+      }
+      const { host = [], playing = [] } = data;
+      if (!host.length && !playing.length) {
+        rafflesEmpty.textContent = 'Aún no participas en rifas.';
+        return;
+      }
+      if (host.length) {
+        const title = document.createElement('h3');
+        title.className = 'text-sm text-text/60 uppercase tracking-wide';
+        title.textContent = 'Eres anfitrión';
+        rafflesHost.appendChild(title);
+        host.forEach((rf)=> rafflesHost.appendChild(renderRaffleCard(rf)));
+      }
+      if (playing.length) {
+        const title2 = document.createElement('h3');
+        title2.className = 'text-sm text-text/60 uppercase tracking-wide mt-3';
+        title2.textContent = 'Participando';
+        rafflesPlaying.appendChild(title2);
+        playing.forEach((rf)=> rafflesPlaying.appendChild(renderRaffleCard(rf)));
+      }
+    }
+
+    function renderRaffleCard(rf){
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'w-full text-left bg-panel border border-glass rounded-lg p-3 hover:border-accent/40 transition';
+      const title = document.createElement('div');
+      title.className = 'font-semibold text-sm text-accent mb 1';
+      title.textContent = rf.title || 'Rifa';
+      const stats = document.createElement('div');
+      stats.className = 'text-xs text-text/60 flex items-center justify-between';
+      stats.innerHTML = `<span>Restantes: ${rf.remainingTickets ?? '-'} </span><span>Caduca: ${rf.expiresAt ? new Date(rf.expiresAt).toLocaleString() : 'Sin caducidad'}</span>`;
+      card.appendChild(title);
+      card.appendChild(stats);
+      card.addEventListener('click', ()=>{ if (rf.url) { window.location.href = rf.url; } });
+      return card;
+    }
+
+    profileBtn.addEventListener('click', ()=>{ window.location.href = '/profile'; });
+    infoBtn.addEventListener('click', ()=> infoOverlay.classList.remove('hidden'));
+    infoClose.addEventListener('click', ()=> infoOverlay.classList.add('hidden'));
+    infoOk.addEventListener('click', ()=> infoOverlay.classList.add('hidden'));
+
+    loadActiveRoom();
+    loadRaffles();
+  })();
+  </script>
+</body>
+</html>
