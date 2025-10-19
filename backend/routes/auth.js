@@ -29,6 +29,9 @@ function getSidFromReq(req) {
     if (k === 'sid') sid = v;
     if (k === 'sidp') sidp = v;
   }
+  // Fallbacks: cabecera x-session-id y query ?sid (útil para WebViews y QA)
+  try { if (!sid && !sidp) { const h = String(req.headers['x-session-id'] || '').trim(); if (h) return h; } } catch(_) {}
+  try { const qsid = String((req.query && req.query.sid) || '').trim(); if (qsid) return qsid; } catch(_) {}
   return sid || sidp || '';
 }
 
@@ -274,10 +277,18 @@ router.post('/login-telegram-widget', (req, res) => {
 router.get('/me', (req, res) => {
   try {
     const sid = getSidFromReq(req);
-    if (!sid) return res.status(401).json({ success: false, error: 'no_session' });
-    const sess = auth.getSession(sid);
-    if (!sess) return res.status(401).json({ success: false, error: 'invalid_session' });
-    const u = store.getUser(sess.userId) || store.ensureUser(sess.userId);
+    let userId = '';
+    if (sid) {
+      const sess = auth.getSession(sid);
+      if (!sess) return res.status(401).json({ success: false, error: 'invalid_session' });
+      userId = String(sess.userId || '');
+    } else if (req.sessionUserId) {
+      // Cuando el WebView bloquea cookies pero server.js resolvió sesión por cabecera x-session-id
+      userId = String(req.sessionUserId || '');
+    } else {
+      return res.status(401).json({ success: false, error: 'no_session' });
+    }
+    const u = store.getUser(userId) || store.ensureUser(userId);
     const myRoles = (roles && typeof roles.getRoles==='function') ? roles.getRoles(u.userId) : ['general'];
     res.json({ success: true, user: { userId: u.userId, userName: u.userName, fires: u.fires || 0, coins: u.coins || 0, roles: myRoles } });
   } catch (err) {
@@ -420,85 +431,84 @@ router.post('/debug-telegram-init', (req, res) => {
   }
 });
 
-module.exports = router;
 router.post('/telegram/verify', async (req, res) => {
-try {
-const { initData } = req.body || {};
-const token = process.env.TELEGRAM_BOT_TOKEN || '';
-const rawInit = String(initData||'');
-let parsed = verifyTelegramInitData(rawInit, token);
-const tl = { tokenLoaded: !!token };
-if (!parsed || !parsed.user || !parsed.user.id) {
-// Fallback QA opcional: permitir sin verificar HMAC si ALLOW_UNVERIFIED_TG_INIT=true
-try {
-const allowUnverified = String(process.env.ALLOW_UNVERIFIED_TG_INIT || '').toLowerCase() === 'true';
-if (allowUnverified && rawInit) {
-const qs = new URLSearchParams(rawInit);
-const userStr = qs.get('user');
-const authDate = Number(qs.get('auth_date') || 0);
-if (userStr) {
-const user = JSON.parse(userStr);
-if (user && user.id) {
-parsed = { user, authDate };
-try { Sentry.captureMessage('tg_verify_fallback_unverified', { level:'warning', extra: { ...tl, ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
-}
-}
-}
-} catch(_){ }
-}
-if (!parsed || !parsed.user || !parsed.user.id) {
-try { Sentry.captureMessage('tg_verify_invalid_data', { level: 'warning', extra: { ...tl, reason: 'parsed_missing', ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
-logger.warn('[tg.verify] invalid_telegram_data');
-return res.status(400).json({ success:false, error:'invalid_telegram_data' });
-}
-// Verificación anti-stale y anti-replay
-const params = new URLSearchParams(String(initData||''));
-const hash = params.get('hash') || '';
-const authDateSec = Number(params.get('auth_date') || parsed.authDate || 0);
-const maxSkewSec = parseInt(process.env.TELEGRAM_AUTH_MAX_SKEW_SEC || '600', 10);
-const replayTtlSec = parseInt(process.env.TELEGRAM_REPLAY_TTL_SEC || '120', 10);
-if (authDateSec && maxSkewSec && (Math.floor(Date.now()/1000) - authDateSec > maxSkewSec)) {
-try { Sentry.captureMessage('tg_verify_stale_auth', { level: 'warning', extra: { ...tl, ua: String(req.headers['user-agent']||''), skewSec: Math.floor(Date.now()/1000) - authDateSec } }); } catch(_){ }
-return res.status(401).json({ success:false, error:'stale_telegram_auth' });
-}
-try {
-const isReplay = auth.checkAndStoreTelegramReplay({ hash, authDate: authDateSec, ttlSec: replayTtlSec });
-if (isReplay) {
-try { Sentry.captureMessage('tg_verify_replay', { level: 'warning', extra: { ...tl, ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
-logger.warn('[tg.verify] replay_detected');
-return res.status(409).json({ success:false, error:'replay_detected' });
-}
-} catch(_) {}
-let dbUserId = null;
-try { if (userRepo) { const out = await userRepo.upsertTelegramUser({ tgId: parsed.user.id, username: parsed.user.username, displayName: [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ') }); dbUserId = out.userId; } } catch(_){}
-const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');
-// Merge con sesión previa (si existía y no era tg)
-try {
-const raw = String(req.headers.cookie || '');
-let oldSid = '';
-for (const part of raw.split(/;\s*/)) { const [k, v] = part.split('='); if (k === 'sid') { oldSid = v; break; } }
-const sess = oldSid ? auth.getSession(oldSid) : null;
-const tgUserId = 'tg:' + String(parsed.user.id);
-if (sess && sess.userId && sess.userId !== tgUserId) {
-const cur = String(sess.userId);
-if (!cur.startsWith('tg:')) {
-try { store.mergeUsers({ primaryId: tgUserId, secondaryId: cur }); } catch (_) {}
-}
-}
-// Fallback de fusión con anon UID enviado por cliente (cuando no hay cookies)
-try {
-const anonUid = String(req.headers['x-anon-uid'] || '').trim();
-if (anonUid && anonUid.startsWith('anon:') && anonUid !== tgUserId) {
-try { store.mergeUsers({ primaryId: tgUserId, secondaryId: anonUid }); } catch (_){ }
-}
-} catch(_) {}
-} catch (_) {}
-const { sid, userId } = auth.createSessionForTelegram({ telegramId: parsed.user.id, name, ua: String(req.headers['user-agent'] || '') });
-setSessionCookie(res, sid);
-try { Sentry.captureMessage('tg_verify_success', { level: 'info', extra: { ...tl, maskedUserId: String(parsed.user.id).replace(/^(\d{0,2})(.*)(\d{2})$/, '$1***$3'), ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
-logger.info('[tg.verify] success');
-res.json({ success:true, sid, userId, dbUserId });
-} catch (_) { res.status(500).json({ success:false, error:'telegram_verify_error' }); }
+  try {
+    const { initData } = req.body || {};
+    const token = process.env.TELEGRAM_BOT_TOKEN || '';
+    const rawInit = String(initData||'');
+    let parsed = verifyTelegramInitData(rawInit, token);
+    const tl = { tokenLoaded: !!token };
+    if (!parsed || !parsed.user || !parsed.user.id) {
+      // Fallback QA opcional: permitir sin verificar HMAC si ALLOW_UNVERIFIED_TG_INIT=true
+      try {
+        const allowUnverified = String(process.env.ALLOW_UNVERIFIED_TG_INIT || '').toLowerCase() === 'true';
+        if (allowUnverified && rawInit) {
+          const qs = new URLSearchParams(rawInit);
+          const userStr = qs.get('user');
+          const authDate = Number(qs.get('auth_date') || 0);
+          if (userStr) {
+            const user = JSON.parse(userStr);
+            if (user && user.id) {
+              parsed = { user, authDate };
+              try { Sentry.captureMessage('tg_verify_fallback_unverified', { level:'warning', extra: { ...tl, ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
+            }
+          }
+        }
+      } catch(_){ }
+    }
+    if (!parsed || !parsed.user || !parsed.user.id) {
+      try { Sentry.captureMessage('tg_verify_invalid_data', { level: 'warning', extra: { ...tl, reason: 'parsed_missing', ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
+      logger.warn('[tg.verify] invalid_telegram_data');
+      return res.status(400).json({ success:false, error:'invalid_telegram_data' });
+    }
+    // Verificación anti-stale y anti-replay
+    const params = new URLSearchParams(String(initData||''));
+    const hash = params.get('hash') || '';
+    const authDateSec = Number(params.get('auth_date') || parsed.authDate || 0);
+    const maxSkewSec = parseInt(process.env.TELEGRAM_AUTH_MAX_SKEW_SEC || '600', 10);
+    const replayTtlSec = parseInt(process.env.TELEGRAM_REPLAY_TTL_SEC || '120', 10);
+    if (authDateSec && maxSkewSec && (Math.floor(Date.now()/1000) - authDateSec > maxSkewSec)) {
+      try { Sentry.captureMessage('tg_verify_stale_auth', { level: 'warning', extra: { ...tl, ua: String(req.headers['user-agent']||''), skewSec: Math.floor(Date.now()/1000) - authDateSec } }); } catch(_){ }
+      return res.status(401).json({ success:false, error:'stale_telegram_auth' });
+    }
+    try {
+      const isReplay = auth.checkAndStoreTelegramReplay({ hash, authDate: authDateSec, ttlSec: replayTtlSec });
+      if (isReplay) {
+        try { Sentry.captureMessage('tg_verify_replay', { level: 'warning', extra: { ...tl, ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
+        logger.warn('[tg.verify] replay_detected');
+        return res.status(409).json({ success:false, error:'replay_detected' });
+      }
+    } catch(_) {}
+    let dbUserId = null;
+    try { if (userRepo) { const out = await userRepo.upsertTelegramUser({ tgId: parsed.user.id, username: parsed.user.username, displayName: [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ') }); dbUserId = out.userId; } } catch(_){}
+    const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');
+    // Merge con sesión previa (si existía y no era tg)
+    try {
+      const raw = String(req.headers.cookie || '');
+      let oldSid = '';
+      for (const part of raw.split(/;\s*/)) { const [k, v] = part.split('='); if (k === 'sid') { oldSid = v; break; } }
+      const sess = oldSid ? auth.getSession(oldSid) : null;
+      const tgUserId = 'tg:' + String(parsed.user.id);
+      if (sess && sess.userId && sess.userId !== tgUserId) {
+        const cur = String(sess.userId);
+        if (!cur.startsWith('tg:')) {
+          try { store.mergeUsers({ primaryId: tgUserId, secondaryId: cur }); } catch (_) {}
+        }
+      }
+      // Fallback de fusión con anon UID enviado por cliente (cuando no hay cookies)
+      try {
+        const anonUid = String(req.headers['x-anon-uid'] || '').trim();
+        if (anonUid && anonUid.startsWith('anon:') && anonUid !== tgUserId) {
+          try { store.mergeUsers({ primaryId: tgUserId, secondaryId: anonUid }); } catch (_){ }
+        }
+      } catch(_) {}
+    } catch (_) {}
+    const { sid, userId } = auth.createSessionForTelegram({ telegramId: parsed.user.id, name, ua: String(req.headers['user-agent'] || '') });
+    setSessionCookie(res, sid);
+    try { Sentry.captureMessage('tg_verify_success', { level: 'info', extra: { ...tl, maskedUserId: String(parsed.user.id).replace(/^(\d{0,2})(.*)(\d{2})$/, '$1***$3'), ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
+    logger.info('[tg.verify] success');
+    res.json({ success:true, sid, userId, dbUserId });
+  } catch (_) { res.status(500).json({ success:false, error:'telegram_verify_error' }); }
 });
 
 router.post('/login', async (req, res) => {
@@ -517,3 +527,5 @@ router.post('/login', async (req, res) => {
     res.status(code).json({ success:false, error: msg });
   }
 });
+
+module.exports = router;
