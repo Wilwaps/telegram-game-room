@@ -81,18 +81,21 @@ router.post('/webhook', async (req, res) => {
        }
      }
 
-     // Only send WebApp button for private chats (avoid spamming groups)
-     const hostUrl = `${req.protocol}://${req.get('host')}`;
-     const baseUrl = process.env.PUBLIC_WEBAPP_URL || `${hostUrl}/portal.html`;
-     if (token && chat && chat.type === 'private') {
-       const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-       const payload = {
-         chat_id: chat.id,
-         text: 'Abre la WebApp',
-         reply_markup: { inline_keyboard: [[ { text: 'Abrir WebApp', web_app: { url: baseUrl } } ]] }
-       };
-       await postJSON(apiUrl, payload);
-     }
+     // Enviar botón WebApp solo si está habilitado por env y en comandos explícitos (/start o /app)
+    const hostUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = process.env.PUBLIC_WEBAPP_URL || `${hostUrl}/games`;
+    const allowBtn = String(process.env.TELEGRAM_SEND_WEBAPP_BUTTON || 'false').toLowerCase() === 'true';
+    const isStart = !!(msg && typeof msg.text === 'string' && /^\s*\/start(\s|$)/i.test(msg.text));
+    const isAppCmd = !!(msg && typeof msg.text === 'string' && /^\s*\/(app|open)\b/i.test(msg.text));
+    if (allowBtn && token && chat && chat.type === 'private' && (isStart || isAppCmd)) {
+      const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+      const payload = {
+        chat_id: chat.id,
+        text: 'Abre la WebApp',
+        reply_markup: { inline_keyboard: [[ { text: 'Abrir WebApp', web_app: { url: baseUrl } } ]] }
+      };
+      await postJSON(apiUrl, payload);
+    }
 
      return res.status(200).json({ ok: true });
   } catch (err) {
