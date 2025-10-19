@@ -122,7 +122,10 @@
   });
   const fab = document.getElementById('raffleCreateFab');
   if (fab) fab.addEventListener('click', ()=>{ window.location.href = '/raffles/create'; });
-  window.addEventListener('load', load);
+  let __rafflesBooted = false;
+  function boot(){ if (__rafflesBooted) return; __rafflesBooted = true; load(); }
+  if (document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+  document.addEventListener('AppShell:afterNavigate', ()=>{ __rafflesBooted=false; boot(); });
 })();
 </script>
 <script src="/js/footer-nav.js"></script>

@@ -29,13 +29,12 @@
   }
 
   async function fetchDoc(url){
-    const key = url;
-    if (cache.has(key)) return cache.get(key);
-    const p = fetch(url, { headers: { 'X-Requested-With': 'AppShell' } })
-      .then(r=>{ if(!r.ok) throw new Error('http_'+r.status); return r.text(); })
-      .catch(()=>null);
-    cache.set(key, p);
-    return p;
+    try{
+      // Siempre solicitar versión fresca para evitar vistas obsoletas en navegación SPA
+      const r = await fetch(url, { headers: { 'X-Requested-With': 'AppShell', 'Cache-Control': 'no-cache' } });
+      if (!r.ok) throw new Error('http_'+r.status);
+      return await r.text();
+    }catch(_){ return null; }
   }
 
   function extractPage(html){
@@ -67,6 +66,7 @@
       // ejecutar scripts inline externos al contenedor original (p.ej. bloques al final del body)
       try{ (page.extraInline||[]).forEach(code=>{ const s=document.createElement('script'); s.textContent=code||''; rootEl.appendChild(s); }); }catch(_){ }
       if (push) history.pushState({ url }, page.title, url);
+      try{ document.dispatchEvent(new CustomEvent('AppShell:afterNavigate', { detail: { url } })); }catch(_){ }
       // focus to top for better UX
       try{ window.scrollTo({ top: 0, behavior: 'instant' }); }catch(_){ window.scrollTo(0,0); }
     }catch(_){ location.href = url; }

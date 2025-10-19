@@ -10,6 +10,7 @@
       if (key==='market') return path.startsWith('/market');
       return false;
     }
+    function updatePath(){ path = location.pathname || '/'; }
     // estilos base para .nav-item (si no existen en la página)
     if (!document.getElementById('footer-nav-style')){
       var st = document.createElement('style');
@@ -28,6 +29,7 @@
       a.className = 'nav-item flex-1 p-2 rounded-lg' + (isActive(key)?' bg-accent/20 text-accent shadow-[0_0_10px_#22d3ee]':'');
       if (styleVars) a.setAttribute('style', styleVars);
       a.href = href;
+      if (key) a.setAttribute('data-key', key);
       var s1 = document.createElement('span'); s1.className = 'material-symbols-outlined'; s1.textContent = icon;
       var s2 = document.createElement('span'); s2.textContent = label;
       a.appendChild(s1); a.appendChild(s2);
@@ -42,6 +44,18 @@
     inner.appendChild(item('#','schedule','Próximo',null,'--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14'));
     nav.appendChild(inner);
     document.body.appendChild(nav);
+    function updateActive(){
+      try{
+        updatePath();
+        var links = nav.querySelectorAll('a.nav-item');
+        links.forEach(function(a){
+          var key = a.getAttribute('data-key');
+          var on = key && isActive(key);
+          a.classList.remove('bg-accent/20','text-accent','shadow-[0_0_10px_#22d3ee]');
+          if (on){ a.classList.add('bg-accent/20','text-accent','shadow-[0_0_10px_#22d3ee]'); }
+        });
+      }catch(_){ }
+    }
     // cargar App Shell (SPA-lite) una sola vez
     try{
       if (!document.getElementById('app-shell-loader')){
@@ -50,5 +64,7 @@
         (document.head||document.documentElement).appendChild(sh);
       }
     }catch(_){ }
+    document.addEventListener('AppShell:afterNavigate', updateActive);
+    window.addEventListener('popstate', updateActive);
   }catch(_){ }
 })();

@@ -362,7 +362,10 @@
   });
 
   async function poll(){ if (usingSSE) return; try{ await load(); }catch(_){ } setTimeout(poll, refreshMs); }
-  window.addEventListener('load', ()=>{ load().then(()=>{ if (!usingSSE) setTimeout(poll, refreshMs); }); });
+  let __raffleRoomBooted = false;
+  async function boot(){ if (__raffleRoomBooted) return; __raffleRoomBooted = true; await load(); if (!usingSSE) setTimeout(poll, refreshMs); }
+  if (document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+  document.addEventListener('AppShell:afterNavigate', ()=>{ __raffleRoomBooted=false; boot(); });
 })();
 </script>
 

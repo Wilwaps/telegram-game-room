@@ -397,27 +397,36 @@
         showToast();
       }catch(_){ alert('No se pudo copiar el ID'); }
     });
-    window.addEventListener('load', async ()=>{
-      await loadProfile(); await loadInboxUnread(); await checkWelcomeBanner(); setInterval(loadInboxUnread, 10000);
-      try {
-        let allow = false;
+    let __profileBooted = false;
+    let __inboxTimer = null;
+    async function boot(){
+      try{
+        if (__profileBooted) { return; }
+        __profileBooted = true;
+        await loadProfile(); await loadInboxUnread(); await checkWelcomeBanner();
+        try { if (!__inboxTimer) { __inboxTimer = setInterval(loadInboxUnread, 10000); } } catch(_){ }
         try {
-          const r = await fetch('/api/roles/me');
-          const j = await r.json();
-          const roles = (j && j.success && Array.isArray(j.roles)) ? j.roles : [];
-          allow = roles.includes('tote') || roles.includes('admin');
+          let allow = false;
+          try {
+            const r = await fetch('/api/roles/me');
+            const j = await r.json();
+            const roles = (j && j.success && Array.isArray(j.roles)) ? j.roles : [];
+            allow = roles.includes('tote') || roles.includes('admin');
+          } catch(_){ }
+          if (!allow) {
+            const sponsorId = 'tg:1417856820';
+            const myId = (window.AppUser && typeof window.AppUser.resolveUserId==='function') ? window.AppUser.resolveUserId() : (localStorage.getItem('anon_uid')||'');
+            if (String(myId) === sponsorId) allow = true;
+          }
+          if (allow) {
+            const b = document.getElementById('fireReqAdminBtn');
+            if (b) { b.style.display='block'; b.addEventListener('click', ()=>{ window.location.href='/fire-requests'; }); }
+          }
         } catch(_){ }
-        if (!allow) {
-          const sponsorId = 'tg:1417856820';
-          const myId = (window.AppUser && typeof window.AppUser.resolveUserId==='function') ? window.AppUser.resolveUserId() : (localStorage.getItem('anon_uid')||'');
-          if (String(myId) === sponsorId) allow = true;
-        }
-        if (allow) {
-          const b = document.getElementById('fireReqAdminBtn');
-          if (b) { b.style.display='block'; b.addEventListener('click', ()=>{ window.location.href='/fire-requests'; }); }
-        }
-      } catch(_){}
-    });
+      }catch(_){ }
+    }
+    if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+    document.addEventListener('AppShell:afterNavigate', ()=>{ try{ if (!__profileBooted) boot(); }catch(_){ } });
   })();
   </script>
   <script src="/js/footer-nav.js"></script>

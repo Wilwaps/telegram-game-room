@@ -123,11 +123,15 @@
     });
     $('refresh').addEventListener('click',load);
     // Tabs removidas: se mantiene vista en "Pendientes" por defecto
-    window.addEventListener('load',()=>{
+    let __fireReqBooted = false;
+    function boot(){
+      if (__fireReqBooted) return; __fireReqBooted = true;
       $('admUser').value=sessionStorage.getItem('admUser')||'';
       $('admCode').value=sessionStorage.getItem('admCode')||'';
       load();
-    });
+    }
+    if (document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+    document.addEventListener('AppShell:afterNavigate', ()=>{ __fireReqBooted=false; boot(); });
   </script>
 </body>
 </html>

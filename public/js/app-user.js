@@ -59,6 +59,14 @@
     } catch(_){ }
     return null;
   }
+  function getStoredUserId(){
+    try{
+      const a = sessionStorage.getItem('lastUserId') || localStorage.getItem('lastUserId') || '';
+      const v = String(a||'').trim();
+      if (v && (/^(tg:|db:|em:)/i).test(v)) return v;
+    }catch(_){ }
+    return '';
+  }
   function ensureAnon(){
     // Priorizar sessionStorage para permitir IDs distintos por pestaña (tests multi-ventana)
     try { const s = sessionStorage.getItem('anonId'); if (s) return s; } catch(_){ }
@@ -80,6 +88,7 @@
   function resolveUserId(){
     const qp = getQuery('uid'); if (qp) { try { sessionStorage.setItem('anonId', String(qp)); } catch(_){ } return String(qp); }
     const t = resolveFromTelegram(); if (t) return t;
+    const saved = getStoredUserId(); if (saved) return saved;
     return ensureAnon();
   }
   async function ensureTelegramSession(){
@@ -112,6 +121,7 @@
           const gotSidNow = !!(data && data.sid);
           if (!hadSidBefore && gotSidNow) { setTimeout(()=>window.location.reload(), 150); return; }
           const newId = data && data.userId ? String(data.userId) : '';
+          try { if (newId) { sessionStorage.setItem('lastUserId', newId); localStorage.setItem('lastUserId', newId); } } catch(_){ }
           if (newId.startsWith('tg:')) {
             const current = resolveUserId();
             if (!current.startsWith('tg:')) { setTimeout(()=>window.location.reload(), 150); }
