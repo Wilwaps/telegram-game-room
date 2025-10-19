@@ -129,7 +129,9 @@ function verifyTelegramInitData(initData, botToken) {
     if (!initData || !botToken) return null;
     const urlParams = new URLSearchParams(initData);
     const hash = urlParams.get('hash');
+    const signature = urlParams.get('signature');
     urlParams.delete('hash');
+    if (signature) urlParams.delete('signature'); // excluir también 'signature' si viene
     const dataCheckString = Array.from(urlParams.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${k}=${v}`)
@@ -137,7 +139,12 @@ function verifyTelegramInitData(initData, botToken) {
     // Para Telegram WebApp, el secreto es HMAC_SHA256(bot_token) con clave fija 'WebAppData'
     const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
     const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    if (hmac !== hash) return null;
+    // timing-safe compare
+    try {
+      const a = Buffer.from(String(hmac), 'hex');
+      const b = Buffer.from(String(hash||''), 'hex');
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    } catch(_) { return null; }
     const userStr = urlParams.get('user');
     const authDate = Number(urlParams.get('auth_date') || 0);
     if (!userStr || !authDate) return null;
@@ -425,6 +432,24 @@ router.post('/telegram/verify', async (req, res) => {
       logger.warn('[tg.verify] invalid_telegram_data');
       return res.status(400).json({ success:false, error:'invalid_telegram_data' });
     }
+    // Verificación anti-stale y anti-replay
+    const params = new URLSearchParams(String(initData||''));
+    const hash = params.get('hash') || '';
+    const authDateSec = Number(params.get('auth_date') || parsed.authDate || 0);
+    const maxSkewSec = parseInt(process.env.TELEGRAM_AUTH_MAX_SKEW_SEC || '600', 10);
+    const replayTtlSec = parseInt(process.env.TELEGRAM_REPLAY_TTL_SEC || '120', 10);
+    if (authDateSec && maxSkewSec && (Math.floor(Date.now()/1000) - authDateSec > maxSkewSec)) {
+      try { Sentry.captureMessage('tg_verify_stale_auth', { level: 'warning', extra: { ...tl, ua: String(req.headers['user-agent']||''), skewSec: Math.floor(Date.now()/1000) - authDateSec } }); } catch(_){ }
+      return res.status(401).json({ success:false, error:'stale_telegram_auth' });
+    }
+    try {
+      const isReplay = auth.checkAndStoreTelegramReplay({ hash, authDate: authDateSec, ttlSec: replayTtlSec });
+      if (isReplay) {
+        try { Sentry.captureMessage('tg_verify_replay', { level: 'warning', extra: { ...tl, ua: String(req.headers['user-agent']||'') } }); } catch(_){ }
+        logger.warn('[tg.verify] replay_detected');
+        return res.status(409).json({ success:false, error:'replay_detected' });
+      }
+    } catch(_) {}
     let dbUserId = null;
     try { if (userRepo) { const out = await userRepo.upsertTelegramUser({ tgId: parsed.user.id, username: parsed.user.username, displayName: [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ') }); dbUserId = out.userId; } } catch(_){}
     const name = parsed.user.username || [parsed.user.first_name, parsed.user.last_name].filter(Boolean).join(' ');

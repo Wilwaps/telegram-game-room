@@ -75,6 +75,7 @@
     try{
       const tg = window.Telegram && window.Telegram.WebApp;
       if (!tg) return;
+      try { if (typeof tg.ready === 'function') tg.ready(); } catch(_){ }
       const init = tg.initData;
       const unsafe = tg.initDataUnsafe;
       if (!init || !unsafe || !unsafe.user || !unsafe.user.id) return;
