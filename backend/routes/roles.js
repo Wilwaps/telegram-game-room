@@ -4,6 +4,11 @@ let roles = null; try { roles = require('../services/roles'); } catch(_) { roles
 const auth = require('../services/authStore');
 
 function getSessUserId(req){
+  try { const uid = req && req.sessionUserId ? String(req.sessionUserId) : ''; if (uid) return uid; } catch(_) {}
+  try {
+    const sidHeader = String(req.headers['x-session-id'] || '').trim();
+    if (sidHeader) { const s = auth.getSession(sidHeader); if (s && s.userId) return String(s.userId); }
+  } catch(_) {}
   const raw = String(req.headers.cookie || '');
   let sid='';
   for(const part of raw.split(/;\s*/)){ const [k,v]=part.split('='); if(k==='sid'){ sid=v; break; } }
