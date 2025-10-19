@@ -42,5 +42,13 @@
     inner.appendChild(item('#','schedule','Próximo',null,'--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14'));
     nav.appendChild(inner);
     document.body.appendChild(nav);
+    // cargar App Shell (SPA-lite) una sola vez
+    try{
+      if (!document.getElementById('app-shell-loader')){
+        var sh = document.createElement('script');
+        sh.id = 'app-shell-loader'; sh.src = '/js/app-shell.js'; sh.defer = true;
+        (document.head||document.documentElement).appendChild(sh);
+      }
+    }catch(_){ }
   }catch(_){ }
 })();

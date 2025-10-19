@@ -37,7 +37,7 @@
             <input type="radio" name="mode" id="mode_prize" value="prize" class="hidden">
             <span class="font-medium">Premio</span>
           </label>
-          <label class="flex items-center justify-center p-3 border border-glass rounded-lg cursor-pointer has-[:checked]:bg-accent/20 has-[:checked]:border-accent">
+          <label class="hidden flex items-center justify-center p-3 border border-glass rounded-lg cursor-pointer has-[:checked]:bg-accent/20 has-[:checked]:border-accent">
             <input type="radio" name="mode" id="mode_free" value="free" class="hidden">
             <span class="font-medium">Libre</span>
           </label>
@@ -113,14 +113,13 @@
 <script>
 (function(){
   function me(){ const tg=window.Telegram&&window.Telegram.WebApp; const u=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user; if(!u){let x=localStorage.getItem('anon_uid'); if(!x){x='anon:'+Math.random().toString(36).slice(2,8); localStorage.setItem('anon_uid',x);} return { id:x, name:'Invitado' }; } return { id:'tg:'+u.id, name:(u.username||[u.first_name,u.last_name].filter(Boolean).join(' ')) } }
-  const fire=document.getElementById('mode_fire'); const prize=document.getElementById('mode_prize'); const free=document.getElementById('mode_free');
+  const fire=document.getElementById('mode_fire'); const prize=document.getElementById('mode_prize');
   const fireFields=document.getElementById('fireFields'); const prizeFields=document.getElementById('prizeFields');
   function toggle(){
     if (prize.checked){ prizeFields.classList.remove('hidden'); fireFields.classList.add('hidden'); }
-    else if (fire.checked){ prizeFields.classList.add('hidden'); fireFields.classList.remove('hidden'); }
-    else { prizeFields.classList.add('hidden'); fireFields.classList.add('hidden'); }
+    else { prizeFields.classList.add('hidden'); fireFields.classList.remove('hidden'); }
   }
-  fire.addEventListener('change',toggle); prize.addEventListener('change',toggle); free.addEventListener('change',toggle);
+  fire.addEventListener('change',toggle); prize.addEventListener('change',toggle);
   toggle();
   function closeSheet(){ window.location.href = '/raffles'; }
   const closeBtn = document.getElementById('closeCreateSheet');
@@ -130,8 +129,8 @@
   if (overlay) overlay.addEventListener('click', (ev)=>{ try{ if (sheet && !sheet.contains(ev.target)) closeSheet(); }catch(_){ } });
   document.getElementById('createBtn').addEventListener('click', async()=>{
     const u=me();
-    const mode = prize.checked ? 'prize' : (free.checked ? 'free' : 'fire');
-    const entryPrice = prize.checked ? 200 : (free.checked ? 0 : Math.max(10, parseInt(document.getElementById('entry').value||'10',10)));
+    const mode = prize.checked ? 'prize' : 'fire';
+    const entryPrice = prize.checked ? 200 : Math.max(10, parseInt(document.getElementById('entry').value||'10',10));
     const payload = {
       hostId: u.id, hostName: u.name,
       name: String(document.getElementById('name').value||'').trim(),

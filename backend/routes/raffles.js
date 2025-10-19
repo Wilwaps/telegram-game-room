@@ -133,7 +133,7 @@ router.post('/:id/confirm', (req,res)=>{
     const realUserId = preferSessionUserId(req, userId);
     const r = raffles.findById(req.params.id);
     if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });
-    if (r.mode === 'fire' || r.mode === 'free'){
+    if (r.mode === 'fire'){
       const out = raffles.confirm({ id: r.id, userId: realUserId, number, reference });
       // mensaje al usuario
       messages.send({ toUserId: realUserId, text: `Te has unido a la rifa ${r.code} con el número ${String(number).padStart(2,'0')}. Te notificaremos al finalizar.` });

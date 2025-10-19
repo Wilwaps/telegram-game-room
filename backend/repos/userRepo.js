@@ -74,6 +74,33 @@ async function createUserWithPassword({ username, password, email, phone, displa
   }
 }
 
+async function upsertTelegramUser({ tgId, username, displayName }){
+  const client = await db.pool.connect();
+  try{
+    await client.query('BEGIN');
+    const tg = String(tgId||'').trim(); if (!tg) throw new Error('invalid_tg');
+    const uname = (username? String(username).trim().toLowerCase() : null);
+    const disp = (displayName? String(displayName).trim() : (uname||null));
+    // try find by tg_id
+    const r0 = await client.query('SELECT id FROM users WHERE tg_id=$1 LIMIT 1',[tg]);
+    let userId = r0.rows?.[0]?.id || null;
+    if (!userId){
+      const ins = await client.query('INSERT INTO users (tg_id, username, display_name) VALUES ($1,$2,$3) RETURNING id', [tg, uname, disp]);
+      userId = ins.rows[0].id;
+    } else {
+      await client.query('UPDATE users SET username=COALESCE($2,username), display_name=COALESCE($3,display_name), last_seen_at=NOW(), updated_at=NOW() WHERE id=$1', [userId, uname, disp]);
+    }
+    // ensure wallet
+    await ensureWallet(client, userId);
+    // ensure role client
+    const roleId = await ensureRole(client, 'client');
+    if (roleId){ await client.query('INSERT INTO user_roles(user_id, role_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [userId, roleId]); }
+    await client.query('COMMIT');
+    return { userId };
+  }catch(err){ try{ await client.query('ROLLBACK'); }catch(_){} throw err; }
+  finally{ client.release(); }
+}
+
 async function listUsersDb({ search, limit, offset }) {
   const q = String(search || '').trim().toLowerCase();
   const lim = Math.max(1, Math.min(200, Number(limit || 50)));
@@ -140,4 +167,4 @@ async function setUserRole({ userId, roleName }) {
   } finally { client.release(); }
 }
 
-module.exports = { createUserWithPassword, listUsersDb, listRoles, updateUserContact, setUserRole };
+module.exports = { createUserWithPassword, listUsersDb, listRoles, updateUserContact, setUserRole, upsertTelegramUser };

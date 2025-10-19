@@ -149,7 +149,7 @@
       <div class="space-y-2">
         <p class="text-text/70 text-sm">Costo</p>
         <div class="grid grid-cols-3 gap-2">
-          <button id="costFree" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]">
+          <button id="costFree" class="hidden bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]">
             <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
             <span>Libre</span>
           </button>
@@ -345,8 +345,8 @@
   let lastMyCards = [];
   let createdRoomId = null;
   let createVisibility = 'private';
-  let createCostType = 'free';
-  let createCostValue = 0;
+  let createCostType = 'fuego';
+  let createCostValue = 1;
   let createMode = 'linea';
   let createBallSet = 90;
   let selectedCardIdx = 0;
@@ -669,6 +669,8 @@
   modeCarton.addEventListener('click', ()=>{ createMode='carton'; styleToggle(modeCarton,modeLinea,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); styleToggle(modeCarton,mode4c,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   ball75.addEventListener('click', ()=>{ createBallSet=75; styleToggle(ball75,ball90,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
   ball90.addEventListener('click', ()=>{ createBallSet=90; styleToggle(ball90,ball75,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); syncOptions(); });
+  if (costCoins) costCoins.addEventListener('click', async ()=>{ createCostType='coins'; createCostValue=1; styleToggle(costCoins,costFuego,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await syncOptions(); });
+  if (costFuego) costFuego.addEventListener('click', async ()=>{ createCostType='fuego'; createCostValue=1; styleToggle(costFuego,costCoins,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await syncOptions(); });
   shareCreate.addEventListener('click', async ()=>{
     if (!createdRoomId) return; const link = `${location.origin}/games/bingo?room=${encodeURIComponent(createdRoomId)}`; try{ await navigator.clipboard.writeText(link); shareCreate.textContent='Copiado'; setTimeout(()=>shareCreate.textContent='Compartir', 1200);}catch(_){ }
   });

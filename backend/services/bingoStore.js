@@ -52,9 +52,10 @@ class BingoStore extends EventEmitter {
     return cards;
   }
 
-  createRoom({ userId, visibility = 'private', costType = 'free', costValue = 1, mode = 'linea', ballSet = 90 }) {
-    // costo por cartón: 1 cuando es coins/fuego; 0 en free
-    const finalCost = (['fuego','coins'].includes(costType)) ? 1 : 0;
+  createRoom({ userId, visibility = 'private', costType = 'fuego', costValue = 1, mode = 'linea', ballSet = 90 }) {
+    // costo por cartón: 1 cuando es coins/fuego (no se admite modo free)
+    const ct = (['fuego','coins'].includes(String(costType))) ? String(costType) : 'fuego';
+    const finalCost = 1;
     const id = this.newId();
     const state = {
       id,
@@ -62,7 +63,7 @@ class BingoStore extends EventEmitter {
       createdAt: Date.now(),
       hostId: String(userId),
       visibility: (visibility === 'public' ? 'public' : 'private'),
-      costType: ['free','fuego','coins'].includes(costType) ? costType : 'free',
+      costType: ct,
       costValue: finalCost,
       mode: ['linea','4c','carton'].includes(mode) ? mode : 'linea',
       ballSet: [75,90].includes(Number(ballSet)) ? Number(ballSet) : 90,
@@ -152,12 +153,8 @@ class BingoStore extends EventEmitter {
     if (String(userId) !== String(r.hostId)) throw new Error('not_host');
     if (r.status !== 'lobby') throw new Error('already_started');
     if (typeof opts.visibility !== 'undefined') r.visibility = (opts.visibility === 'public' ? 'public' : 'private');
-    if (typeof opts.costType !== 'undefined') r.costType = (['free','fuego','coins'].includes(opts.costType) ? opts.costType : r.costType);
-    if (typeof opts.costValue !== 'undefined') {
-      // costo fijo 1 por cartón para coins/fuego
-      const raw = Math.max(0, Number(opts.costValue || 1) || 1);
-      r.costValue = (r.costType === 'free') ? 0 : 1;
-    }
+    if (typeof opts.costType !== 'undefined') r.costType = (['fuego','coins'].includes(String(opts.costType)) ? String(opts.costType) : r.costType);
+    if (typeof opts.costValue !== 'undefined') { r.costValue = 1; }
     if (typeof opts.mode !== 'undefined') r.mode = (['linea','4c','carton'].includes(opts.mode) ? opts.mode : r.mode);
     if (typeof opts.ballSet !== 'undefined') r.ballSet = (['75','90'].includes(opts.ballSet) ? Number(opts.ballSet) : r.ballSet);
     const s = this.getState(roomId); this.emit('room_update_' + r.id, s); return s;

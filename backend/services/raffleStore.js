@@ -74,8 +74,6 @@ class RaffleStore extends EventEmitter {
       // Depósito fijo de 200 🔥 al sponsor
       const dep = store.transferFires({ fromUserId: hid, toUserId: SPONSOR_ID, amount: 200, reason: 'raffle_prize_deposit' });
       if (!dep.ok) throw new Error(dep.error || 'deposit_failed');
-    } else if (mode === 'free'){
-      // Modo libre: sin depósito, solo pruebas
     } else {
       throw new Error('invalid_mode');
     }
@@ -178,8 +176,6 @@ class RaffleStore extends EventEmitter {
       const potId = this.potUserId(r.id);
       const tr = store.transferFires({ fromUserId: uid, toUserId: potId, amount: r.entryPrice, reason: 'raffle_buy' });
       if (!tr.ok) throw new Error(tr.error || 'payment_failed');
-    } else if (r.mode === 'free'){
-      // Sin cobro
     } else if (r.mode === 'prize'){
       // La confirmación de premio se maneja en la ruta con pendiente/approve
       throw new Error('invalid_mode_for_confirm');

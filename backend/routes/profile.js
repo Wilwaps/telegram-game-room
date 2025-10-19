@@ -3,27 +3,39 @@ const router = express.Router();
 const store = require('../services/memoryStore');
 const inbox = require('../services/messageStore');
 const { preferSessionUserId } = require('../middleware/sessionUser');
+let welcomeRepo = null; try { welcomeRepo = require('../repos/welcomeRepo'); } catch(_) { welcomeRepo = null; }
 
-router.get('/:userId', (req, res) => {
+router.get('/:userId', async (req, res) => {
   try {
     const userId = String(req.params.userId || '').trim();
     if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
-    // Asegurar existencia de usuario
+    // Asegurar existencia de usuario (mem) para compatibilidad
     let u = store.getUser(userId) || store.ensureUser(userId);
-    // Intentar otorgar bono de bienvenida si aplica
-    const award = store.awardWelcomeIfEligible(userId);
-    if (award && award.awarded) {
-      try {
-        const ev = store.getWelcomeEvent();
-        const baseMsg = String(ev.message || '').trim();
-        const fallback = `🎉 Bienvenido/a. Has recibido ${award.coinsAwarded} monedas y ${award.firesAwarded} 🔥 de regalo.`;
-        const tail = `Válido hasta ${new Date(award.until).toLocaleString()}.`;
-        const text = [baseMsg || fallback, tail].filter(Boolean).join(' ');
-        inbox.send({ toUserId: userId, text });
-      } catch (_) {}
-      // refrescar snapshot del usuario tras el premio
-      u = store.getUser(userId) || { userId, userName: '', fires: 0, coins: 0 };
-    }
+    // Premio bienvenida con Postgres (solo TG/db) y persistente
+    try {
+      if (welcomeRepo) {
+        const award = await welcomeRepo.awardIfEligible(userId);
+        if (award && award.awarded) {
+          try {
+            const ev = await welcomeRepo.getEvent();
+            const baseMsg = String(ev.message || '').trim();
+            const fallback = `🎉 Bienvenido/a. Has recibido ${award.coinsAwarded} monedas y ${award.firesAwarded} 🔥 de regalo.`;
+            const tail = award.until ? `Válido hasta ${new Date(award.until).toLocaleString()}.` : '';
+            const text = [baseMsg || fallback, tail].filter(Boolean).join(' ');
+            inbox.send({ toUserId: userId, text });
+          } catch (_) {}
+        }
+      }
+    } catch(_) { /* ignore */ }
+    // Superponer balance real desde DB si existe wallet
+    let firesDb = null, coinsDb = null;
+    try{
+      if (welcomeRepo) {
+        const bal = await welcomeRepo.getWalletExtBalances(userId);
+        if (bal){ firesDb = Number(bal.fires||0); coinsDb = Number(bal.coins||0); }
+      }
+    }catch(_){ }
+    // Ganancias en coins (historial mem)
     let earned = 0;
     let stats = null;
     try {
@@ -31,7 +43,9 @@ router.get('/:userId', (req, res) => {
       for (const tx of hist.items) if (tx && tx.type === 'coin') earned += Number(tx.amount || 0);
     } catch (_) {}
     try { stats = store.getUserStats(userId); } catch(_) { stats = { wins:0, losses:0, draws:0, games:0, byGame:{} }; }
-    return res.json({ success: true, user: { userId: u.userId, userName: u.userName, fires: u.fires || 0, coins: u.coins || 0, earnedCoins: earned, stats } });
+    const fires = (firesDb!==null) ? firesDb : (u.fires || 0);
+    const coins = (coinsDb!==null) ? coinsDb : (u.coins || 0);
+    return res.json({ success: true, user: { userId: u.userId, userName: u.userName, fires, coins, earnedCoins: earned, stats } });
   } catch (err) {
     return res.status(500).json({ success: false, error: 'profile_error' });
   }

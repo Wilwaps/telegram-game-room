@@ -74,14 +74,14 @@ class BingoStoreSql extends EventEmitter {
     };
   }
 
-  async createRoom({ userId, visibility='private', costType='free', costValue=1, mode='linea', ballSet=90 }){
+  async createRoom({ userId, visibility='private', costType='fuego', costValue=1, mode='linea', ballSet=90 }){
     const hostExt = String(userId||'');
     const hostDb = await this.mapExtToDbUserId(hostExt);
     const vis = (visibility==='public')?'public':'private';
-    const isFire = (costType==='fuego');
+    const isFire = true; // no se admite modo free/coins en SQL por ahora
     const code = String(Math.floor(100000 + Math.random()*900000));
-    const meta = { hostExt, visibility: vis, costType, costValue: isFire?1:0, winMode: ['linea','4c','carton'].includes(mode)?mode:'linea', ballSet: [75,90].includes(Number(ballSet))?Number(ballSet):90 };
-    const ins = await db.query("INSERT INTO bingo_rooms(code, host_id, name, mode, entry_price_fire, pot_fires, status, numbers_drawn, rules_meta, created_at) VALUES ($1,$2,$3,$4,$5,$6,'open',ARRAY[]::integer[],$7,NOW()) RETURNING id",[code, hostDb, code, isFire?'fire':'friendly', isFire?1:0, 0, meta]);
+    const meta = { hostExt, visibility: vis, costType: 'fuego', costValue: 1, winMode: ['linea','4c','carton'].includes(mode)?mode:'linea', ballSet: [75,90].includes(Number(ballSet))?Number(ballSet):90 };
+    const ins = await db.query("INSERT INTO bingo_rooms(code, host_id, name, mode, entry_price_fire, pot_fires, status, numbers_drawn, rules_meta, created_at) VALUES ($1,$2,$3,$4,$5,$6,'open',ARRAY[]::integer[],$7,NOW()) RETURNING id",[code, hostDb, code, 'fire', 1, 0, meta]);
     const roomId = ins.rows[0].id;
     await db.query("INSERT INTO bingo_players(room_id, user_ext, user_id, fires_spent, cards_count, status) VALUES ($1,$2,$3,0,1,'active') ON CONFLICT DO NOTHING",[roomId, hostExt, hostDb]);
     const state = await this.getState(roomId);
@@ -122,8 +122,8 @@ class BingoStoreSql extends EventEmitter {
     if (hostDb && extDb && String(hostDb)!==String(extDb)) throw new Error('not_host');
     const meta = row.rules_meta || {};
     if (typeof opts.visibility !== 'undefined') meta.visibility = (opts.visibility==='public')?'public':'private';
-    if (typeof opts.costType !== 'undefined') meta.costType = ['free','fuego','coins'].includes(opts.costType)?opts.costType:meta.costType;
-    if (typeof opts.costValue !== 'undefined') meta.costValue = (meta.costType==='fuego'||meta.costType==='coins')?1:0;
+    if (typeof opts.costType !== 'undefined') meta.costType = 'fuego';
+    if (typeof opts.costValue !== 'undefined') meta.costValue = 1;
     if (typeof opts.mode !== 'undefined') meta.winMode = ['linea','4c','carton'].includes(opts.mode)?opts.mode:meta.winMode;
     if (typeof opts.ballSet !== 'undefined') meta.ballSet = [75,90].includes(Number(opts.ballSet))?Number(opts.ballSet):meta.ballSet;
     await db.query('UPDATE bingo_rooms SET rules_meta=$2 WHERE id=$1',[id, meta]);
