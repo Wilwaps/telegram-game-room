@@ -42,7 +42,13 @@
     try{
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const cand = doc.querySelector('#page') || doc.querySelector('main') || doc.body;
-      return { html: cand.innerHTML, title: doc.title || document.title };
+      // recoger scripts inline que estén fuera del contenedor extraído (páginas que ponen JS al final del body)
+      const extraInline = [];
+      try{
+        const allInline = Array.from(doc.querySelectorAll('script:not([src])'));
+        for (const s of allInline){ if (!cand.contains(s)) extraInline.push(s.textContent||''); }
+      }catch(_){ }
+      return { html: cand.innerHTML, title: doc.title || document.title, extraInline };
     }catch(_){ return null; }
   }
 
@@ -58,6 +64,8 @@
       rootEl.innerHTML = page.html;
       document.title = page.title;
       reexecuteScripts(rootEl);
+      // ejecutar scripts inline externos al contenedor original (p.ej. bloques al final del body)
+      try{ (page.extraInline||[]).forEach(code=>{ const s=document.createElement('script'); s.textContent=code||''; rootEl.appendChild(s); }); }catch(_){ }
       if (push) history.pushState({ url }, page.title, url);
       // focus to top for better UX
       try{ window.scrollTo({ top: 0, behavior: 'instant' }); }catch(_){ window.scrollTo(0,0); }

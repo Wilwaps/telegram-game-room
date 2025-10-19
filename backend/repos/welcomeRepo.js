@@ -67,6 +67,8 @@ async function getWalletExtBalances(userExt){
   return { fires: Number(row.fires_balance||0), coins: Number(row.coins_balance||0) };
 }
 
+let supplyRepo = null; try { supplyRepo = require('./supplyRepo'); } catch(_) { supplyRepo = null; }
+
 async function awardIfEligible(userExt){
   const ext = String(userExt||'');
   if (!ext.startsWith('tg:')) return { awarded:false };
@@ -79,6 +81,13 @@ async function awardIfEligible(userExt){
   await ensureWallet(dbUserId);
   const coins = Math.max(0, Number(ev.coins||0));
   const fires = Math.max(0, Number(ev.fires||0));
+  // Control de supply: si hay fuegos a otorgar, verificar y emitir
+  if (fires>0 && supplyRepo){
+    const ok = await supplyRepo.canEmit(fires);
+    if (!ok) return { awarded:false };
+    const em = await supplyRepo.emit(fires);
+    if (!em || !em.ok) return { awarded:false };
+  }
   const client = await db.pool.connect();
   try{
     await client.query('BEGIN');

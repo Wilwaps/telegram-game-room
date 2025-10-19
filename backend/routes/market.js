@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const store = require('../services/memoryStore');
+let walletRepo = null; try { walletRepo = require('../repos/walletRepo'); } catch(_) { walletRepo = null; }
+let marketRepo = null; try { marketRepo = require('../repos/marketRepo'); } catch(_) { marketRepo = null; }
 const { preferSessionUserId } = require('../middleware/sessionUser');
 const https = require('https');
 const { URL } = require('url');
+let roles = null; try { roles = require('../services/roles'); } catch(_) { roles = { getRoles: ()=>[] }; }
+const adminAuth = require('../middleware/adminAuth');
+const auth = require('../services/authStore');
 
 function postJSON(urlStr, data){
   return new Promise((resolve)=>{
@@ -17,13 +21,35 @@ function postJSON(urlStr, data){
   });
 }
 
+function getSessUserId(req){
+  try{
+    const raw = String(req.headers.cookie || '');
+    let sid='';
+    for(const part of raw.split(/;\s*/)){ const [k,v]=part.split('='); if(k==='sid'){ sid=v; break; } }
+    const sess = sid ? auth.getSession(sid) : null;
+    return (sess && sess.userId) ? String(sess.userId) : '';
+  }catch(_){ return ''; }
+}
+function rolesAllow(req){
+  try{
+    const uid = getSessUserId(req);
+    if (!uid) return false;
+    const rs = (roles && typeof roles.getRoles==='function') ? roles.getRoles(uid) : [];
+    const ok = rs.includes('tote') || rs.includes('admin');
+    if (ok) { req.admin = { userName: uid }; }
+    return ok;
+  }catch(_){ return false; }
+}
+function toteOrAdmin(req,res,next){ try{ if (rolesAllow(req)) return next(); return adminAuth(req,res,next); }catch(_){ return res.status(500).json({ success:false, error:'auth_error' }); } }
+
 // POST /api/market/redeem-100-fire
 router.post('/redeem-100-fire', async (req,res)=>{
   try{
     const userId = preferSessionUserId(req, req.body && req.body.userId);
     if (!userId) return res.status(400).json({ success:false, error:'invalid_user' });
-    const u = store.getUser(userId) || store.ensureUser(userId);
-    const fires = Math.max(0, Number(u && u.fires || 0));
+    if (!walletRepo || !marketRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const bal = await walletRepo.getBalancesByExt(userId);
+    const fires = bal ? Number(bal.fires||0) : 0;
     if (fires < 100) return res.status(400).json({ success:false, error:'insufficient_fires' });
 
     const cedula = String(req.body && req.body.cedula || '').replace(/[^0-9]/g,'').slice(0,12);
@@ -39,7 +65,7 @@ router.post('/redeem-100-fire', async (req,res)=>{
       const hostUrl = `${req.protocol}://${req.get('host')}`;
       const text = [
         'Nueva solicitud de canje (Mercado del Fuego)',
-        `Usuario: ${userId} ${u && u.userName ? '('+u.userName+')' : ''}`,
+        `Usuario: ${userId}`,
         `Saldo actual: ${fires} 🔥`,
         'Canje: 100 🔥 → 100 Bs',
         `Cédula: ${cedula}`,
@@ -52,12 +78,33 @@ router.post('/redeem-100-fire', async (req,res)=>{
       }catch(_){ }
     }
 
-    // No debitamos aún; el admin confirmará manualmente y hará el pago.
-    // Dejamos una transacción de referencia en el log para trazabilidad.
-    try{ store.pushTx({ type:'market_redeem_request', userId, amount:100, unit:'fires', cedula, telefono, bankCode, bankName }); }catch(_){ }
+    // Registrar solicitud en DB, sin debitar aún
+    try{ await marketRepo.createRedeem({ userExt: userId, amount: 100, cedula, telefono, bankCode, bankName, meta: {} }); }catch(_){ }
 
     return res.json({ success:true });
   }catch(err){ return res.status(500).json({ success:false, error:'redeem_error' }); }
+});
+
+// Admin: listar redenciones
+router.get('/redeems/pending', toteOrAdmin, async (req,res)=>{
+  try{ if (!marketRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const { limit, offset } = req.query||{}; const out = await marketRepo.listAll({ status:'pending', limit, offset }); return res.json({ success:true, ...out });
+  }catch(_){ return res.status(500).json({ success:false, error:'list_error' }); }
+});
+router.get('/redeems/list', toteOrAdmin, async (req,res)=>{
+  try{ if (!marketRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const { status, limit, offset } = req.query||{}; const out = await marketRepo.listAll({ status, limit, offset }); return res.json({ success:true, ...out });
+  }catch(_){ return res.status(500).json({ success:false, error:'list_error' }); }
+});
+router.post('/redeems/:id/accept', toteOrAdmin, async (req,res)=>{
+  try{ if (!marketRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const r = await marketRepo.accept({ id: req.params.id, adminUserName: req.admin?.userName || 'admin' }); return res.json({ success:true, ...r });
+  }catch(err){ const msg = (err&&err.message)||'accept_error'; const code = (msg==='redeem_not_found'||msg==='redeem_not_pending'||msg==='user_not_mapped'||msg==='wallet_missing'||msg==='insufficient_fires')?400:500; return res.status(code).json({ success:false, error: msg }); }
+});
+router.post('/redeems/:id/reject', toteOrAdmin, async (req,res)=>{
+  try{ if (!marketRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
+    const r = await marketRepo.reject({ id: req.params.id, adminUserName: req.admin?.userName || 'admin' }); return res.json({ success:true, ...r });
+  }catch(err){ const msg = (err&&err.message)||'reject_error'; const code = (msg==='redeem_not_found'||msg==='redeem_not_pending')?400:500; return res.status(code).json({ success:false, error: msg }); }
 });
 
 module.exports = router;
