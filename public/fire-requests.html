@@ -9,8 +9,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script id="tailwind-config">tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#06e4f9','background-dark':'#0B0E14',accent:'#22d3ee',card:'#121A2B',text:'#E6EDF3',glass:'rgba(255,255,255,0.1)',success:'#22C55E',error:'#EF4444'},boxShadow:{'neon-accent':'0 0 10px #22d3ee, 0 0 20px #22d3ee','neon-violet':'0 0 10px #a78bfa, 0 0 20px #a78bfa','neon-success':'0 0 8px #22C55E, 0 0 16px #22C55E','neon-error':'0 0 8px #EF4444, 0 0 16px #EF4444'}}}};</script>
+  <script id="tailwind-config">tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#06e4f9','background-dark':'#0B0E14',accent:'#22d3ee',card:'#121A2B',text:'#E6EDF3',glass:'rgba(255,255,255,0.1)',success:'#22C55E',error:'#EF4444'},boxShadow:{'neon-accent':'0 0 10px #22d3ee, 0 0 20px #22d3ee','neon-violet':'0 0 10px #a78bfa, 0 0 20px #a78bfa','neon-success':'0 0 8px #22C55E, 0 0 16px #22C55E','neon-error':'0 0 8px #EF4444'}}}};</script>
   <style>body{min-height:max(884px,100dvh)}</style>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/js/app-user.js"></script>
 </head>
 <body class="bg-background-dark font-display text-text">
   <div class="max-w-3xl mx-auto p-4 space-y-4">
@@ -28,11 +30,7 @@
     </div>
     <div class="bg-card border border-glass rounded-lg p-3 space-y-3">
       <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2 text-sm">
-          <button data-st="pending" class="st-btn bg-accent/20 text-accent px-3 py-1 rounded-lg">Pendientes</button>
-          <button data-st="accepted" class="st-btn bg-glass hover:bg-accent/10 px-3 py-1 rounded-lg">Aceptadas</button>
-          <button data-st="rejected" class="st-btn bg-glass hover:bg-accent/10 px-3 py-1 rounded-lg">Rechazadas</button>
-        </div>
+        <div class="text-sm text-text/70">Mostrando: Pendientes</div>
         <button id="refresh" class="text-sm bg-glass hover:bg-accent/20 px-3 py-1 rounded-lg">Refrescar</button>
       </div>
       <div id="list" class="space-y-4"></div>
@@ -124,14 +122,7 @@
       load();
     });
     $('refresh').addEventListener('click',load);
-    for(const b of document.querySelectorAll('.st-btn')){
-      b.addEventListener('click', (e)=>{
-        for(const x of document.querySelectorAll('.st-btn')) x.className='st-btn bg-glass hover:bg-accent/10 px-3 py-1 rounded-lg';
-        e.currentTarget.className='st-btn bg-accent/20 text-accent px-3 py-1 rounded-lg';
-        curStatus = e.currentTarget.getAttribute('data-st')||'pending';
-        load();
-      });
-    }
+    // Tabs removidas: se mantiene vista en "Pendientes" por defecto
     window.addEventListener('load',()=>{
       $('admUser').value=sessionStorage.getItem('admUser')||'';
       $('admCode').value=sessionStorage.getItem('admCode')||'';
