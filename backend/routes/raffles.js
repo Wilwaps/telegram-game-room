@@ -52,6 +52,30 @@ router.get('/by-user/:userId', (req,res)=>{
   res.json({ success:true, ...out, items: out.items.map(r=>raffles.getPublicInfo(r)) });
 });
 
+// Resumen para Lobby (host y participando)
+router.get('/lobby', (req,res)=>{
+  try{
+    const userId = preferSessionUserId(req, req.query && req.query.userId);
+    if (!userId) return res.json({ success:true, host:[], playing:[] });
+    const mapItem = (r)=>{
+      const it = raffles.getPublicInfo(r);
+      return {
+        id: it.id,
+        code: it.code,
+        name: it.name || it.code,
+        remainingTickets: (typeof it.available==='number') ? it.available : undefined,
+        expiresAt: it.endsAt || it.ends_at || null,
+        url: `/raffles/room?code=${encodeURIComponent(it.code)}`
+      };
+    };
+    const h = raffles.listByHost(userId, { limit: 20, offset: 0 });
+    const p = raffles.listParticipating(userId, { limit: 20, offset: 0 });
+    const host = (h && h.items ? h.items : []).map(mapItem);
+    const playing = (p && p.items ? p.items : []).map(mapItem);
+    res.json({ success:true, host, playing });
+  }catch(_){ res.json({ success:true, host:[], playing:[] }); }
+});
+
 router.get('/id/:id', (req,res)=>{
   const r = raffles.details(req.params.id);
   if (!r) return res.status(404).json({ success:false, error:'raffle_not_found' });

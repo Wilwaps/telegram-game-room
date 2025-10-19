@@ -19,6 +19,7 @@ const bingoRoutes = require('./routes/bingo');
 const fireRequestsRoutes = require('./routes/fire_requests');
 const rafflesRoutes = require('./routes/raffles');
 const messagesRoutes = require('./routes/messages');
+let marketRoutes = null; try { marketRoutes = require('./routes/market'); } catch(_) { marketRoutes = null; }
 let gamesLobbyRoutes = null; try { gamesLobbyRoutes = require('./routes/games_lobby'); } catch(_) { gamesLobbyRoutes = null; }
 const musicRoutes = require('./routes/music');
 const store = require('./services/memoryStore');
@@ -202,6 +203,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/games/tictactoe', tttRoutes);
 app.use('/api/games/bingo', bingoRoutes);
 try { if (gamesLobbyRoutes) app.use('/api/games/lobby', gamesLobbyRoutes); } catch(_) {}
+try { if (marketRoutes) app.use('/api/market', marketRoutes); } catch(_) {}
 app.use('/api/admin/users', require('./routes/admin_users'));
 try { app.use('/api/roles', require('./routes/roles')); } catch(_) {}
 
@@ -238,6 +240,11 @@ app.get('/fire-requests', (req, res) => {
 // Lobby
 app.get('/lobby', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/lobby.html'));
+});
+
+// Market
+app.get('/market', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/market.html'));
 });
 
 app.get('/admin/dashboard', (req, res) => {

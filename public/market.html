@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mercado del Fuego • Telegram Game Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="/config.js"></script>
+  <script src="https://browser.sentry-cdn.com/7.121.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
+  <script src="/js/sentry-config.js"></script>
+  <script src="/js/sentry-client.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/js/app-user.js"></script>
+  <style>
+    body { min-height: max(884px, 100dvh); }
+    .card { background: linear-gradient(160deg, rgba(18,26,43,0.92), rgba(11,14,20,0.95)); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+    .redeem-btn { width:70px; height:70px; }
+  </style>
+</head>
+<body class="bg-background-dark font-display text-text">
+  <div class="min-h-screen flex flex-col">
+    <main class="flex-1 p-4 pb-24">
+      <h1 class="text-3xl font-bold text-center text-accent mb-6">Mercado del Fuego</h1>
+      <div class="max-w-md mx-auto card">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-sm text-text/70">Saldo disponible</div>
+            <div id="balF" class="text-2xl font-bold">0 🔥</div>
+          </div>
+          <button id="redeem100" class="redeem-btn rounded-lg bg-gradient-to-r from-orange-500 to-yellow-400 text-background-dark font-bold shadow-[0_0_12px_rgba(255,165,0,0.6)] disabled:opacity-40" disabled>100</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Overlay de canje -->
+  <div id="overlay" class="hidden fixed inset-0 z-40">
+    <div class="absolute inset-0 bg-background-dark/60 backdrop-blur-sm"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="relative bg-card/95 border border-glass rounded-xl w-full max-w-lg p-6 space-y-4">
+        <button id="ovClose" class="absolute top-3 right-3 text-text/70 hover:text-text"><span class="material-symbols-outlined">close</span></button>
+        <h2 class="text-xl font-bold text-center text-accent">Canjear 100 Fuegos por 100 Bolívares</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <input id="cedula" class="bg-background-dark border border-glass rounded-lg p-3" placeholder="Cédula" />
+          <input id="telefono" class="bg-background-dark border border-glass rounded-lg p-3" placeholder="Teléfono" />
+          <select id="bank" class="bg-background-dark border border-glass rounded-lg p-3">
+            <option value="">Banco</option>
+            <option value="0102" data-name="Banco de Venezuela">0102 - Banco de Venezuela</option>
+            <option value="0104" data-name="Banco Venezolano de Crédito">0104 - Banco Venezolano de Crédito</option>
+            <option value="0105" data-name="Banco Mercantil">0105 - Banco Mercantil</option>
+            <option value="0108" data-name="BBVA Provincial">0108 - BBVA Provincial</option>
+            <option value="0114" data-name="Banco del Caribe">0114 - Banco del Caribe</option>
+            <option value="0115" data-name="Banco Exterior">0115 - Banco Exterior</option>
+            <option value="0116" data-name="Banco Occidental de Descuento">0116 - Banco Occidental de Descuento</option>
+            <option value="0128" data-name="Banco Caroní">0128 - Banco Caroní</option>
+            <option value="0134" data-name="Banesco">0134 - Banesco</option>
+            <option value="0137" data-name="Banco Sofitasa">0137 - Banco Sofitasa</option>
+            <option value="0138" data-name="Banco Plaza">0138 - Banco Plaza</option>
+            <option value="0156" data-name="100% Banco">0156 - 100% Banco</option>
+            <option value="0157" data-name="DelSur Banco Universal">0157 - DelSur Banco Universal</option>
+            <option value="0163" data-name="Banco del Tesoro">0163 - Banco del Tesoro</option>
+            <option value="0166" data-name="Banco Agrícola de Venezuela">0166 - Banco Agrícola de Venezuela</option>
+            <option value="0168" data-name="Bancrecer">0168 - Bancrecer</option>
+            <option value="0169" data-name="Mi Banco">0169 - Mi Banco</option>
+            <option value="0171" data-name="Banco Activo">0171 - Banco Activo</option>
+            <option value="0172" data-name="Bancamiga">0172 - Bancamiga</option>
+            <option value="0174" data-name="Banplus">0174 - Banplus</option>
+            <option value="0175" data-name="Banco Bicentenario">0175 - Banco Bicentenario</option>
+            <option value="0177" data-name="BANFANB">0177 - BANFANB</option>
+            <option value="0190" data-name="CITIBANK">0190 - CITIBANK</option>
+            <option value="0191" data-name="Banco Nacional de Crédito">0191 - Banco Nacional de Crédito</option>
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <button id="confirm" class="flex-1 bg-accent text-background-dark font-bold py-2 rounded-lg">Confirmar</button>
+          <button id="reject" class="flex-1 bg-transparent text-text py-2 rounded-lg border border-text/50">Rechazar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    const $ = (id)=>document.getElementById(id);
+    const btn = $('redeem100');
+    const overlay = $('overlay');
+    const ovClose = $('ovClose');
+    const confirmBtn = $('confirm');
+    const rejectBtn = $('reject');
+    const bankSel = $('bank');
+    let myId = null;
+
+    async function loadBalance(){
+      try{
+        myId = (window.AppUser && window.AppUser.resolveUserId && window.AppUser.resolveUserId()) || null;
+        const r = await fetch(`/api/profile/${encodeURIComponent(myId)}`);
+        const j = await r.json();
+        const fires = (j && j.success && j.user && j.user.fires) ? Number(j.user.fires) : 0;
+        document.getElementById('balF').textContent = fires + ' 🔥';
+        btn.disabled = !(fires >= 100);
+      }catch(_){ }
+    }
+
+    btn.addEventListener('click', ()=>{ overlay.classList.remove('hidden'); });
+    ovClose.addEventListener('click', ()=> overlay.classList.add('hidden'));
+    rejectBtn.addEventListener('click', ()=> overlay.classList.add('hidden'));
+
+    confirmBtn.addEventListener('click', async()=>{
+      try{
+        const cedula = $('cedula').value.trim();
+        const telefono = $('telefono').value.trim();
+        const opt = bankSel.options[bankSel.selectedIndex];
+        const bankCode = opt ? String(opt.value||'') : '';
+        const bankName = opt ? String(opt.dataset.name||'') : '';
+        const payload = { userId: myId, cedula, telefono, bankCode, bankName };
+        const r = await fetch('/api/market/redeem-100-fire',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const j = await r.json();
+        if (j && j.success){
+          overlay.classList.add('hidden');
+          alert('Solicitud enviada. Recibirás confirmación por Telegram.');
+          await loadBalance();
+        } else {
+          alert('No se pudo enviar: '+(j&&j.error||'error'));
+        }
+      }catch(_){ alert('Error de red'); }
+    });
+
+    window.addEventListener('load', loadBalance);
+  })();
+  </script>
+  <script src="/js/footer-nav.js"></script>
+  <script src="/js/music.js"></script>
+</body>
+</html>

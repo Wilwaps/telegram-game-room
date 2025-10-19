@@ -7,6 +7,7 @@
       if (key==='lobby') return path.startsWith('/lobby');
       if (key==='juegos') return path.startsWith('/games');
       if (key==='raffles') return path.startsWith('/raffles');
+      if (key==='market') return path.startsWith('/market');
       return false;
     }
     // estilos base para .nav-item (si no existen en la página)
@@ -36,7 +37,7 @@
     inner.appendChild(item('/lobby','door_open','Lobby','lobby','--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14'));
     inner.appendChild(item('/games','sports_esports','Juegos','juegos','--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14'));
     inner.appendChild(item('/raffles','confirmation_number','Rifas','raffles','--tw-bg-accent:#facc15; --tw-bg-background-dark:#0B0E14'));
-    inner.appendChild(item('#','storefront','Mercado',null,'--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14'));
+    inner.appendChild(item('/market','storefront','Mercado','market','--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14'));
     inner.appendChild(item('#','groups','Rol',null,'--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14'));
     inner.appendChild(item('#','schedule','Próximo',null,'--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14'));
     nav.appendChild(inner);
