@@ -19,6 +19,7 @@ const bingoRoutes = require('./routes/bingo');
 const fireRequestsRoutes = require('./routes/fire_requests');
 const rafflesRoutes = require('./routes/raffles');
 const messagesRoutes = require('./routes/messages');
+let gamesLobbyRoutes = null; try { gamesLobbyRoutes = require('./routes/games_lobby'); } catch(_) { gamesLobbyRoutes = null; }
 const musicRoutes = require('./routes/music');
 const store = require('./services/memoryStore');
 const auth = require('./services/authStore');
@@ -200,6 +201,7 @@ app.use('/telegram', telegramRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/games/tictactoe', tttRoutes);
 app.use('/api/games/bingo', bingoRoutes);
+try { if (gamesLobbyRoutes) app.use('/api/games/lobby', gamesLobbyRoutes); } catch(_) {}
 app.use('/api/admin/users', require('./routes/admin_users'));
 try { app.use('/api/roles', require('./routes/roles')); } catch(_) {}
 
@@ -231,6 +233,11 @@ app.get('/raffles/room', (req, res) => {
 });
 app.get('/fire-requests', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/fire-requests.html'));
+});
+
+// Lobby
+app.get('/lobby', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../public/lobby.html'));
 });
 
 app.get('/admin/dashboard', (req, res) => {
