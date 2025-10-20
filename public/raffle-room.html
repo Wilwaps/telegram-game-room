@@ -23,6 +23,12 @@
 <body class="bg-background-dark font-display text-text">
 <div class="flex flex-col min-h-screen">
   <main class="flex-1 p-4 pb-24 space-y-6 flex flex-col items-center">
+    <div class="w-full max-w-md flex items-center justify-between">
+      <button id="btnBackRaffleRoom" class="p-2 rounded-lg bg-glass hover:bg-accent/10 transition">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <span class="w-8 h-8"></span>
+    </div>
     <div class="w-full max-w-md text-center mb-2">
       <div class="bg-panel rounded-xl border border-glass p-3 shadow-neon-fire relative">
         <div class="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-amber-500 text-background-dark font-bold px-3 py-1 rounded-full shadow-neon-gold" id="potBtn">
@@ -366,6 +372,11 @@
   async function boot(){ if (__raffleRoomBooted) return; __raffleRoomBooted = true; await load(); if (!usingSSE) setTimeout(poll, refreshMs); }
   if (document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
   document.addEventListener('AppShell:afterNavigate', ()=>{ __raffleRoomBooted=false; boot(); });
+  // Back arrow
+  try{
+    const bb=document.getElementById('btnBackRaffleRoom');
+    if (bb) bb.addEventListener('click', ()=>{ try{ if (history.length>1) history.back(); else location.href='/raffles'; }catch(_){ location.href='/raffles'; } });
+  }catch(_){ }
 })();
 </script>
 
