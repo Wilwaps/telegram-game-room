@@ -154,6 +154,17 @@
           <button id="rematchBtn" class="flex-1 bg-yellow-400 text-background-dark py-2 rounded-lg font-bold">Revancha</button>
           <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Salir</a>
         </div>
+        <div id="modePanel" class="w-full max-w-sm mx-auto mb-2" style="display:none">
+          <div class="grid grid-cols-3 gap-2 items-stretch">
+            <button id="modeCoins" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg font-bold shadow-[0_0_10px_#facc15] flex items-center justify-center">Monedas</button>
+            <button id="modeFuego" class="bg-glass text-text py-2 rounded-lg font-bold flex items-center justify-center">Fuego</button>
+            <div class="flex items-center justify-between bg-glass text-text rounded-lg px-2">
+              <button id="modeDec" class="px-2 py-1 text-lg">-</button>
+              <span id="modeValue" class="font-bold">1</span>
+              <button id="modeInc" class="px-2 py-1 text-lg">+</button>
+            </div>
+          </div>
+        </div>
         <div id="preMatch" class="w-full max-w-sm mx-auto flex gap-2" style="display:none">
           <button id="readyBtn" class="flex-1 bg-glass text-text py-2 rounded-lg font-bold">Listo</button>
           <button id="startBtn" class="flex-1 bg-yellow-400 text-background-dark py-2 rounded-lg font-bold">Iniciar</button>
@@ -313,6 +324,12 @@
   const readyBtn = $('readyBtn');
   const startBtn = $('startBtn');
   const preMatchHint = $('preMatchHint');
+  const modePanel = $('modePanel');
+  const modeCoins = $('modeCoins');
+  const modeFuego = $('modeFuego');
+  const modeDec = $('modeDec');
+  const modeInc = $('modeInc');
+  const modeValue = $('modeValue');
   // Celebración
   const celebrateOverlay = $('celebrateOverlay');
   const celebrateClose = $('celebrateClose');
@@ -339,6 +356,8 @@
   let createPollTimer = null;
   let activeRoomId = null;
   let lastState = null;
+  let boardCostType = 'coins';
+  let boardCostValue = 1;
 
   function getQuery(name){
     const u = new URL(window.location.href);
@@ -382,6 +401,42 @@
       const id = currentRoomForLeave(); if (!id) return;
       if (!href.startsWith('/games/tictactoe')){ postLeaveSync(id); }
     }catch(_){ }
+  }
+
+  function refreshModePanelUI(s){
+    try{
+      boardCostType = String((s && s.costType) || 'coins');
+      boardCostValue = Math.max(1, Number((s && s.costValue) || 1));
+      if (modeValue) modeValue.textContent = String(boardCostValue);
+      const onCls = ' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]';
+      const offCls = ' bg-glass text-text';
+      if (modeCoins && modeFuego){
+        // reset
+        for (const b of [modeCoins, modeFuego]){ b.className = b.className.replace(' bg-yellow-400/20','').replace(' text-yellow-400','').replace(' shadow-[0_0_10px_#facc15]',''); b.className = b.className.replace(' bg-glass','').replace(' text-text',''); b.className += offCls; }
+        if (boardCostType==='coins') modeCoins.className = modeCoins.className.replace(offCls,'') + onCls; else modeFuego.className = modeFuego.className.replace(offCls,'') + onCls;
+      }
+    }catch(_){ }
+  }
+
+  function updateModePanel(s){
+    try{
+      const both = !!(s && s.players && s.players.X && s.players.O);
+      const playing = (s && s.status === 'playing');
+      const my = myMark || (s.players?.X===myId ? 'X' : (s.players?.O===myId ? 'O' : null));
+      const show = both && !playing && my==='X';
+      if (modePanel) modePanel.style.display = show ? '' : 'none';
+      if (show) refreshModePanelUI(s);
+    }catch(_){ }
+  }
+
+  async function patchBoardOptions(partial){
+    if (!roomId) return;
+    const body = {};
+    if (partial && typeof partial.costType !== 'undefined') body.costType = partial.costType;
+    if (partial && typeof partial.costValue !== 'undefined') body.costValue = Math.max(1, Number(partial.costValue)||1);
+    try{
+      await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/options`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    }catch(_){ setStatus('No se pudo cambiar el modo'); setTimeout(()=> setStatus(''), 1500); }
   }
   document.addEventListener('click', onGlobalNavClick, true);
   window.addEventListener('pagehide', ()=>{ try{ const id=currentRoomForLeave(); if(id) postLeaveSync(id); }catch(_){ } });
@@ -686,6 +741,7 @@
           markEl.classList.toggle('mark-active', myMark && s.turn === myMark);
         }
         updatePreMatchUI(s);
+        updateModePanel(s);
         // apuestas en juego (mostrar pot real desde backend)
         const costType = String(s.costType||'free');
         const costValue = Number(s.costValue||0);
