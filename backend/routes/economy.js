@@ -1,3 +1,38 @@
+// -------- Auditoría supply (DB) --------
+// GET /api/economy/supply/txs-db
+router.get('/supply/txs-db', async (req, res) => {
+  try {
+    const { type, user_ext, event_id, from, to, limit, offset, order } = req.query || {};
+    const out = await supplyRepo.listSupplyTxs({ type, user_ext, event_id, from, to, limit, offset, order });
+    res.json({ success: true, ...out });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'supply_txs_list_error' });
+  }
+});
+
+// GET /api/economy/supply/txs-db/:id
+router.get('/supply/txs-db/:id', async (req, res) => {
+  try {
+    const row = await supplyRepo.getSupplyTx(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'not_found' });
+    res.json({ success: true, tx: row });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'supply_tx_get_error' });
+  }
+});
+
+// GET /api/economy/supply/txs-db/export.csv
+router.get('/supply/txs-db/export.csv', async (req, res) => {
+  try {
+    const { type, user_ext, event_id, from, to, limit, offset, order } = req.query || {};
+    const csv = await supplyRepo.exportSupplyTxsCsv({ type, user_ext, event_id, from, to, limit, offset, order });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="supply_txs_export.csv"');
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'supply_txs_export_error' });
+  }
+});
 const express = require('express');
 const router = express.Router();
 const store = require('../services/memoryStore');

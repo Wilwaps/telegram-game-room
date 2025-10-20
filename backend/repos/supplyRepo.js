@@ -62,4 +62,40 @@ async function getDashboardSnapshot(){
   return { total, circulating, burned, reserve };
 }
 
-module.exports = { getStatus, setMax, canEmit, emit, getDashboardSnapshot };
+function parseDate(d){ if(!d) return null; const n=Number(d); if(!Number.isNaN(n) && n>0) return new Date(n); try{ const dt=new Date(String(d)); return isNaN(dt.getTime())? null : dt; }catch(_){ return null; } }
+
+async function listSupplyTxs({ type, user_ext, event_id, from, to, limit=50, offset=0, order='desc' }={}){
+  const cond=[]; const args=[]; let i=1;
+  if (type){ cond.push(`type=$${i++}`); args.push(String(type)); }
+  if (user_ext){ cond.push(`user_ext=$${i++}`); args.push(String(user_ext)); }
+  if (event_id){ cond.push(`event_id=$${i++}`); args.push(Number(event_id)); }
+  const dtFrom = parseDate(from); if (dtFrom){ cond.push(`ts >= $${i++}`); args.push(dtFrom); }
+  const dtTo = parseDate(to); if (dtTo){ cond.push(`ts <= $${i++}`); args.push(dtTo); }
+  const where = cond.length? `WHERE ${cond.join(' AND ')}` : '';
+  const lim = Math.max(1, Math.min(1000, Number(limit)||50));
+  const off = Math.max(0, Number(offset)||0);
+  const ord = String(order||'desc').toLowerCase()==='asc' ? 'ASC' : 'DESC';
+  const q = `SELECT id, ts, type, amount, user_ext, user_id, event_id, reference, meta, actor FROM supply_txs ${where} ORDER BY ts ${ord}, id ${ord} LIMIT ${lim} OFFSET ${off}`;
+  const rs = await db.query(q, args);
+  return { items: rs.rows||[], limit: lim, offset: off };
+}
+
+async function getSupplyTx(id){
+  const rs = await db.query('SELECT id, ts, type, amount, user_ext, user_id, event_id, reference, meta, actor FROM supply_txs WHERE id=$1',[Number(id)]);
+  return rs.rows && rs.rows[0] || null;
+}
+
+function toCsvValue(v){ if (v===null||v===undefined) return ''; const s = typeof v==='object'? JSON.stringify(v) : String(v); return '"'+ s.replace(/"/g,'""') +'"'; }
+
+async function exportSupplyTxsCsv(filters={}){
+  const { items } = await listSupplyTxs({ ...filters, limit: Math.min(5000, Number(filters.limit)||5000), offset: Number(filters.offset)||0 });
+  const header = ['id','ts','type','amount','user_ext','user_id','event_id','reference','actor','meta'];
+  const lines = [header.join(',')];
+  for (const r of items){
+    const row = [r.id, r.ts instanceof Date? r.ts.toISOString() : (r.ts || ''), r.type, Number(r.amount||0), r.user_ext||'', r.user_id||'', r.event_id||'', r.reference||'', r.actor||'', r.meta||null];
+    lines.push(row.map(toCsvValue).join(','));
+  }
+  return lines.join('\n');
+}
+
+module.exports = { getStatus, setMax, canEmit, emit, getDashboardSnapshot, listSupplyTxs, getSupplyTx, exportSupplyTxsCsv };
