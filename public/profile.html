@@ -361,7 +361,7 @@
           el.className='bg-background-dark border border-glass rounded-lg p-2';
           const meta = m && m.meta || {};
           const isOffer = String(meta.type||'') === 'welcome_offer';
-          const btnHtml = isOffer ? `<div class="mt-2"><button class="accept-offer px-3 py-1 bg-accent text-background-dark rounded-lg text-sm">Aceptar bono</button></div>` : '';
+          const btnHtml = isOffer ? `<div class="mt-2"><button class="accept-offer px-3 py-1 bg-accent text-background-dark rounded-lg text-sm" data-event-id="${meta.eventId||''}">Aceptar bono</button></div>` : '';
           el.innerHTML=`<div class="text-xs text-text/50">${new Date(m.ts).toLocaleString()}</div><div>${m.text||''}</div>${btnHtml}`;
           if (isOffer){
             const b = el.querySelector('.accept-offer');
@@ -369,26 +369,33 @@
               b.addEventListener('click', async ()=>{
                 try{
                   b.disabled = true;
-                  const resp = await fetch('/api/welcome/accept',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: uid, eventId: meta.eventId||null }) });
+                  const evId = b.getAttribute('data-event-id') || (meta.eventId||null);
+                  const resp = await fetch('/api/welcome/accept',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: uid, eventId: evId }) });
                   const jj = await resp.json();
                   if (resp.ok && jj && jj.success){
-                    alert(`Bono activado: +${jj.coinsAwarded||0} monedas y +${jj.firesAwarded||0} 🔥`);
-                    try{ await loadProfile(); }catch(_){}
+                    b.textContent = 'Aceptado';
+                    try{ await loadProfile(); }catch(_){ }
+                    hide($('inboxOverlay'));
                   } else {
+                    b.disabled = false;
                     alert('No se pudo activar el bono');
                   }
-                }catch(_){ alert('Error de red'); }
-                finally{ try{ b.disabled=false; }catch(_){ } }
+                }catch(_){ b.disabled=false; alert('Error de red'); }
               });
             }
           }
           cont.appendChild(el);
         }
         await fetch('/api/messages/read-all',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: uid }) });
-        unread=0; const dot=$('inboxDot'); const btn=$('inboxBtn'); if(dot) dot.style.display='none'; btn&&btn.classList.remove('blink');
+        unread=0;
+        const dot=$('inboxDot'); const btn=$('inboxBtn');
+        if(dot) dot.style.display='none';
+        btn&&btn.classList.remove('blink');
         show($('inboxOverlay'));
       }catch(_){ }
     }
+        
+    
     $('fireBtn')?.addEventListener('click', async ()=>{ await loadFireHistory(); show($('firesHistoryOverlay')); });
     $('closeHistory')?.addEventListener('click', ()=> hide($('firesHistoryOverlay')));
     $('buyFiresBtn')?.addEventListener('click', ()=>{ hide($('firesHistoryOverlay')); show($('buyFiresOverlay')); });

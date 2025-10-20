@@ -148,6 +148,18 @@
       try { if (window.AppUser && typeof window.AppUser.resolveUserId==='function') return window.AppUser.resolveUserId(); } catch(_){ }
       return getUserId();
     }
+    async function refreshBalance(){
+      try{
+        const uid = resolveUID(); if (!uid) return;
+        fetch(`/api/profile/${encodeURIComponent(uid)}`).then(r=>r.json()).then(j=>{
+          if (j && j.success && j.user){
+            const fEl = document.getElementById('firesVal'); if (fEl) fEl.textContent = fmt(Number(j.user.fires||0));
+            const cEl = document.getElementById('coinsVal'); if (cEl) cEl.textContent = fmt(Number(j.user.coins||0));
+            const cur = document.getElementById('currentFiresVal'); if (cur) cur.textContent = String(Number(j.user.fires||0));
+          }
+        }).catch(()=>{});
+      }catch(_){ }
+    }
     async function pollUnread(){
       try{
         const uid = resolveUID(); if (!uid) return;
@@ -167,7 +179,31 @@
         if (items.length===0) list.innerHTML = '<div style="color:#9fb1c6">Sin mensajes</div>';
         for (const m of items){
           const el = document.createElement('div'); el.style.cssText='border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:8px; margin:6px 0; background:rgba(255,255,255,.03)';
-          el.innerHTML = `<div style="color:#9fb1c6; font-size:11px">${new Date(m.ts).toLocaleString()}</div><div>${(m.text||'')}</div>`;
+          const meta = m && m.meta || {};
+          const isOffer = String(meta.type||'') === 'welcome_offer';
+          const btnHtml = isOffer ? `<div style="margin-top:6px;"><button class="mx-accept-offer" data-event-id="${meta.eventId||''}" style="padding:6px 10px; border-radius:8px; background:#22d3ee; color:#0B0E14; font-weight:700; font-size:12px;">Aceptar bono</button></div>` : '';
+          el.innerHTML = `<div style="color:#9fb1c6; font-size:11px">${new Date(m.ts).toLocaleString()}</div><div>${(m.text||'')}</div>${btnHtml}`;
+          if (isOffer){
+            const b = el.querySelector('.mx-accept-offer');
+            if (b){
+              b.addEventListener('click', async ()=>{
+                try{
+                  b.disabled = true;
+                  const evId = b.getAttribute('data-event-id') || (meta.eventId||null);
+                  const resp = await fetch('/api/welcome/accept',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: resolveUID(), eventId: evId }) });
+                  const jj = await resp.json();
+                  if (resp.ok && jj && jj.success){
+                    b.textContent = 'Aceptado';
+                    try { refreshBalance(); } catch(_){ }
+                    modal.style.display='none';
+                  } else {
+                    b.disabled = false;
+                    alert('No se pudo activar el bono');
+                  }
+                }catch(_){ b.disabled=false; alert('Error de red'); }
+              });
+            }
+          }
           list.appendChild(el);
         }
         await fetch('/api/messages/read-all',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: uid }) });
