@@ -95,7 +95,7 @@ async function awardIfEligible(userExt){
       const w = await client.query('SELECT id FROM wallets WHERE user_id=$1 FOR UPDATE',[dbUserId]);
       const wid = w.rows?.[0]?.id; if (wid){
         await client.query('UPDATE wallets SET coins_balance = coins_balance + $2, updated_at=NOW() WHERE id=$1',[wid, coins]);
-        await client.query('INSERT INTO wallet_transactions(wallet_id,type,amount_coins,reference,meta,created_at) VALUES ($1,$2,$3,$4,$5,NOW())',[wid,'welcome_bonus', coins, 'welcome', { userExt: ext }]);
+        await client.query('INSERT INTO wallet_transactions(wallet_id,type,amount_coin,reference,meta,created_at) VALUES ($1,$2,$3,$4,$5,NOW())',[wid,'welcome_bonus', coins, 'welcome', { userExt: ext }]);
       }
     }
     if (fires>0){
