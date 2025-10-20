@@ -145,4 +145,15 @@ router.post('/supply/burn', adminAuth, (req, res) => {
   }
 });
 
+// POST /api/economy/supply/backfill/welcome-bonus (admin)
+router.post('/supply/backfill/welcome-bonus', adminAuth, async (req, res) => {
+  try {
+    const { from, to, limit, dryRun } = req.body || {};
+    const out = await supplyRepo.backfillWelcomeBonus({ from, to, limit, dryRun });
+    res.json({ success: true, result: out });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'backfill_error' });
+  }
+});
+
 module.exports = router;

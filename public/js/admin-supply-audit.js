@@ -34,7 +34,10 @@
       const items = j.items||[];
       if(tb){
         tb.innerHTML='';
-        for(const it of items){
+        if (items.length === 0){
+          tb.innerHTML='<tr><td colspan="8" class="muted">Sin resultados</td></tr>';
+        } else {
+          for(const it of items){
           const tr = document.createElement('tr');
           const metaStr = short(typeof it.meta==='object'? JSON.stringify(it.meta) : (it.meta||''), 80);
           tr.innerHTML = `
@@ -48,6 +51,7 @@
             <td><code>${metaStr}</code></td>
           `;
           tb.appendChild(tr);
+          }
         }
       }
       // paginación básica

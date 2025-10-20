@@ -122,4 +122,51 @@ async function exportSupplyTxsCsv(filters={}){
   return lines.join('\n');
 }
 
-module.exports = { getStatus, setMax, canEmit, emit, getDashboardSnapshot, listSupplyTxs, getSupplyTx, exportSupplyTxsCsv };
+async function backfillWelcomeBonus({ from, to, limit=1000, dryRun=false }={}){
+  await ensureSupplyTxsTable();
+  const dtFrom = parseDate(from);
+  const dtTo = parseDate(to);
+  const lim = Math.max(1, Math.min(5000, Number(limit)||1000));
+  const q = `
+    SELECT wt.id AS wallet_tx_id,
+           wt.created_at AS ts,
+           COALESCE(wt.amount_fire,0) AS amount_fire,
+           w.user_id AS user_id,
+           u.tg_id AS tg_id,
+           we.id AS event_id
+    FROM wallet_transactions wt
+    JOIN wallets w ON w.id = wt.wallet_id
+    LEFT JOIN users u ON u.id = w.user_id
+    LEFT JOIN welcome_events we ON we.starts_at IS NOT NULL AND we.ends_at IS NOT NULL AND wt.created_at BETWEEN we.starts_at AND we.ends_at
+    WHERE wt.type = 'welcome_bonus'
+      AND COALESCE(wt.amount_fire,0) <> 0
+      AND ($1::timestamptz IS NULL OR wt.created_at >= $1)
+      AND ($2::timestamptz IS NULL OR wt.created_at <= $2)
+      AND NOT EXISTS (
+        SELECT 1 FROM supply_txs st WHERE st.meta->>'wallet_tx_id' = wt.id::text
+      )
+    ORDER BY wt.created_at ASC
+    LIMIT $3`;
+  const rs = await db.query(q, [dtFrom, dtTo, lim]);
+  const rows = rs.rows || [];
+  if (dryRun) return { dryRun:true, candidates: rows.length };
+  const client = await db.pool.connect();
+  let inserted = 0;
+  try{
+    await client.query('BEGIN');
+    for (const r of rows){
+      const userExt = (r.tg_id) ? ('tg:' + r.tg_id) : (r.user_id ? ('db:' + r.user_id) : null);
+      const amt = Math.abs(Number(r.amount_fire||0));
+      await client.query(
+        'INSERT INTO supply_txs(ts,type,amount,user_ext,user_id,event_id,reference,meta,actor) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [r.ts, 'welcome_bonus', amt, userExt, r.user_id || null, r.event_id || null, 'backfill', { wallet_tx_id: r.wallet_tx_id }, 'backfill']
+      );
+      inserted += 1;
+    }
+    await client.query('COMMIT');
+  }catch(err){ try{ await client.query('ROLLBACK'); }catch(_){} throw err; }
+  finally{ client.release(); }
+  return { inserted };
+}
+
+module.exports = { getStatus, setMax, canEmit, emit, getDashboardSnapshot, listSupplyTxs, getSupplyTx, exportSupplyTxsCsv, backfillWelcomeBonus };
