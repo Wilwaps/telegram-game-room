@@ -154,6 +154,11 @@
           <button id="rematchBtn" class="flex-1 bg-yellow-400 text-background-dark py-2 rounded-lg font-bold">Revancha</button>
           <a href="/games" class="flex-1 bg-transparent text-text py-2 rounded-lg font-bold border border-text/50 text-center">Salir</a>
         </div>
+        <div id="preMatch" class="w-full max-w-sm mx-auto flex gap-2" style="display:none">
+          <button id="readyBtn" class="flex-1 bg-glass text-text py-2 rounded-lg font-bold">Listo</button>
+          <button id="startBtn" class="flex-1 bg-yellow-400 text-background-dark py-2 rounded-lg font-bold">Iniciar</button>
+        </div>
+        <div id="preMatchHint" class="text-center text-xs text-text/70" style="display:none">El invitado marca "Listo" y el anfitrión inicia la partida.</div>
       </section>
     </div>
   </main>
@@ -304,6 +309,10 @@
   const scoreOVal = $('scoreOVal');
   const afterRound = $('afterRound');
   const rematchBtn = document.getElementById('rematchBtn');
+  const preMatch = $('preMatch');
+  const readyBtn = $('readyBtn');
+  const startBtn = $('startBtn');
+  const preMatchHint = $('preMatchHint');
   // Celebración
   const celebrateOverlay = $('celebrateOverlay');
   const celebrateClose = $('celebrateClose');
@@ -329,6 +338,7 @@
   let turnDeadlineTs = 0;
   let createPollTimer = null;
   let activeRoomId = null;
+  let lastState = null;
 
   function getQuery(name){
     const u = new URL(window.location.href);
@@ -416,6 +426,27 @@
     };
     tick();
     boardTimer = setInterval(tick, 250);
+  }
+
+  function updatePreMatchUI(s){
+    try{
+      const both = !!(s && s.players && s.players.X && s.players.O);
+      const playing = (s && s.status === 'playing');
+      if (preMatch) preMatch.style.display = (!playing && both) ? 'flex' : 'none';
+      if (preMatchHint) preMatchHint.style.display = (!playing && both) ? '' : 'none';
+      if (!both || playing) return;
+      const my = myMark || (s.players?.X===myId ? 'X' : (s.players?.O===myId ? 'O' : null));
+      if (my === 'X'){
+        if (startBtn){ startBtn.style.display=''; startBtn.disabled = !(s && s.ready && s.ready.O); }
+        if (readyBtn) readyBtn.style.display='none';
+      } else if (my === 'O'){
+        if (readyBtn){ const isReady = !!(s && s.ready && s.ready.O); readyBtn.style.display=''; readyBtn.textContent = isReady ? 'Cancelar' : 'Listo'; readyBtn.disabled = false; }
+        if (startBtn) startBtn.style.display='none';
+      } else {
+        if (readyBtn) readyBtn.style.display='none';
+        if (startBtn){ startBtn.style.display=''; startBtn.disabled = true; }
+      }
+    }catch(_){ }
   }
 
   function updateActiveCard(room){
@@ -612,6 +643,7 @@
     es.addEventListener('state', (ev) => {
       try{
         const s = JSON.parse(ev.data);
+        lastState = s;
         renderBoard(s.board || Array(9).fill(null));
         setTurn(s.turn);
         setStatus(s.status + (s.winner ? (s.winner==='draw' ? ' (Empate)' : ` (Ganador: ${s.winner})`) : ''));
@@ -638,7 +670,7 @@
           if (timerValEl) timerValEl.textContent = 'Pausa ' + fmtTime(left);
         } else if (s.status === 'playing' && s.turnDeadline) {
           turnDeadlineTs = Number(s.turnDeadline)||0; startBoardTimer();
-        } else { turnDeadlineTs = 0; stopBoardTimer(); if (timerValEl) timerValEl.textContent = '00:30'; }
+        } else { turnDeadlineTs = 0; stopBoardTimer(); if (timerValEl) timerValEl.textContent = '00:10'; }
         // marcador
         if (s.score) {
           if (scoreXVal) scoreXVal.textContent = String(s.score.X||0);
@@ -653,6 +685,7 @@
         if (markEl) {
           markEl.classList.toggle('mark-active', myMark && s.turn === myMark);
         }
+        updatePreMatchUI(s);
         // apuestas en juego (mostrar pot real desde backend)
         const costType = String(s.costType||'free');
         const costValue = Number(s.costValue||0);
@@ -808,6 +841,26 @@
       const j = await r.json();
       if (j && j.success) { rematchBtn.disabled = true; rematchBtn.textContent = 'Esperando rival...'; }
     }catch(_){ }
+  });
+  if (readyBtn) readyBtn.addEventListener('click', async ()=>{
+    if (!roomId) return;
+    try{
+      const isReady = !!(lastState && lastState.ready && lastState.ready.O);
+      readyBtn.disabled = true;
+      const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/ready`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId, ready: !isReady }) });
+      const j = await r.json(); if (!j || !j.success){ setStatus('No se pudo marcar listo'); setTimeout(()=> setStatus(''), 1500); }
+    }catch(_){ setStatus('Error de red'); setTimeout(()=> setStatus(''), 1500); }
+    finally { try{ readyBtn.disabled = false; }catch(_){ } }
+  });
+  if (startBtn) startBtn.addEventListener('click', async ()=>{
+    if (!roomId) return;
+    try{
+      startBtn.disabled = true;
+      const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) });
+      const j = await r.json();
+      if (!j || !j.success){ const msg = (j && j.error) || 'No se pudo iniciar'; if (msg==='payment_failed') { setStatus('No se pudo iniciar: saldo insuficiente'); } else { setStatus('No se pudo iniciar'); } setTimeout(()=> setStatus(''), 1700); }
+    }catch(_){ setStatus('Error de red'); setTimeout(()=> setStatus(''), 1500); }
+    finally { try{ startBtn.disabled = false; }catch(_){ } }
   });
   if (celebrateClose) celebrateClose.addEventListener('click', ()=>{ try{ celebrateOverlay.classList.add('hidden'); }catch(_){ } });
   if (celebrateRematch) celebrateRematch.addEventListener('click', async ()=>{

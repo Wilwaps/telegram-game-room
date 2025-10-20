@@ -5,7 +5,7 @@ class TTTStore extends EventEmitter {
   constructor() {
     super();
     this.rooms = new Map();
-    this.turnTimeoutMs = Math.max(1000, parseInt(process.env.TTT_TURN_TIMEOUT_MS || '30000', 10) || 30000);
+    this.turnTimeoutMs = Math.max(1000, parseInt(process.env.TTT_TURN_TIMEOUT_MS || '10000', 10) || 10000);
     this.codeIndex = new Map(); // code -> roomId
   }
   potUserId(id) {
@@ -39,7 +39,9 @@ class TTTStore extends EventEmitter {
       round: 1,
       lastWinner: null,
       paidFlags: { X: false, O: false },
-      rematchVotes: { X: false, O: false }
+      rematchVotes: { X: false, O: false },
+      ready: { X: false, O: false },
+      pauseBudgetMs: { X: 30000, O: 30000 }
     };
     this.rooms.set(id, state);
     this.codeIndex.set(state.code, id);
@@ -79,6 +81,8 @@ class TTTStore extends EventEmitter {
       rematchVotes: { X: !!(r.rematchVotes && r.rematchVotes.X), O: !!(r.rematchVotes && r.rematchVotes.O) },
       pausedBy: r.pausedBy || null,
       pauseUntil: r.pauseUntil || null,
+      ready: { X: !!(r.ready && r.ready.X), O: !!(r.ready && r.ready.O) },
+      pauseBudget: { X: Math.max(0, r.pauseBudgetMs?.X||0), O: Math.max(0, r.pauseBudgetMs?.O||0) },
       playerNames: { X: display(r.players.X), O: display(r.players.O) }
     };
   }
@@ -141,8 +145,10 @@ class TTTStore extends EventEmitter {
         r.lastMoveAt = Date.now();
         r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
         r.rematchVotes = { X:false, O:false };
+        return true;
       }
     } catch (_) {}
+    return false;
   }
   settlePot(r) {
     if (!r) return;
@@ -178,6 +184,9 @@ class TTTStore extends EventEmitter {
     // si estaba en pausa por desconexión y vuelve el mismo jugador, reanudar
     const seat = this.who(r, uid);
     if (seat && r.pauseUntil && r.pausedBy === seat) {
+      const rem = Math.max(0, Number(r.pauseUntil) - Date.now());
+      if (!r.pauseBudgetMs) r.pauseBudgetMs = { X:30000, O:30000 };
+      r.pauseBudgetMs[seat] = rem;
       r.pauseUntil = null; r.pausedBy = null;
       if (r.lastDisconnect) { try{ delete r.lastDisconnect[seat]; }catch(_){ } }
       if (r.status === 'playing') {
@@ -185,10 +194,7 @@ class TTTStore extends EventEmitter {
         r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
       }
     }
-    const both = r.players.X && r.players.O;
-    if (both && r.status !== 'finished') {
-      this.chargeAndMaybeStart(r);
-    }
+    // no auto-start; el host debe iniciar manualmente
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);
     return s;
@@ -213,6 +219,10 @@ class TTTStore extends EventEmitter {
     if (typeof opts.costValue !== 'undefined') {
       r.costValue = Math.max(1, Number(opts.costValue || 1) || 1);
     }
+    // cambiar modo desactiva listo del invitado y reinicia pagos
+    if (!r.ready) r.ready = { X:false, O:false };
+    r.ready.O = false;
+    r.paidFlags = { X:false, O:false };
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);
     return s;
@@ -232,9 +242,26 @@ class TTTStore extends EventEmitter {
     if (r.status === 'playing'){
       if (!r.lastDisconnect) r.lastDisconnect = {};
       r.lastDisconnect[seat] = Date.now();
-      // activar pausa de 30s para reingreso
+      // activar pausa con presupuesto restante acumulativo
+      if (!r.pauseBudgetMs) r.pauseBudgetMs = { X:30000, O:30000 };
+      const budget = Math.max(0, Number(r.pauseBudgetMs[seat] || 30000));
+      if (budget <= 0) {
+        // sin presupuesto: derrota inmediata
+        const loser = seat;
+        const winner = loser === 'X' ? 'O' : 'X';
+        r.status = 'finished';
+        r.winner = winner;
+        r.lastWinner = winner;
+        r.turnDeadline = null;
+        r.rematchVotes = { X:false, O:false };
+        if (winner === 'X') r.score.X += 1; else if (winner === 'O') r.score.O += 1;
+        this.settlePot(r);
+        const s = this.getState(r.id);
+        this.emit('room_update_' + r.id, s);
+        return { state: s, closed: false };
+      }
       r.pausedBy = seat;
-      r.pauseUntil = Date.now() + 30000;
+      r.pauseUntil = Date.now() + budget;
       const s = this.getState(roomId);
       this.emit('room_update_' + r.id, s);
       return { state: s, closed: false };
@@ -359,12 +386,13 @@ class TTTStore extends EventEmitter {
       r.round += 1;
       r.board = Array(9).fill(null);
       r.winner = null;
-      r.lastMoveAt = Date.now();
+      r.lastMoveAt = null;
+      r.turnDeadline = null;
+      r.status = 'waiting';
       r.turn = (r.turn === 'X') ? 'O' : 'X';
       r.paidFlags = { X:false, O:false };
       r.rematchVotes = { X: false, O: false };
-      // intentar cobrar y arrancar
-      this.chargeAndMaybeStart(r);
+      r.ready = { X:false, O:false };
     }
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);

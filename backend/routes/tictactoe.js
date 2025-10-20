@@ -183,4 +183,35 @@ router.post('/rooms/:id/rematch', (req, res) => {
   }
 });
 
+// POST /api/games/tictactoe/rooms/:id/ready
+router.post('/rooms/:id/ready', (req, res) => {
+  try {
+    const roomId = String(req.params.id || '').trim();
+    const userId = String(req.body && req.body.userId || '').trim();
+    const ready = !!(req.body && req.body.ready);
+    if (!roomId || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
+    const state = store.setReady(roomId, userId, ready);
+    res.json({ success: true, state });
+  } catch (e) {
+    const msg = e && e.message || 'ready_error';
+    const code = (msg === 'room_not_found') ? 404 : 400;
+    res.status(code).json({ success: false, error: msg });
+  }
+});
+
+// POST /api/games/tictactoe/rooms/:id/start
+router.post('/rooms/:id/start', (req, res) => {
+  try {
+    const roomId = String(req.params.id || '').trim();
+    const userId = String(req.body && req.body.userId || '').trim();
+    if (!roomId || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
+    const state = store.startGame(roomId, userId);
+    res.json({ success: true, state });
+  } catch (e) {
+    const msg = e && e.message || 'start_error';
+    const code = (msg === 'room_not_found') ? 404 : 400;
+    res.status(code).json({ success: false, error: msg });
+  }
+});
+
 module.exports = router;
