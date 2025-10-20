@@ -1,3 +1,9 @@
+const express = require('express');
+const router = express.Router();
+const store = require('../services/memoryStore');
+const adminAuth = require('../middleware/adminAuth');
+const supplyRepo = require('../repos/supplyRepo');
+
 // -------- Auditoría supply (DB) --------
 // GET /api/economy/supply/txs-db
 router.get('/supply/txs-db', async (req, res) => {
@@ -33,11 +39,6 @@ router.get('/supply/txs-db/export.csv', async (req, res) => {
     res.status(500).json({ success: false, error: 'supply_txs_export_error' });
   }
 });
-const express = require('express');
-const router = express.Router();
-const store = require('../services/memoryStore');
-const adminAuth = require('../middleware/adminAuth');
-const supplyRepo = require('../repos/supplyRepo');
 
 // GET /api/economy/supply
 router.get('/supply', async (req, res) => {
