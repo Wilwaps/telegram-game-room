@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const store = require('../services/tictactoeStore');
+const { preferSessionUserId } = require('../middleware/sessionUser');
 
 router.post('/rooms', (req, res) => {
   try {
@@ -19,12 +20,14 @@ router.post('/rooms', (req, res) => {
 // GET /api/games/tictactoe/my-rooms?userId=
 router.get('/my-rooms', (req, res) => {
   try {
-    const userId = String(req.query.userId || '').trim();
+    const userId = preferSessionUserId(req, req.query.userId);
     if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
     const rooms = store.listRoomsByUser(userId);
     res.json({ success: true, rooms });
   } catch (e) {
-    res.status(500).json({ success: false, error: 'list_error' });
+    const code = e && e.status ? e.status : 500;
+    const err = e && e.message ? e.message : 'list_error';
+    res.status(code).json({ success: false, error: err });
   }
 });
 
@@ -61,7 +64,17 @@ router.post('/rooms/:id/join', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
     const userId = String(req.body && req.body.userId || '').trim();
+    const codeFromBody = String(req.body && req.body.code || '').trim();
     if (!roomId || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
+    const cur = store.getState(roomId);
+    if (!cur) return res.status(404).json({ success: false, error: 'room_not_found' });
+    const amI = (cur.players && (cur.players.X===userId || cur.players.O===userId));
+    if (String(cur.visibility||'private') === 'private' && !amI) {
+      // para salas privadas, solo permitir join si el código coincide
+      if (!codeFromBody || String(cur.code||'') !== codeFromBody) {
+        return res.status(403).json({ success: false, error: 'private_room_code_required' });
+      }
+    }
     const state = store.joinRoom(roomId, userId);
     res.json({ success: true, state });
   } catch (e) {
