@@ -15,6 +15,12 @@
     return root;
   }
 
+  function injectScriptOnce(id, src){ try{ var h=document.getElementById(id); if (h) return h; var s=document.createElement('script'); s.id=id; s.src=src; s.defer=true; (document.head||document.documentElement).appendChild(s); return s; }catch(_){ return null; } }
+  function injectCssOnce(id, href){ try{ var h=document.getElementById(id); if (h) return h; var l=document.createElement('link'); l.id=id; l.rel='stylesheet'; l.href=href; (document.head||document.documentElement).appendChild(l); return l; }catch(_){ return null; } }
+  function hasDriver(){ try{ return !!(window&&window.driver&&window.driver.js&&window.driver.js.driver); }catch(_){ return false; } }
+  function ensureDriverLoaded(){ try{ injectCssOnce('drivercss-link','/css/driver.css'); if (hasDriver()) return Promise.resolve(true); return new Promise(function(resolve){ var s=injectScriptOnce('driverjs-loader','https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js'); if (!s) return resolve(false); s.addEventListener('load', function(){ resolve(hasDriver()); }); }); }catch(_){ return Promise.resolve(false); } }
+  try{ document.addEventListener('AppShell:afterNavigate', function(){ try{ ensureDriverLoaded().then(function(){ try{ if (window.DriverTours && typeof window.DriverTours.runToursForRoute==='function'){ window.DriverTours.runToursForRoute(location.pathname); } }catch(_){ } }); }catch(_){ } }); }catch(_){ }
+
   function reexecuteScripts(container){
     try{
       const scripts = container.querySelectorAll('script');
@@ -51,7 +57,7 @@
       try{
         const m = doc.querySelector('main');
         if (m){
-          const ids = ['fabCreate','createOverlay','roomView','claimModal','gameOverOverlay'];
+          const ids = ['fabCreate','raffleCreateFab','createOverlay','roomView','claimModal','gameOverOverlay'];
           const outside = ids.some(id=>{ const el=doc.getElementById(id); return el && !m.contains(el); });
           if (outside) cand = doc.body; // Incluir overlays/fab que viven fuera de <main>
         }
@@ -82,7 +88,7 @@
       const rootEl = ensureRoot(); if (!rootEl) { location.href = url; return; }
       // Limpiar restos de vistas anteriores fuera del contenedor raíz (FAB/overlays de Bingo, etc.)
       try{
-        const strayIds = ['fabCreate','createOverlay','roomView','claimModal','gameOverOverlay','sheetOverlay','createSheet'];
+        const strayIds = ['fabCreate','raffleCreateFab','createOverlay','roomView','claimModal','gameOverOverlay','sheetOverlay','createSheet'];
         strayIds.forEach(id=>{
           const el = document.getElementById(id);
           if (el && !rootEl.contains(el)) { try{ el.remove(); }catch(_){} }
@@ -144,6 +150,6 @@
     preloadFooterLinks();
   }
 
-  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+  try{ ensureDriverLoaded().then(function(){ try{ if (window.DriverTours && typeof window.DriverTours.runToursForRoute==='function'){ window.DriverTours.runToursForRoute(location.pathname); } }catch(_){ } }); }catch(_){ }
 })();
