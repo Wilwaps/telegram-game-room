@@ -72,12 +72,14 @@ async function ensureSupplyTxsTable(){
       type TEXT NOT NULL,
       amount NUMERIC(24,2) NOT NULL DEFAULT 0,
       user_ext TEXT,
-      user_id INTEGER,
+      user_id UUID,
       event_id INTEGER REFERENCES welcome_events(id) ON DELETE SET NULL,
       reference TEXT,
       meta JSONB,
       actor TEXT
     )`);
+  // Intentar corregir tipo de columna si fue creada previamente como INTEGER
+  try{ await db.query('ALTER TABLE supply_txs ALTER COLUMN user_id TYPE uuid USING NULLIF(user_id::text, \'\')::uuid'); }catch(_){ }
     await db.query(`CREATE INDEX IF NOT EXISTS supply_txs_ts_idx ON supply_txs(ts)`);
     await db.query(`CREATE INDEX IF NOT EXISTS supply_txs_type_idx ON supply_txs(type)`);
     await db.query(`CREATE INDEX IF NOT EXISTS supply_txs_event_idx ON supply_txs(event_id)`);

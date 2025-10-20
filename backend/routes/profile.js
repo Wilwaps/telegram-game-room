@@ -13,24 +13,27 @@ router.get('/:userId', async (req, res) => {
     const effId = preferSessionUserId(req, userId);
     let u = store.getUser(effId) || store.ensureUser(effId);
     try{
-      if (userRepo && /^tg:/i.test(effId)){
+      if (userRepo && req.sessionUserId && req.sessionUserId === effId && /^tg:/i.test(effId)){
         const tg = effId.slice(3);
         try { await userRepo.upsertTelegramUser({ tgId: tg }); } catch(_){ }
       }
     }catch(_){ }
-    // Premio bienvenida con Postgres (solo TG/db) y persistente
+    // Oferta de bienvenida: enviar a inbox si es elegible (se reclama explícitamente)
     try {
-      if (welcomeRepo) {
-        const award = await welcomeRepo.awardIfEligible(effId);
-        if (award && award.awarded) {
+      if (welcomeRepo && typeof welcomeRepo.isEligibleForWelcome === 'function') {
+        const elig = await welcomeRepo.isEligibleForWelcome(effId);
+        if (elig && elig.eligible && elig.event && elig.event.id){
+          // Evitar duplicados: si ya existe mensaje de oferta para este evento
           try {
-            const ev = await welcomeRepo.getEvent();
-            const baseMsg = String(ev.message || '').trim();
-            const fallback = `🎉 Bienvenido/a. Has recibido ${award.coinsAwarded} monedas y ${award.firesAwarded} 🔥 de regalo.`;
-            const tail = award.until ? `Válido hasta ${new Date(award.until).toLocaleString()}.` : '';
-            const text = [baseMsg || fallback, tail].filter(Boolean).join(' ');
-            inbox.send({ toUserId: effId, text });
-          } catch (_) {}
+            const existing = inbox.inboxList(effId, { onlyUnread:false, limit:50, offset:0 }).items || [];
+            const hasOffer = existing.some(m => m && m.meta && m.meta.type === 'welcome_offer' && Number(m.meta.eventId||0) === Number(elig.event.id));
+            if (!hasOffer){
+              const baseMsg = String(elig.event.message || '').trim() || '🎁 Bono de bienvenida disponible';
+              const tail = elig.event.endsAt ? `Válido hasta ${new Date(elig.event.endsAt).toLocaleString()}.` : '';
+              const text = [baseMsg, tail].filter(Boolean).join(' ');
+              inbox.send({ toUserId: effId, text, meta: { type: 'welcome_offer', eventId: elig.event.id, coins: elig.event.coins||0, fires: elig.event.fires||0 } });
+            }
+          } catch(_) { /* ignore */ }
         }
       }
     } catch(_) { /* ignore */ }

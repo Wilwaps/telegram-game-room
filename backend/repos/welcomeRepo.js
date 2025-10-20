@@ -19,6 +19,17 @@ async function ensureLegacyClaims(){
   }catch(_){ }
 }
 
+async function isEligibleForWelcome(userExt){
+  const ext = String(userExt||'');
+  if (!/^((tg|db|em):)/i.test(ext)) return { eligible:false };
+  const ev = await getCurrentEvent();
+  const now = Date.now();
+  if (!ev.active || now < Number(ev.startsAt||0) || now > Number(ev.endsAt||0)) return { eligible:false };
+  const dbUserId = await mapExtToDbUserId(ext);
+  if (!dbUserId) return { eligible:false };
+  if (ev.id && await hasClaimForEvent(ev.id, ext)) return { eligible:false };
+  return { eligible:true, event: ev };
+}
 // ---------- Modelo nuevo en Postgres ----------
 async function ensureTables(){
   try{
@@ -272,4 +283,4 @@ async function disableEvent(){
   return { success:true };
 }
 
-module.exports = { getEvent, getCurrentEvent, listEvents, createEvent, updateEvent, activateEvent, deactivateEvent, awardIfEligible, getWalletExtBalances };
+module.exports = { getEvent, getCurrentEvent, listEvents, createEvent, updateEvent, activateEvent, deactivateEvent, awardIfEligible, getWalletExtBalances, isEligibleForWelcome };

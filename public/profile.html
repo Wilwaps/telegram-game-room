@@ -359,7 +359,29 @@
         for (const m of items){
           const el=document.createElement('div');
           el.className='bg-background-dark border border-glass rounded-lg p-2';
-          el.innerHTML=`<div class="text-xs text-text/50">${new Date(m.ts).toLocaleString()}</div><div>${m.text||''}</div>`;
+          const meta = m && m.meta || {};
+          const isOffer = String(meta.type||'') === 'welcome_offer';
+          const btnHtml = isOffer ? `<div class="mt-2"><button class="accept-offer px-3 py-1 bg-accent text-background-dark rounded-lg text-sm">Aceptar bono</button></div>` : '';
+          el.innerHTML=`<div class="text-xs text-text/50">${new Date(m.ts).toLocaleString()}</div><div>${m.text||''}</div>${btnHtml}`;
+          if (isOffer){
+            const b = el.querySelector('.accept-offer');
+            if (b){
+              b.addEventListener('click', async ()=>{
+                try{
+                  b.disabled = true;
+                  const resp = await fetch('/api/welcome/accept',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: uid, eventId: meta.eventId||null }) });
+                  const jj = await resp.json();
+                  if (resp.ok && jj && jj.success){
+                    alert(`Bono activado: +${jj.coinsAwarded||0} monedas y +${jj.firesAwarded||0} 🔥`);
+                    try{ await loadProfile(); }catch(_){}
+                  } else {
+                    alert('No se pudo activar el bono');
+                  }
+                }catch(_){ alert('Error de red'); }
+                finally{ try{ b.disabled=false; }catch(_){ } }
+              });
+            }
+          }
           cont.appendChild(el);
         }
         await fetch('/api/messages/read-all',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: uid }) });
