@@ -113,6 +113,7 @@
   <div class="absolute inset-0 flex items-center justify-center p-2">
     <div class="bg-card/90 border border-glass rounded-xl w-[95vw] h-[95vh] max-w-md p-4 flex flex-col space-y-4">
       <div class="flex items-center justify-between">
+        <button id="backCreate" class="text-text/70 hover:text-text"><span class="material-symbols-outlined">arrow_back</span></button>
         <h3 class="font-bold text-lg">Nueva Sala de Bingo</h3>
         <button id="closeCreate" class="text-text/70 hover:text-text"><span class="material-symbols-outlined">close</span></button>
       </div>
@@ -212,6 +213,7 @@
     </div>
     <div id="tablaOverlay" class="hidden fixed inset-0 z-50 bg-black/60 flex items-start justify-center pt-24">
       <div id="tablaPanel" class="w-[92vw] max-w-5xl bg-panel border border-glass rounded-lg p-3 shadow-2xl relative">
+        <button id="tablaBack" class="absolute left-3 top-3 text-text/70 hover:text-text"><span class="material-symbols-outlined">arrow_back</span></button>
         <button id="tablaClose" class="absolute right-3 top-3 text-text/70 hover:text-text">
           <span class="material-symbols-outlined">close</span>
         </button>
@@ -282,6 +284,7 @@
   const fabCreate = $('fabCreate');
   const overlay = $('createOverlay');
   const closeCreate = $('closeCreate');
+  const backCreate = $('backCreate');
   const createCode = $('createCode');
   const createPot = $('createPot');
   const optPrivate = $('optPrivate');
@@ -312,6 +315,7 @@
   const tablaInfo = $('tablaInfo');
   const tablaOverlay = $('tablaOverlay');
   const tablaClose = $('tablaClose');
+  const tablaBack = $('tablaBack');
   const calledSection = $('calledSection');
   const startBtn = $('startBtn');
   const cardsCountSel = $('cardsCount');
@@ -692,6 +696,7 @@
   // Handlers
   fabCreate.addEventListener('click', openCreate);
   closeCreate.addEventListener('click', closeCreateOverlay);
+  if (backCreate) backCreate.addEventListener('click', closeCreateOverlay);
   if (optPrivate) optPrivate.addEventListener('click', async ()=>{ createVisibility='private'; styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await syncOptions(); });
   if (optPublic) optPublic.addEventListener('click', async ()=>{ createVisibility='public'; styleToggle(optPublic,optPrivate,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); await syncOptions(); });
   modeLinea.addEventListener('click', ()=> setVictoryMode('linea'));
@@ -709,6 +714,7 @@
     const code = (joinCodeInput.value||'').trim(); if (!code) return;
     try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); closeCreateOverlay(); } }catch(e){ notify(e.message); }
   });
+  if (tablaBack) tablaBack.addEventListener('click', ()=>{ try{ tablaOverlay.classList.add('hidden'); }catch(_){ } });
   joinCodeBtn.addEventListener('click', async ()=>{
     const code = (codeInput.value||'').trim(); if (!code) return;
     try{ const j = await api('/api/games/bingo/join-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, userId: myId }) }); if (j && j.success && j.state && j.state.id) { roomId = j.state.id; roomCodeEl.textContent=j.state.code||'------'; subscribe(); roomView.classList.remove('hidden'); } }catch(e){ notify(e.message); }

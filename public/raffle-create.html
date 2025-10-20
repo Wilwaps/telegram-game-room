@@ -20,13 +20,13 @@
       <main class="flex-1"></main>
       <section class="pb-6 px-4">
         <div id="createSheet" class="relative max-w-md mx-auto bg-card border border-glass rounded-t-2xl rounded-b-xl p-5 space-y-4 shadow-neon-accent">
-          <button id="closeCreateSheet" class="absolute top-3 right-3 w-9 h-9 rounded-full border border-glass flex items-center justify-center text-text/70 hover:text-text hover:border-accent transition" aria-label="Cerrar">
+          <button id="backCreateSheet" class="absolute top-3 left-3 w-9 h-9 rounded-full border border-glass flex items-center justify-center text-text/70 hover:text-text transition" aria-label="Volver">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <button id="closeCreateSheet" class="absolute top-3 right-3 w-9 h-9 rounded-full border border-glass flex items-center justify-center text-text/70 hover:text-text transition" aria-label="Cerrar">
             <span class="material-symbols-outlined">close</span>
           </button>
-        <h1 class="text-xl font-bold text-center">Crear rifa</h1>
-        <div>
-          <label class="text-sm" for="name">Nombre</label>
-          <input id="name" class="w-full bg-background-dark border border-glass rounded-lg p-3" placeholder="Nombre corto"/>
+          <h1 class="text-xl font-bold text-center">Crear rifa</h1>
         </div>
         <div class="grid grid-cols-3 gap-2">
           <label class="flex items-center justify-center p-3 border border-glass rounded-lg cursor-pointer has-[:checked]:bg-accent/20 has-[:checked]:border-accent">
@@ -123,7 +123,9 @@
   toggle();
   function closeSheet(){ window.location.href = '/raffles'; }
   const closeBtn = document.getElementById('closeCreateSheet');
+  const backBtn = document.getElementById('backCreateSheet');
   if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+  if (backBtn) backBtn.addEventListener('click', closeSheet);
   const overlay = document.getElementById('sheetOverlay');
   const sheet = document.getElementById('createSheet');
   if (overlay) overlay.addEventListener('click', (ev)=>{ try{ if (sheet && !sheet.contains(ev.target)) closeSheet(); }catch(_){ } });
