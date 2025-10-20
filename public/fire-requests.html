@@ -16,18 +16,7 @@
 </head>
 <body class="bg-background-dark font-display text-text">
   <div class="max-w-3xl mx-auto p-4 space-y-4">
-    <h1 class="text-2xl font-bold text-center">Fuegos Pedidos</h1>
-    <div class="bg-card border border-glass rounded-lg p-3 grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
-      <div class="md:col-span-2">
-        <label class="text-xs text-text/70">Admin Username</label>
-        <input id="admUser" class="w-full bg-background-dark border border-glass rounded-lg p-2" placeholder="usuario" />
-      </div>
-      <div class="md:col-span-1">
-        <label class="text-xs text-text/70">Admin Code</label>
-        <input id="admCode" class="w-full bg-background-dark border border-glass rounded-lg p-2" placeholder="código" />
-      </div>
-      <button id="saveAdm" class="bg-accent text-background-dark font-bold py-2 rounded-lg">Guardar</button>
-    </div>
+    <h1 class="text-2xl font-bold text-center text-accent">Notificaciones</h1>
     <div class="bg-card border border-glass rounded-lg p-3 space-y-3">
       <div class="flex items-center justify-between">
         <div class="text-sm text-text/70">Mostrando: Pendientes</div>
@@ -39,14 +28,6 @@
   <script>
     const $=id=>document.getElementById(id);
     const avatar='https://lh3.googleusercontent.com/aida-public/AB6AXuBcO4sAoIKsqz6c_1ao9l8oLKrRoHcgQgvKXMVZ1GjrD6yIt1wIHUoUejWNVg5YeFSUNG2AzXPMsQBpnk9JKm7nj3Fl0c_-Jqff4R7sYxnLt9HXJtqXN5mHa4LpYy8ze_U0XA5E_p63z6cQCqLqyvstKocyRXYEASAUSo6DzvZTIfgZsyx7Xqbw8vV7RblR_FBppp7LTCsFU7QanKpaRmqO3o8B9Vxmy_1-jF73jvsjIbKoT9uvlznwhPR06j9c8xcPEZp403DWuA_j';
-    function headers(){
-      const u=sessionStorage.getItem('admUser')||'';
-      const c=sessionStorage.getItem('admCode')||'';
-      const h={};
-      if(u) h['x-admin-username']=u;
-      if(c) h['x-admin-code']=c;
-      return h;
-    }
     let curStatus='pending';
     const profileCache=new Map();
     async function getProfile(uid){
@@ -55,7 +36,7 @@
     }
     async function load(){
       const path = curStatus==='pending' ? '/api/economy/fire-requests/pending' : `/api/economy/fire-requests/list?status=${encodeURIComponent(curStatus)}`;
-      const r=await fetch(path,{headers:headers()});
+      const r=await fetch(path);
       const j=await r.json();
       const cont=$('list');
       cont.innerHTML='';
@@ -67,7 +48,7 @@
       const frag = document.createDocumentFragment();
       for(const it of items){
         const prof = pmap.get(it.userId);
-        const name = (prof && (prof.userName||prof.name)) ? (prof.userName||prof.name) : (String(it.userId).slice(0,24));
+        const name = (prof && (prof.userName||prof.name)) ? (prof.userName||prof.name) : 'Usuario';
         const card=document.createElement('div');
         card.className='bg-card rounded-xl p-4 border border-glass space-y-4';
         const actions = (curStatus==='pending') ? `
@@ -80,7 +61,7 @@
             <img class="w-12 h-12 rounded-full border-2 border-glass" src="${avatar}" alt="avatar"/>
             <div>
               <p class="font-bold">${name}</p>
-              <p class="text-xs text-text/70">ID: ${it.userId}</p>
+              <p class="text-xs text-text/70">Solicitud #${(it.id||'').slice(-6).toUpperCase()}</p>
             </div>
           </div>
           <div class="bg-background-dark rounded-lg p-3 border border-glass">
@@ -105,7 +86,7 @@
         for(const b of document.querySelectorAll('.btn-acc')){
           b.addEventListener('click',async(e)=>{
             const id=e.currentTarget.getAttribute('data-id');
-            const r=await fetch(`/api/economy/fire-requests/${encodeURIComponent(id)}/accept`,{method:'POST',headers:Object.assign({'Content-Type':'application/json'},headers()),body:'{}'});
+            const r=await fetch(`/api/economy/fire-requests/${encodeURIComponent(id)}/accept`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
             const j=await r.json();
             await load();
             if(!(j&&j.success)) alert('Error al aceptar');
@@ -114,7 +95,7 @@
         for(const b of document.querySelectorAll('.btn-rej')){
           b.addEventListener('click',async(e)=>{
             const id=e.currentTarget.getAttribute('data-id');
-            const r=await fetch(`/api/economy/fire-requests/${encodeURIComponent(id)}/reject`,{method:'POST',headers:Object.assign({'Content-Type':'application/json'},headers()),body:'{}'});
+            const r=await fetch(`/api/economy/fire-requests/${encodeURIComponent(id)}/reject`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
             const j=await r.json();
             await load();
             if(!(j&&j.success)) alert('Error al rechazar');
@@ -122,18 +103,11 @@
         }
       }
     }
-    $('saveAdm').addEventListener('click',()=>{
-      sessionStorage.setItem('admUser',$('admUser').value||'');
-      sessionStorage.setItem('admCode',$('admCode').value||'');
-      load();
-    });
     $('refresh').addEventListener('click',load);
     // Tabs removidas: se mantiene vista en "Pendientes" por defecto
     let __fireReqBooted = false;
     function boot(){
       if (__fireReqBooted) return; __fireReqBooted = true;
-      $('admUser').value=sessionStorage.getItem('admUser')||'';
-      $('admCode').value=sessionStorage.getItem('admCode')||'';
       load();
     }
     if (document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
