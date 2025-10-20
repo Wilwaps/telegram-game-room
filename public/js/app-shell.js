@@ -15,11 +15,7 @@
     return root;
   }
 
-  function injectScriptOnce(id, src){ try{ var h=document.getElementById(id); if (h) return h; var s=document.createElement('script'); s.id=id; s.src=src; s.defer=true; (document.head||document.documentElement).appendChild(s); return s; }catch(_){ return null; } }
-  function injectCssOnce(id, href){ try{ var h=document.getElementById(id); if (h) return h; var l=document.createElement('link'); l.id=id; l.rel='stylesheet'; l.href=href; (document.head||document.documentElement).appendChild(l); return l; }catch(_){ return null; } }
-  function hasDriver(){ try{ return !!(window&&window.driver&&window.driver.js&&window.driver.js.driver); }catch(_){ return false; } }
-  function ensureDriverLoaded(){ try{ injectCssOnce('drivercss-link','/css/driver.css'); if (hasDriver()) return Promise.resolve(true); return new Promise(function(resolve){ var s=injectScriptOnce('driverjs-loader','https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js'); if (!s) return resolve(false); s.addEventListener('load', function(){ resolve(hasDriver()); }); }); }catch(_){ return Promise.resolve(false); } }
-  try{ document.addEventListener('AppShell:afterNavigate', function(){ try{ ensureDriverLoaded().then(function(){ try{ if (window.DriverTours && typeof window.DriverTours.runToursForRoute==='function'){ window.DriverTours.runToursForRoute(location.pathname); } }catch(_){ } }); }catch(_){ } }); }catch(_){ }
+  // Integración Driver.js eliminada
 
   function reexecuteScripts(container){
     try{
@@ -151,5 +147,4 @@
   }
 
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
-  try{ ensureDriverLoaded().then(function(){ try{ if (window.DriverTours && typeof window.DriverTours.runToursForRoute==='function'){ window.DriverTours.runToursForRoute(location.pathname); } }catch(_){ } }); }catch(_){ }
 })();
