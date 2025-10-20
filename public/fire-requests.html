@@ -15,8 +15,14 @@
   <script src="/js/app-user.js"></script>
 </head>
 <body class="bg-background-dark font-display text-text">
-  <div class="max-w-3xl mx-auto p-4 space-y-4">
-    <h1 class="text-2xl font-bold text-center text-accent">Notificaciones</h1>
+  <div class="max-w-3xl mx-auto p-4 space-y-4 pb-24">
+    <div class="flex items-center justify-between">
+      <button id="btnBack" class="p-2 rounded-lg bg-glass hover:bg-accent/10 transition">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <h1 class="text-2xl font-bold text-accent">Notificaciones</h1>
+      <span class="w-8 h-8"></span>
+    </div>
     <div id="adminUnlock" class="hidden bg-card border border-glass rounded-lg p-3 grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
       <div class="md:col-span-2">
         <label class="text-xs text-text/70">Admin Username</label>
@@ -143,6 +149,10 @@
     }
     if (document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
     document.addEventListener('AppShell:afterNavigate', ()=>{ __fireReqBooted=false; boot(); });
+    // Navegación atrás: intenta history.back(), fallback a /games
+    function goBack(){ try{ if (history.length>1) { history.back(); } else { location.href='/games'; } }catch(_){ location.href='/games'; } }
+    $('btnBack').addEventListener('click', goBack);
   </script>
+  <script src="/js/footer-nav.js" defer></script>
 </body>
 </html>

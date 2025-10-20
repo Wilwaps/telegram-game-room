@@ -3,6 +3,7 @@ const https = require('https');
 const { URL } = require('url');
 const router = express.Router();
 let fireRepo = null; try { fireRepo = require('../repos/fireRequestsRepo'); } catch(_) { fireRepo = null; }
+const mem = require('../services/memoryStore');
 const adminAuth = require('../middleware/adminAuth');
 const { preferSessionUserId } = require('../middleware/sessionUser');
 let roles = null; try { roles = require('../services/roles'); } catch(_) { roles = { getRoles: ()=>[] }; }
@@ -80,12 +81,17 @@ function toteOrAdmin(req, res, next){
 // POST /api/economy/fire-requests/create { userId, amount, reference }
 router.post('/fire-requests/create', async (req, res) => {
   try {
-    if (!fireRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
     const { userId, amount, reference } = req.body || {};
     const realUserId = preferSessionUserId(req, userId);
-    const rec = await fireRepo.createRequest({ userExt: realUserId, amount, reference, meta: {} });
-    notifyAdminNewRequest(req, { request: { userId: realUserId, amount, reference } });
-    res.json({ success: true, request: rec });
+    if (fireRepo) {
+      const rec = await fireRepo.createRequest({ userExt: realUserId, amount, reference, meta: {} });
+      notifyAdminNewRequest(req, { request: { userId: realUserId, amount, reference } });
+      res.json({ success: true, request: rec });
+    } else {
+      const rec = mem.createFireRequest({ userId: realUserId, amount, reference });
+      notifyAdminNewRequest(req, { request: { userId: realUserId, amount, reference } });
+      res.json({ success: true, request: rec });
+    }
   } catch (err) {
     const msg = (err && err.message) || 'create_error';
     res.status(400).json({ success: false, error: msg });
@@ -108,10 +114,14 @@ router.get('/fire-requests/my/:userId', async (req, res) => {
 // GET /api/economy/fire-requests/pending (admin)
 router.get('/fire-requests/pending', toteOrAdmin, async (req, res) => {
   try {
-    if (!fireRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
     const { limit, offset } = req.query || {};
-    const out = await fireRepo.listAll({ status: 'pending', limit, offset });
-    res.json({ success: true, ...out });
+    if (fireRepo) {
+      const out = await fireRepo.listAll({ status: 'pending', limit, offset });
+      res.json({ success: true, ...out });
+    } else {
+      const out = mem.listFireRequests({ status: 'pending', limit, offset });
+      res.json({ success: true, ...out });
+    }
   } catch (err) {
     res.status(500).json({ success: false, error: 'list_pending_error' });
   }
@@ -120,10 +130,14 @@ router.get('/fire-requests/pending', toteOrAdmin, async (req, res) => {
 // GET /api/economy/fire-requests/list?status=(accepted|rejected|pending) (admin)
 router.get('/fire-requests/list', toteOrAdmin, async (req, res) => {
   try {
-    if (!fireRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
     const { status, limit, offset } = req.query || {};
-    const out = await fireRepo.listAll({ status, limit, offset });
-    res.json({ success: true, ...out });
+    if (fireRepo) {
+      const out = await fireRepo.listAll({ status, limit, offset });
+      res.json({ success: true, ...out });
+    } else {
+      const out = mem.listFireRequests({ status, limit, offset });
+      res.json({ success: true, ...out });
+    }
   } catch (err) {
     res.status(500).json({ success: false, error: 'list_error' });
   }
@@ -132,11 +146,15 @@ router.get('/fire-requests/list', toteOrAdmin, async (req, res) => {
 // POST /api/economy/fire-requests/:id/accept (admin)
 router.post('/fire-requests/:id/accept', toteOrAdmin, async (req, res) => {
   try {
-    if (!fireRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
     const { id } = req.params;
     const adminUserName = req.admin?.userName || 'admin';
-    const out = await fireRepo.accept({ id, adminUserName });
-    res.json({ success: true, ...out });
+    if (fireRepo) {
+      const out = await fireRepo.accept({ id, adminUserName });
+      res.json({ success: true, ...out });
+    } else {
+      const out = mem.acceptFireRequest({ id, adminUserName });
+      res.json({ success: true, ...out });
+    }
   } catch (err) {
     const msg = (err && err.message) || 'accept_error';
     const code = (msg === 'request_not_found' || msg === 'request_not_pending' || msg==='supply_exceeded' || msg==='user_not_mapped' || msg==='wallet_missing') ? 400 : 500;
@@ -147,11 +165,15 @@ router.post('/fire-requests/:id/accept', toteOrAdmin, async (req, res) => {
 // POST /api/economy/fire-requests/:id/reject (admin)
 router.post('/fire-requests/:id/reject', toteOrAdmin, async (req, res) => {
   try {
-    if (!fireRepo) return res.status(503).json({ success:false, error:'repo_unavailable' });
     const { id } = req.params;
     const adminUserName = req.admin?.userName || 'admin';
-    const out = await fireRepo.reject({ id, adminUserName });
-    res.json({ success: true, ...out });
+    if (fireRepo) {
+      const out = await fireRepo.reject({ id, adminUserName });
+      res.json({ success: true, ...out });
+    } else {
+      const out = mem.rejectFireRequest({ id, adminUserName });
+      res.json({ success: true, ...out });
+    }
   } catch (err) {
     const msg = (err && err.message) || 'reject_error';
     const code = (msg === 'request_not_found' || msg === 'request_not_pending') ? 400 : 500;

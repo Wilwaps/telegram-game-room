@@ -171,6 +171,7 @@
   <div class="absolute inset-0 flex items-center justify-center p-2">
     <div class="bg-card/90 border border-glass rounded-xl w-[95vw] h-[95vh] max-w-md p-4 flex flex-col space-y-4">
       <div class="flex items-center justify-between">
+        <button id="backCreate" class="text-text/70 hover:text-text"><span class="material-symbols-outlined">arrow_back</span></button>
         <h3 class="font-bold text-lg">Nueva Sala</h3>
         <button id="closeCreate" class="text-text/70 hover:text-text"><span class="material-symbols-outlined">close</span></button>
       </div>
@@ -291,6 +292,7 @@
   const fabCreate = $('fabCreate');
   const overlay = $('createOverlay');
   const closeCreate = $('closeCreate');
+  const backCreate = $('backCreate');
   const createCode = $('createCode');
   const optPrivate = $('optPrivate');
   const optPublic = $('optPublic');
@@ -794,6 +796,7 @@
   if (optFuego) optFuego.addEventListener('click', async ()=>{ createCostType='fuego'; createCostValue=1; applyCostStyles(); await patchOptions().catch(()=>{}); });
   if (fabCreate) fabCreate.addEventListener('click', openCreate);
   if (closeCreate) closeCreate.addEventListener('click', closeCreateOverlay);
+  if (backCreate) backCreate.addEventListener('click', closeCreateOverlay);
   if (shareCreate) shareCreate.addEventListener('click', async ()=>{
     if (!createdRoomId) return; const link = `${location.origin}/games/tictactoe?room=${encodeURIComponent(createdRoomId)}`; try{ await navigator.clipboard.writeText(link); shareCreate.textContent='Copiado'; setTimeout(()=>shareCreate.textContent='Compartir', 1200);}catch(_){ }
   });
