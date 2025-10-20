@@ -18,6 +18,8 @@ class TTTStore extends EventEmitter {
     return String(Math.floor(100000 + Math.random() * 900000));
   }
   createRoom(hostId, opts = {}) {
+    const existing = (()=>{ const uid=String(hostId); for (const r of this.rooms.values()){ if (r && r.players && r.players.X === uid && r.status !== 'finished') return r; } return null; })();
+    if (existing) return this.getState(existing.id);
     const id = this.newId();
     const state = {
       id,
@@ -49,6 +51,13 @@ class TTTStore extends EventEmitter {
     const pot = (()=>{ try { return mem.getUser(this.potUserId(r.id)) || null; } catch(_){ return null; } })();
     const potFires = Math.max(0, Number(pot && pot.fires || 0));
     const potCoins = Math.max(0, Number(pot && pot.coins || 0));
+    const maskId = (uid)=>{
+      const raw = String(uid||'');
+      let seed = 0; for (let i=0;i<raw.length;i++){ seed = ((seed<<5)-seed) + raw.charCodeAt(i); seed|=0; }
+      const tag = Math.abs(seed).toString(36).slice(-6).toUpperCase().padStart(6,'0');
+      return 'User ' + tag;
+    };
+    const display = (uid)=>{ if(!uid) return null; const u = mem.getUser(uid); const n = u && u.userName ? String(u.userName).trim() : ''; return n || maskId(uid); };
     return {
       id: r.id,
       createdAt: r.createdAt,
@@ -68,10 +77,9 @@ class TTTStore extends EventEmitter {
       score: { ...r.score },
       round: r.round,
       rematchVotes: { X: !!(r.rematchVotes && r.rematchVotes.X), O: !!(r.rematchVotes && r.rematchVotes.O) },
-      playerNames: {
-        X: r.players.X ? (mem.getUser(r.players.X)?.userName || r.players.X) : null,
-        O: r.players.O ? (mem.getUser(r.players.O)?.userName || r.players.O) : null
-      }
+      pausedBy: r.pausedBy || null,
+      pauseUntil: r.pauseUntil || null,
+      playerNames: { X: display(r.players.X), O: display(r.players.O) }
     };
   }
   listRoomsByUser(userId) {
@@ -102,6 +110,16 @@ class TTTStore extends EventEmitter {
     const uid = String(userId);
     if (!r.players.X) r.players.X = uid;
     else if (!r.players.O && r.players.X !== uid) r.players.O = uid;
+    // si estaba en pausa por desconexión y vuelve el mismo jugador, reanudar
+    const seat = this.who(r, uid);
+    if (seat && r.pauseUntil && r.pausedBy === seat) {
+      r.pauseUntil = null; r.pausedBy = null;
+      if (r.lastDisconnect) { try{ delete r.lastDisconnect[seat]; }catch(_){ } }
+      if (r.status === 'playing') {
+        r.lastMoveAt = Date.now();
+        r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
+      }
+    }
     const both = r.players.X && r.players.O;
     if (both && r.status !== 'finished') {
       this.chargeAndMaybeStart(r);
@@ -109,6 +127,14 @@ class TTTStore extends EventEmitter {
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);
     return s;
+  }
+  closeRoom(roomId){
+    const id = String(roomId);
+    const r = this.rooms.get(id);
+    if (!r) return false;
+    try { if (r && r.code) this.codeIndex.delete(r.code); } catch(_){ }
+    this.rooms.delete(id);
+    return true;
   }
   setOptions(roomId, opts = {}) {
     const r = this.rooms.get(String(roomId));
@@ -131,6 +157,56 @@ class TTTStore extends EventEmitter {
     if (room.players.X === uid) return 'X';
     if (room.players.O === uid) return 'O';
     return null;
+  }
+  leaveRoom(roomId, userId){
+    const r = this.rooms.get(String(roomId));
+    if (!r) throw new Error('room_not_found');
+    const uid = String(userId);
+    const seat = this.who(r, uid);
+    if (!seat) return { state: this.getState(roomId), closed: false };
+    if (r.status === 'playing'){
+      if (!r.lastDisconnect) r.lastDisconnect = {};
+      r.lastDisconnect[seat] = Date.now();
+      // activar pausa de 30s para reingreso
+      r.pausedBy = seat;
+      r.pauseUntil = Date.now() + 30000;
+      const s = this.getState(roomId);
+      this.emit('room_update_' + r.id, s);
+      return { state: s, closed: false };
+    }
+    if (r.status === 'waiting'){
+      if (seat === 'X'){
+        if (!r.players.O){
+          const ok = this.closeRoom(roomId);
+          return { state: null, closed: ok };
+        } else {
+          r.players.X = r.players.O;
+          r.players.O = null;
+          const s = this.getState(roomId);
+          this.emit('room_update_' + r.id, s);
+          return { state: s, closed: false };
+        }
+      } else {
+        r.players.O = null;
+        const s = this.getState(roomId);
+        this.emit('room_update_' + r.id, s);
+        return { state: s, closed: false };
+      }
+    }
+    if (r.status === 'finished'){
+      if (seat === 'X') r.players.X = null;
+      if (seat === 'O') r.players.O = null;
+      if (!r.players.X && !r.players.O){
+        const ok = this.closeRoom(roomId);
+        return { state: null, closed: ok };
+      }
+      const s = this.getState(roomId);
+      this.emit('room_update_' + r.id, s);
+      return { state: s, closed: false };
+    }
+    const s = this.getState(roomId);
+    this.emit('room_update_' + r.id, s);
+    return { state: s, closed: false };
   }
   checkWinner(b) {
     const L = [
@@ -232,7 +308,36 @@ class TTTStore extends EventEmitter {
   tick() {
     const now = Date.now();
     for (const r of this.rooms.values()) {
-      if (r && r.status === 'playing' && r.turnDeadline && now > r.turnDeadline) {
+      if (!r || r.status !== 'playing') continue;
+      // si hay pausa activa, resolver o esperar
+      if (r.pauseUntil && now >= r.pauseUntil) {
+        // derrota del que salió
+        const loser = r.pausedBy === 'X' ? 'X' : 'O';
+        const winner = loser === 'X' ? 'O' : 'X';
+        r.status = 'finished';
+        r.winner = winner;
+        r.lastWinner = winner;
+        r.turnDeadline = null;
+        r.rematchVotes = { X:false, O:false };
+        if (winner === 'X') r.score.X += 1; else if (winner === 'O') r.score.O += 1;
+        r.pausedBy = null; r.pauseUntil = null;
+        try {
+          const xid = r.players.X; const oid = r.players.O;
+          if (xid && oid) {
+            if (winner === 'X') { mem.recordGameResult({ userId: xid, game: 'tictactoe', result: 'win' }); mem.recordGameResult({ userId: oid, game: 'tictactoe', result: 'loss' }); }
+            else { mem.recordGameResult({ userId: oid, game: 'tictactoe', result: 'win' }); mem.recordGameResult({ userId: xid, game: 'tictactoe', result: 'loss' }); }
+          }
+        } catch(_) {}
+        this.settlePot(r);
+        const s = this.getState(r.id);
+        this.emit('room_update_' + r.id, s);
+        continue;
+      }
+      if (r.pauseUntil && now < r.pauseUntil) {
+        // en pausa: no aplicar timeout de turno
+        continue;
+      }
+      if (r.turnDeadline && now > r.turnDeadline) {
         const loser = r.turn;
         const winner = loser === 'X' ? 'O' : 'X';
         r.status = 'finished';

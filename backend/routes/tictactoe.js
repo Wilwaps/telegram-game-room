@@ -114,6 +114,21 @@ router.get('/rooms/:id/stream', (req, res) => {
   req.on('close', () => { clearInterval(hb); off(); });
 });
 
+// POST /api/games/tictactoe/rooms/:id/leave
+router.post('/rooms/:id/leave', (req, res) => {
+  try {
+    const roomId = String(req.params.id || '').trim();
+    const userId = String(req.body && req.body.userId || '').trim();
+    if (!roomId || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
+    const out = store.leaveRoom(roomId, userId);
+    res.json({ success: true, state: out.state || null, closed: !!out.closed });
+  } catch (e) {
+    const msg = e && e.message || 'leave_error';
+    const code = (msg === 'room_not_found') ? 404 : 400;
+    res.status(code).json({ success: false, error: msg });
+  }
+});
+
 // PATCH /api/games/tictactoe/rooms/:id/options
 router.patch('/rooms/:id/options', (req, res) => {
   try {

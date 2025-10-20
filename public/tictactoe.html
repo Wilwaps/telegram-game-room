@@ -353,6 +353,32 @@
     if (fabCreate) fabCreate.style.display = 'none';
   }
 
+  // Notificar salida de la sala al navegar fuera o cerrar
+  function currentRoomForLeave(){ return roomId || createdRoomId || null; }
+  function leavePayload(){ return JSON.stringify({ userId: myId }); }
+  function postLeaveSync(id){
+    try{
+      const url = `/api/games/tictactoe/rooms/${encodeURIComponent(id)}/leave`;
+      if (navigator.sendBeacon) { const blob = new Blob([leavePayload()], { type:'application/json' }); return navigator.sendBeacon(url, blob); }
+      // fallback no bloqueante
+      fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: leavePayload(), keepalive: true }).catch(()=>{});
+    }catch(_){ }
+    return false;
+  }
+
+  function onGlobalNavClick(e){
+    try{
+      let a = e.target; while(a && a.tagName!=='A'){ a = a.parentElement; }
+      if (!a) return;
+      const href = a.getAttribute('href')||''; const target = a.getAttribute('target')||'';
+      if (!href || href.startsWith('#') || target==='_blank') return;
+      const id = currentRoomForLeave(); if (!id) return;
+      if (!href.startsWith('/games/tictactoe')){ postLeaveSync(id); }
+    }catch(_){ }
+  }
+  document.addEventListener('click', onGlobalNavClick, true);
+  window.addEventListener('pagehide', ()=>{ try{ const id=currentRoomForLeave(); if(id) postLeaveSync(id); }catch(_){ } });
+
   function getUserId(){
     const tg = window.Telegram && window.Telegram.WebApp;
     const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
@@ -400,7 +426,17 @@
     const amI = (room.players && (room.players.X===myId ? 'X' : (room.players.O===myId ? 'O' : null)));
     const myTurn = amI && room.turn === amI;
     const deadline = room.turnDeadline ? Number(room.turnDeadline) : 0;
-    if (room.status==='playing' && myTurn && deadline){
+    const pausedLeft = (room.pauseUntil && room.pausedBy===amI) ? (Number(room.pauseUntil)-Date.now()) : null;
+    if (room.status==='playing' && pausedLeft!==null){
+      activeCard.classList.remove('hidden');
+      const tick = ()=>{
+        const left = Math.max(0, Number(room.pauseUntil) - Date.now());
+        countdownEl.textContent = fmtTime(left);
+        if (left <= 0) { clearInterval(countdownTimer); countdownEl.textContent = '00:00 seg'; }
+      };
+      tick();
+      countdownTimer = setInterval(tick, 250);
+    } else if (room.status==='playing' && myTurn && deadline){
       activeCard.classList.remove('hidden');
       const tick = ()=>{
         const left = deadline - Date.now();
@@ -509,8 +545,8 @@
 
   function renderCreateUsers(s){
     const box = createUsers; if (!box) return;
-    const x = s?.players?.X || '-';
-    const o = s?.players?.O || '-';
+    const x = (s && s.playerNames && s.playerNames.X) ? s.playerNames.X : (s?.players?.X ? 'User ******' : '-');
+    const o = (s && s.playerNames && s.playerNames.O) ? s.playerNames.O : (s?.players?.O ? 'User ******' : '-');
     const wait = (!o) ? '<div class="text-center text-text/60 text-sm">Esperando contrincante…</div>' : '';
     box.innerHTML = `<div class="flex items-center justify-between bg-background-dark/60 rounded-lg p-2"><div class="font-mono">X: ${x}</div><div class="font-mono">O: ${o||'-'}</div></div>${wait}`;
   }
@@ -598,8 +634,12 @@
 
         // actualizar countdown visible si volvemos al lobby
         updateActiveCard(s);
-        // actualizar temporizador en vista de sala (countdown vivo)
-        if (s.status === 'playing' && s.turnDeadline) {
+        // actualizar temporizador en vista de sala: pausa o turno
+        if (s.status === 'playing' && s.pauseUntil) {
+          stopBoardTimer();
+          const left = Math.max(0, Number(s.pauseUntil) - Date.now());
+          if (timerValEl) timerValEl.textContent = 'Pausa ' + fmtTime(left);
+        } else if (s.status === 'playing' && s.turnDeadline) {
           turnDeadlineTs = Number(s.turnDeadline)||0; startBoardTimer();
         } else { turnDeadlineTs = 0; stopBoardTimer(); if (timerValEl) timerValEl.textContent = '00:30'; }
         // marcador
