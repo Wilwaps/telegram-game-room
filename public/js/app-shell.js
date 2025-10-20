@@ -15,7 +15,6 @@
     return root;
   }
 
-  // Integración Driver.js eliminada
 
   function reexecuteScripts(container){
     try{

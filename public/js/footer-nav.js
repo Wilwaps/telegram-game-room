@@ -63,11 +63,7 @@
         sh.id = 'app-shell-loader'; sh.src = '/js/app-shell.js'; sh.defer = true;
         (document.head||document.documentElement).appendChild(sh);
       }
-      if (!document.getElementById('driver-tours-loader')){
-        var ts = document.createElement('script');
-        ts.id = 'driver-tours-loader'; ts.src = '/js/tours.js'; ts.defer = true;
-        (document.head||document.documentElement).appendChild(ts);
-      }
+      // Eliminado: tours.js (Driver.js)
     }catch(_){ }
     document.addEventListener('AppShell:afterNavigate', updateActive);
     window.addEventListener('popstate', updateActive);
