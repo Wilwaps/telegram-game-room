@@ -3,13 +3,13 @@ const db = require('../db');
 async function ensureTable(){
   await db.query(`CREATE TABLE IF NOT EXISTS fire_supply(
     id SMALLINT PRIMARY KEY DEFAULT 1,
-    total_max NUMERIC(24,2) NOT NULL DEFAULT 1000000,
+    total_max NUMERIC(24,2) NOT NULL DEFAULT 1000000000,
     emitted NUMERIC(24,2) NOT NULL DEFAULT 0,
     updated_at TIMESTAMPTZ DEFAULT NOW()
   )`);
   const rs = await db.query('SELECT 1 FROM fire_supply WHERE id=1');
   if (!rs.rows || !rs.rows[0]){
-    await db.query('INSERT INTO fire_supply(id,total_max,emitted,updated_at) VALUES (1,1000000,0,NOW())');
+    await db.query('INSERT INTO fire_supply(id,total_max,emitted,updated_at) VALUES (1,1000000000,0,NOW())');
   }
 }
 
@@ -47,4 +47,19 @@ async function emit(amount){
   return { ok:true };
 }
 
-module.exports = { getStatus, setMax, canEmit, emit };
+async function getDashboardSnapshot(){
+  const st = await getStatus();
+  let sum = 0;
+  try {
+    const r = await db.query('SELECT COALESCE(SUM(fires_balance),0) AS s FROM wallets');
+    sum = Number(r.rows && r.rows[0] && r.rows[0].s || 0);
+  } catch (_) { sum = 0; }
+  const total = Number(st.totalMax||0);
+  const emitted = Number(st.emitted||0);
+  const circulating = Math.max(0, sum);
+  const burned = Math.max(0, emitted - circulating);
+  const reserve = Math.max(0, total - emitted);
+  return { total, circulating, burned, reserve };
+}
+
+module.exports = { getStatus, setMax, canEmit, emit, getDashboardSnapshot };

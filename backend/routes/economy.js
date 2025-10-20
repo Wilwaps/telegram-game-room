@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const store = require('../services/memoryStore');
 const adminAuth = require('../middleware/adminAuth');
+const supplyRepo = require('../repos/supplyRepo');
 
 // GET /api/economy/supply
-router.get('/supply', (req, res) => {
+router.get('/supply', async (req, res) => {
   try {
-    const supply = store.getSupplySummary();
-    res.json({ success: true, supply });
+    const snap = await supplyRepo.getDashboardSnapshot();
+    res.json({ success: true, supply: snap });
   } catch (err) {
     res.status(500).json({ success: false, error: 'supply_error' });
   }
@@ -64,7 +65,7 @@ router.get('/supply/txs', (req, res) => {
 });
 
 // GET /api/economy/supply/stream (SSE)
-router.get('/supply/stream', (req, res) => {
+router.get('/supply/stream', async (req, res) => {
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -79,20 +80,18 @@ router.get('/supply/stream', (req, res) => {
     } catch (_) {}
   };
 
-  // initial snapshot
-  sendEvent('supply', { value: store.getSupplySummary(), ts: Date.now() });
+  // initial snapshot desde DB
+  try { const snap = await supplyRepo.getDashboardSnapshot(); sendEvent('supply', { value: snap, ts: Date.now() }); } catch(_){}
 
-  // heartbeat
-  const hb = setInterval(() => {
-    try { res.write(': ping\n\n'); } catch (_) {}
-  }, 15000);
-
-  const onSupply = (snap) => sendEvent('supply', { value: snap, ts: Date.now() });
-  store.on('supply_changed', onSupply);
+  // heartbeat + polling
+  const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) {} }, 15000);
+  const poll = setInterval(async () => {
+    try { const snap = await supplyRepo.getDashboardSnapshot(); sendEvent('supply', { value: snap, ts: Date.now() }); } catch(_){}
+  }, 5000);
 
   req.on('close', () => {
     clearInterval(hb);
-    store.off('supply_changed', onSupply);
+    clearInterval(poll);
   });
 });
 
