@@ -116,6 +116,53 @@
       </div>
     </div>
 
+    <!-- Auditoría Supply (DB) -->
+    <div class="grid" style="grid-template-columns: 1fr;">
+      <div class="card">
+        <div class="label">Auditoría Supply (DB)</div>
+        <div class="row" style="gap:8px; flex-wrap:wrap; align-items:center;">
+          <select id="supdb-type" style="min-width:140px">
+            <option value="">Todos los tipos</option>
+            <option value="welcome_bonus">welcome_bonus</option>
+            <option value="grant">grant</option>
+            <option value="burn">burn</option>
+            <option value="emit_manual">emit_manual</option>
+          </select>
+          <input id="supdb-user" type="text" placeholder="user_ext (tg:123...)" style="width:180px"/>
+          <input id="supdb-event" type="number" placeholder="event_id" style="width:120px"/>
+          <input id="supdb-from" type="datetime-local"/>
+          <input id="supdb-to" type="datetime-local"/>
+          <input id="supdb-limit" type="number" min="1" max="1000" value="50" style="width:90px"/>
+          <button id="supdb-search" class="btn btn-small">Buscar</button>
+          <button id="supdb-export" class="btn btn-small">Exportar CSV</button>
+        </div>
+        <div class="muted" id="supdb-info" style="margin:6px 0 8px;"></div>
+        <div style="overflow:auto; max-height: 340px;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th style="text-align:right">Monto</th>
+                <th>Usuario</th>
+                <th>Evento</th>
+                <th>Ref</th>
+                <th>Actor</th>
+                <th>Meta</th>
+              </tr>
+            </thead>
+            <tbody id="supdb-rows"></tbody>
+          </table>
+        </div>
+        <div class="row" style="justify-content:space-between; gap:8px;">
+          <div style="display:flex; gap:6px;">
+            <button id="supdb-prev" class="btn btn-small">Prev</button>
+            <button id="supdb-next" class="btn btn-small">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="grid" style="grid-template-columns: 1fr;">
       <div class="card">
         <div class="label">Eventos de bienvenida</div>
@@ -351,5 +398,6 @@
   <script src="/js/app-user.js"></script>
   <script src="/js/music.js"></script>
   <script src="/js/admin-welcome.js"></script>
+  <script src="/js/admin-supply-audit.js"></script>
 </body>
 </html>

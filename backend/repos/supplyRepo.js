@@ -64,7 +64,29 @@ async function getDashboardSnapshot(){
 
 function parseDate(d){ if(!d) return null; const n=Number(d); if(!Number.isNaN(n) && n>0) return new Date(n); try{ const dt=new Date(String(d)); return isNaN(dt.getTime())? null : dt; }catch(_){ return null; } }
 
+async function ensureSupplyTxsTable(){
+  try{
+    await db.query(`CREATE TABLE IF NOT EXISTS supply_txs(
+      id BIGSERIAL PRIMARY KEY,
+      ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      type TEXT NOT NULL,
+      amount NUMERIC(24,2) NOT NULL DEFAULT 0,
+      user_ext TEXT,
+      user_id INTEGER,
+      event_id INTEGER REFERENCES welcome_events(id) ON DELETE SET NULL,
+      reference TEXT,
+      meta JSONB,
+      actor TEXT
+    )`);
+    await db.query(`CREATE INDEX IF NOT EXISTS supply_txs_ts_idx ON supply_txs(ts)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS supply_txs_type_idx ON supply_txs(type)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS supply_txs_event_idx ON supply_txs(event_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS supply_txs_userext_idx ON supply_txs(user_ext)`);
+  }catch(_){ }
+}
+
 async function listSupplyTxs({ type, user_ext, event_id, from, to, limit=50, offset=0, order='desc' }={}){
+  await ensureSupplyTxsTable();
   const cond=[]; const args=[]; let i=1;
   if (type){ cond.push(`type=$${i++}`); args.push(String(type)); }
   if (user_ext){ cond.push(`user_ext=$${i++}`); args.push(String(user_ext)); }
@@ -81,6 +103,7 @@ async function listSupplyTxs({ type, user_ext, event_id, from, to, limit=50, off
 }
 
 async function getSupplyTx(id){
+  await ensureSupplyTxsTable();
   const rs = await db.query('SELECT id, ts, type, amount, user_ext, user_id, event_id, reference, meta, actor FROM supply_txs WHERE id=$1',[Number(id)]);
   return rs.rows && rs.rows[0] || null;
 }
@@ -88,6 +111,7 @@ async function getSupplyTx(id){
 function toCsvValue(v){ if (v===null||v===undefined) return ''; const s = typeof v==='object'? JSON.stringify(v) : String(v); return '"'+ s.replace(/"/g,'""') +'"'; }
 
 async function exportSupplyTxsCsv(filters={}){
+  await ensureSupplyTxsTable();
   const { items } = await listSupplyTxs({ ...filters, limit: Math.min(5000, Number(filters.limit)||5000), offset: Number(filters.offset)||0 });
   const header = ['id','ts','type','amount','user_ext','user_id','event_id','reference','actor','meta'];
   const lines = [header.join(',')];
