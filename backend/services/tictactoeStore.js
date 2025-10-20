@@ -33,8 +33,8 @@ class TTTStore extends EventEmitter {
       turnDeadline: null,
       code: this.makeCode(),
       visibility: (opts.visibility === 'public' ? 'public' : 'private'),
-      costType: (['free','coins','fuego'].includes(opts.costType) ? opts.costType : 'free'),
-      costValue: Math.max(0, Number(opts.costValue || 0) || 0),
+      costType: (['coins','fuego'].includes(opts.costType) ? opts.costType : 'coins'),
+      costValue: Math.max(1, Number(opts.costValue || 1) || 1),
       score: { X: 0, O: 0 },
       round: 1,
       lastWinner: null,
@@ -104,6 +104,71 @@ class TTTStore extends EventEmitter {
     out.sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
     return out;
   }
+  chargeAndMaybeStart(r) {
+    if (!r) return;
+    if (!(r.players && r.players.X && r.players.O)) return;
+    if (r.status === 'playing') return;
+    const ct = String(r.costType||'coins');
+    const cv = Math.max(1, Number(r.costValue||1) || 1);
+    const potId = this.potUserId(r.id);
+    if (!r.paidFlags) r.paidFlags = { X:false, O:false };
+    try {
+      if (ct === 'coins') {
+        if (!r.paidFlags.X) {
+          const rx = mem.transferCoins({ fromUserId: r.players.X, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
+          if (!rx || !rx.ok) return;
+          r.paidFlags.X = true;
+        }
+        if (!r.paidFlags.O) {
+          const ro = mem.transferCoins({ fromUserId: r.players.O, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
+          if (!ro || !ro.ok) return;
+          r.paidFlags.O = true;
+        }
+      } else if (ct === 'fuego') {
+        if (!r.paidFlags.X) {
+          const rx = mem.transferFires({ fromUserId: r.players.X, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
+          if (!rx || !rx.ok) return;
+          r.paidFlags.X = true;
+        }
+        if (!r.paidFlags.O) {
+          const ro = mem.transferFires({ fromUserId: r.players.O, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
+          if (!ro || !ro.ok) return;
+          r.paidFlags.O = true;
+        }
+      }
+      if (r.paidFlags.X && r.paidFlags.O) {
+        r.status = 'playing';
+        r.lastMoveAt = Date.now();
+        r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
+        r.rematchVotes = { X:false, O:false };
+      }
+    } catch (_) {}
+  }
+  settlePot(r) {
+    if (!r) return;
+    const potId = this.potUserId(r.id);
+    const pot = mem.getUser(potId) || { coins:0, fires:0 };
+    const potCoins = Math.max(0, Number(pot.coins||0));
+    const potFires = Math.max(0, Number(pot.fires||0));
+    try {
+      if (r.winner) {
+        const winId = r.winner === 'X' ? r.players.X : r.players.O;
+        if (potCoins > 0) mem.transferCoins({ fromUserId: potId, toUserId: winId, amount: potCoins, reason: 'ttt_wager_win' });
+        if (potFires > 0) mem.transferFires({ fromUserId: potId, toUserId: winId, amount: potFires, reason: 'ttt_wager_win' });
+      } else {
+        const halfC = Math.floor(potCoins / 2);
+        const halfF = Math.floor(potFires / 2);
+        if (potCoins > 0) {
+          if (r.players.X) mem.transferCoins({ fromUserId: potId, toUserId: r.players.X, amount: halfC, reason: 'ttt_wager_draw' });
+          if (r.players.O) mem.transferCoins({ fromUserId: potId, toUserId: r.players.O, amount: potCoins - halfC, reason: 'ttt_wager_draw' });
+        }
+        if (potFires > 0) {
+          if (r.players.X) mem.transferFires({ fromUserId: potId, toUserId: r.players.X, amount: halfF, reason: 'ttt_wager_draw' });
+          if (r.players.O) mem.transferFires({ fromUserId: potId, toUserId: r.players.O, amount: potFires - halfF, reason: 'ttt_wager_draw' });
+        }
+      }
+    } catch (_) {}
+  }
   joinRoom(roomId, userId) {
     const r = this.rooms.get(String(roomId));
     if (!r) throw new Error('room_not_found');
@@ -143,10 +208,10 @@ class TTTStore extends EventEmitter {
       r.visibility = (opts.visibility === 'public' ? 'public' : 'private');
     }
     if (typeof opts.costType !== 'undefined') {
-      r.costType = (['free','coins','fuego'].includes(opts.costType) ? opts.costType : r.costType);
+      r.costType = (['coins','fuego'].includes(opts.costType) ? opts.costType : r.costType);
     }
     if (typeof opts.costValue !== 'undefined') {
-      r.costValue = Math.max(0, Number(opts.costValue || 0) || 0);
+      r.costValue = Math.max(1, Number(opts.costValue || 1) || 1);
     }
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);

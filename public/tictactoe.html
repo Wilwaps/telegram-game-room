@@ -201,12 +201,8 @@
 
       <div class="space-y-2">
         <p class="text-text/70 text-sm">Costo de la partida</p>
-        <div class="grid grid-cols-3 gap-2">
-          <button id="optFree" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]">
-            <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
-            <span>Libre</span>
-          </button>
-          <button id="optCoins" class="bg-glass text-text py-2 rounded-lg flex items-center justify-center space-x-2">
+        <div class="grid grid-cols-2 gap-2">
+          <button id="optCoins" class="bg-yellow-400/20 text-yellow-400 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-[0_0_10px_#facc15]">
             <span class="material-symbols-outlined text-yellow-400">monetization_on</span>
             <span>Monedas</span>
           </button>
@@ -296,7 +292,6 @@
   const createCode = $('createCode');
   const optPrivate = $('optPrivate');
   const optPublic = $('optPublic');
-  const optFree = $('optFree');
   const optCoins = $('optCoins');
   const optFuego = $('optFuego');
   const createUsers = $('createUsers');
@@ -325,8 +320,8 @@
   let lobbyES = null;
   let lobbyRoomId = null;
   let createVisibility = 'private';
-  let createCostType = 'free';
-  let createCostValue = 0;
+  let createCostType = 'coins';
+  let createCostValue = 1;
   let createdRoomId = null;
   let createES = null;
   let celebrateKey = '';
@@ -762,10 +757,10 @@
     overlay.classList.remove('hidden');
     // Crear SIEMPRE una sala nueva privada por defecto
     createdRoomId = null; createCode.textContent='------'; renderCreateUsers({players:{X:'-',O:null}});
-    createVisibility = 'private'; createCostType='free'; createCostValue=0;
+    createVisibility = 'private'; createCostType='coins'; createCostValue=1;
     // actualizar estilos de toggles
     if (optPrivate && optPublic) { styleToggle(optPrivate,optPublic,' bg-accent text-background-dark shadow-[0_0_10px_#22d3ee]',' bg-glass text-text'); }
-    if (optFree && optFuego) { styleToggle(optFree,optFuego,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); }
+    if (optCoins && optFuego) { styleToggle(optCoins,optFuego,' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]',' bg-glass text-text'); }
     createRoom().catch(()=>{ setStatus('No se pudo crear la sala'); });
   }
   function closeCreateOverlay(){
@@ -784,14 +779,12 @@
   function applyCostStyles(){
     const onCls = ' bg-yellow-400/20 text-yellow-400 shadow-[0_0_10px_#facc15]';
     const offCls = ' bg-glass text-text';
-    const btns = [optFree, optCoins, optFuego];
+    const btns = [optCoins, optFuego];
     for (const b of btns){ if (!b) continue; b.className = b.className.replace(' bg-yellow-400/20','').replace(' text-yellow-400','').replace(' shadow-[0_0_10px_#facc15]',''); b.className = b.className.replace(' bg-glass','').replace(' text-text',''); b.className += offCls; }
-    if (createCostType==='free' && optFree){ optFree.className = optFree.className.replace(offCls,'') + onCls; }
     if (createCostType==='coins' && optCoins){ optCoins.className = optCoins.className.replace(offCls,'') + onCls; }
     if (createCostType==='fuego' && optFuego){ optFuego.className = optFuego.className.replace(offCls,'') + onCls; }
   }
 
-  if (optFree) optFree.addEventListener('click', async ()=>{ createCostType='free'; createCostValue=0; applyCostStyles(); await patchOptions().catch(()=>{}); });
   if (optCoins) optCoins.addEventListener('click', async ()=>{ createCostType='coins'; createCostValue=1; applyCostStyles(); await patchOptions().catch(()=>{}); });
   if (optFuego) optFuego.addEventListener('click', async ()=>{ createCostType='fuego'; createCostValue=1; applyCostStyles(); await patchOptions().catch(()=>{}); });
   if (fabCreate) fabCreate.addEventListener('click', openCreate);
