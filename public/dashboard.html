@@ -118,30 +118,52 @@
 
     <div class="grid" style="grid-template-columns: 1fr;">
       <div class="card">
-        <div class="label">Evento de bienvenida</div>
-        <div class="row" style="justify-content:flex-start; gap:12px;">
-          <span class="muted">Estado</span>
-          <span id="wel-status" class="kpi" style="font-size:18px">-</span>
-          <label class="muted" style="display:flex; align-items:center; gap:6px;">
-            <input id="wel-toggle" type="checkbox" /> Activar
-          </label>
+        <div class="label">Eventos de bienvenida</div>
+        <div class="row" style="justify-content:space-between; gap:12px;">
+          <div class="muted" style="display:flex; align-items:center; gap:6px;">
+            <span>Admin</span>
+            <input id="wel-admin-user" type="text" placeholder="usuario" style="width:140px"/>
+            <input id="wel-admin-code" type="password" placeholder="código" style="width:140px"/>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button id="wel-new" class="btn btn-small">Nuevo evento</button>
+            <button id="wel-refresh" class="btn btn-small">Actualizar</button>
+          </div>
         </div>
-        <div class="list" id="wel-info"></div>
-        <hr style="border:none; border-top:1px solid rgba(255,255,255,.08); margin:12px 0;">
-        <div class="row"><span class="muted">Monedas</span><input id="wel-coins" type="number" min="0" value="100" style="width:120px"/></div>
-        <div class="row"><span class="muted">Fuegos</span><input id="wel-fires" type="number" min="0" value="10" style="width:120px"/></div>
-        <div class="row"><span class="muted">Duración (horas)</span><input id="wel-hours" type="number" min="1" value="72" style="width:120px"/></div>
-        <div class="row"><span class="muted">Mensaje</span><input id="wel-msg" type="text" placeholder="Texto mostrado a usuarios" style="flex:1"/></div>
-        <div class="row"><span class="muted">Admin</span>
-          <input id="wel-admin-user" type="text" placeholder="usuario" style="width:140px"/>
-          <input id="wel-admin-code" type="password" placeholder="código" style="width:140px"/>
+        <div style="overflow:auto; margin-top:8px;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Mensaje</th>
+                <th>Monedas</th>
+                <th>Fuegos</th>
+                <th>Duración (h)</th>
+                <th>Vigencia</th>
+                <th>Activo</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="wel-rows"></tbody>
+          </table>
         </div>
-        <div class="row" style="justify-content:flex-end; gap:8px;">
-          <button id="wel-refresh" class="btn btn-small">Actualizar estado</button>
-          <button id="wel-apply" class="btn btn-small" style="border-color:#34d399; color:#d1fae5; background:rgba(52,211,153,.1)">Guardar y activar</button>
-          <button id="wel-disable" class="btn btn-small" style="border-color:#ef4444; color:#fee2e2; background:rgba(239,68,68,.1)">Desactivar</button>
+        <div id="wel-alert" class="muted" style="margin-top:8px;"></div>
+
+        <!-- Modal crear/editar -->
+        <div id="wel-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); align-items:center; justify-content:center;">
+          <div style="background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:16px; width:min(520px, 94vw);">
+            <div class="label" id="wel-modal-title">Nuevo evento</div>
+            <div class="row"><span class="muted">Nombre</span><input id="wel-m-name" type="text" placeholder="Nombre del evento" style="flex:1"/></div>
+            <div class="row"><span class="muted">Mensaje</span><input id="wel-m-message" type="text" placeholder="Mensaje para inbox" style="flex:1"/></div>
+            <div class="row"><span class="muted">Monedas</span><input id="wel-m-coins" type="number" min="0" value="100" style="width:120px"/></div>
+            <div class="row"><span class="muted">Fuegos</span><input id="wel-m-fires" type="number" min="0" value="10" style="width:120px"/></div>
+            <div class="row"><span class="muted">Duración (horas)</span><input id="wel-m-hours" type="number" min="1" value="72" style="width:120px"/></div>
+            <div class="row" style="justify-content:flex-end; gap:8px;">
+              <button id="wel-m-cancel" class="btn btn-small">Cancelar</button>
+              <button id="wel-m-save" class="btn btn-small" style="border-color:#34d399; color:#d1fae5; background:rgba(52,211,153,.1)">Guardar</button>
+            </div>
+          </div>
         </div>
-        <div id="wel-alert" class="muted"></div>
       </div>
     </div>
 
@@ -224,72 +246,24 @@
       }catch(_){ const rows=document.getElementById('fu-rows'); if(rows) rows.innerHTML='<tr><td colspan=\"11\">Error de red</td></tr>'; }
     }
 
-    async function fetchWelcomeStatus(){
-      try{
-        const r = await fetch('/api/welcome/status');
-        const j = await r.json();
-        const statusEl = document.getElementById('wel-status');
-        const infoEl = document.getElementById('wel-info');
-        if(!(j&&j.success&&j.event)){ statusEl.textContent='—'; infoEl.innerHTML=''; return; }
-        const ev = j.event; const now = Date.now();
-        const active = !!ev.active && now < Number(ev.endsAt||0);
-        statusEl.textContent = active ? 'Activo' : 'Inactivo';
-        const tgl = document.getElementById('wel-toggle'); if (tgl) tgl.checked = active;
-        infoEl.innerHTML = '';
-        const mk = (k,v)=>{ const row=document.createElement('div'); row.className='row'; row.innerHTML=`<span class="muted">${k}</span><span>${v}</span>`; infoEl.appendChild(row); };
-        mk('Monedas', fmt(ev.coins||0));
-        mk('Fuegos', fmt(ev.fires||0));
-        mk('Inicio', ev.startsAt? new Date(ev.startsAt).toLocaleString() : '-');
-        mk('Fin', ev.endsAt? new Date(ev.endsAt).toLocaleString() : '-');
-        mk('Mensaje', ev.message? `<code>${ev.message}</code>` : '-');
-        const msgI = document.getElementById('wel-msg'); if (msgI && typeof ev.message==='string') msgI.value = ev.message;
-      }catch(_){ document.getElementById('wel-status').textContent='Error'; }
-    }
-
-    async function activateWelcome(){
-      const coins = parseInt(document.getElementById('wel-coins').value||'0',10)||0;
-      const fires = parseInt(document.getElementById('wel-fires').value||'0',10)||0;
-      const durationHours = parseInt(document.getElementById('wel-hours').value||'72',10)||72;
-      const message = String(document.getElementById('wel-msg').value||'');
-      const user = String(document.getElementById('wel-admin-user').value||'');
-      const code = String(document.getElementById('wel-admin-code').value||'');
-      const alertEl = document.getElementById('wel-alert');
-      alertEl.textContent='';
-      try{
-        const r = await fetch('/api/admin/welcome/activate', {
-          method:'POST', headers:{ 'Content-Type':'application/json', 'x-admin-username': user, 'x-admin-code': code }, body: JSON.stringify({ coins, fires, durationHours, message })
-        });
-        const j = await r.json();
-        if (j&&j.success){ alertEl.textContent='Evento activado.'; await fetchWelcomeStatus(); }
-        else { alertEl.textContent='Error: '+(j&&j.error||'activate_error'); }
-      }catch(e){ alertEl.textContent='Error de red'; }
-    }
-
-    async function disableWelcome(){
-      const user = String(document.getElementById('wel-admin-user').value||'');
-      const code = String(document.getElementById('wel-admin-code').value||'');
-      const alertEl = document.getElementById('wel-alert');
-      alertEl.textContent='';
-      try{
-        const r = await fetch('/api/admin/welcome/disable', { method:'POST', headers:{ 'Content-Type':'application/json', 'x-admin-username': user, 'x-admin-code': code } });
-        const j = await r.json();
-        if (j&&j.success){ alertEl.textContent='Evento desactivado.'; await fetchWelcomeStatus(); }
-        else { alertEl.textContent='Error: '+(j&&j.error||'disable_error'); }
-      }catch(e){ alertEl.textContent='Error de red'; }
-    }
-
-    async function onWelToggle(e){
-      const tgl = e.currentTarget;
-      const wantActive = !!tgl.checked;
-      tgl.disabled = true;
-      try{
-        if (wantActive) { await activateWelcome(); }
-        else { await disableWelcome(); }
-      } finally {
-        tgl.disabled = false;
-        try { await fetchWelcomeStatus(); } catch(_){ }
-      }
-    }
+    function adminHeaders(){ try{ const u=document.getElementById('wel-admin-user')?.value||''; const c=document.getElementById('wel-admin-code')?.value||''; if(!u||!c) return {}; return {'x-admin-username':u,'x-admin-code':c,'Content-Type':'application/json'}; }catch(_){ return {'Content-Type':'application/json'}; } }
+    function vigenciaText(it){ try{ if(!it.startsAt||!it.endsAt) return '-'; return new Date(it.startsAt).toLocaleString()+' – '+new Date(it.endsAt).toLocaleString(); }catch(_){ return '-'; } }
+    function renderWelcomeRows(items){ const tb=document.getElementById('wel-rows'); tb.innerHTML=''; (items||[]).forEach(it=>{ const tr=document.createElement('tr'); tr.innerHTML=`
+      <td>${it.name||'-'}</td>
+      <td><code>${shortTxt(it.message||'', 48)}</code></td>
+      <td>${fmt(it.coins||0)}</td>
+      <td>${fmt(it.fires||0)}</td>
+      <td>${fmt(it.durationHours||0)}</td>
+      <td>${vigenciaText(it)}</td>
+      <td><input type="checkbox" class="wel-tgl" data-id="${it.id}" ${it.active?'checked':''}/></td>
+      <td><button class="btn btn-small wel-edit" data-id="${it.id}" data-name="${(it.name||'').replace(/"/g,'&quot;')}" data-message="${(it.message||'').replace(/"/g,'&quot;')}" data-coins="${it.coins||0}" data-fires="${it.fires||0}" data-hours="${it.durationHours||0}">Editar</button></td>
+    `; tb.appendChild(tr); }); attachWelcomeHandlers(); }
+    async function loadWelcomeEvents(){ const alertEl=document.getElementById('wel-alert'); alertEl.textContent=''; try{ const r=await fetch('/api/admin/welcome/events?includeInactive=true',{ headers: adminHeaders()}); const j=await r.json(); if(j&&j.success){ renderWelcomeRows(j.items||[]); } else { alertEl.textContent='Error al cargar eventos'; } }catch(_){ const tb=document.getElementById('wel-rows'); if(tb) tb.innerHTML='<tr><td colspan="8">Error de red</td></tr>'; }
+    function openWelModal(data){ const m=document.getElementById('wel-modal'); m.style.display='flex'; const t=document.getElementById('wel-modal-title'); t.textContent = data&&data.id? 'Editar evento' : 'Nuevo evento'; m.dataset.editingId = data&&data.id? String(data.id):''; document.getElementById('wel-m-name').value= data?.name||''; document.getElementById('wel-m-message').value= data?.message||''; document.getElementById('wel-m-coins').value= data?.coins||0; document.getElementById('wel-m-fires').value= data?.fires||0; document.getElementById('wel-m-hours').value= data?.durationHours||72; }
+    function closeWelModal(){ const m=document.getElementById('wel-modal'); m.style.display='none'; m.dataset.editingId=''; }
+    async function saveWelModal(){ const m=document.getElementById('wel-modal'); const id=m.dataset.editingId||''; const payload={ name:document.getElementById('wel-m-name').value||'', message:document.getElementById('wel-m-message').value||'', coins:parseInt(document.getElementById('wel-m-coins').value||'0',10)||0, fires:parseInt(document.getElementById('wel-m-fires').value||'0',10)||0, durationHours:parseInt(document.getElementById('wel-m-hours').value||'0',10)||0 }; const alertEl=document.getElementById('wel-alert'); alertEl.textContent=''; try{ let r; if(id){ r=await fetch(`/api/admin/welcome/events/${id}`,{ method:'PATCH', headers: adminHeaders(), body: JSON.stringify(payload)}); } else { r=await fetch('/api/admin/welcome/events',{ method:'POST', headers: adminHeaders(), body: JSON.stringify(payload)}); } const j=await r.json(); if(j&&j.success){ closeWelModal(); await loadWelcomeEvents(); } else { alertEl.textContent='Error al guardar'; } }catch(_){ alertEl.textContent='Error de red'; } }
+    async function setWelActive(id, on){ const alertEl=document.getElementById('wel-alert'); alertEl.textContent=''; try{ const url = on? `/api/admin/welcome/events/${id}/activate` : `/api/admin/welcome/events/${id}/deactivate`; const body = on? JSON.stringify({ startsAt: new Date().toISOString() }) : null; const r = await fetch(url, { method:'POST', headers: adminHeaders(), body }); const j=await r.json(); if(!(j&&j.success)){ alertEl.textContent='No se pudo cambiar estado'; } await loadWelcomeEvents(); }catch(_){ alertEl.textContent='Error de red'; await loadWelcomeEvents(); } }
+    function attachWelcomeHandlers(){ document.querySelectorAll('.wel-edit').forEach(b=>{ b.addEventListener('click', (e)=>{ const el=e.currentTarget; openWelModal({ id: el.getAttribute('data-id'), name: el.getAttribute('data-name')||'', message: el.getAttribute('data-message')||'', coins: parseInt(el.getAttribute('data-coins')||'0',10)||0, fires: parseInt(el.getAttribute('data-fires')||'0',10)||0, durationHours: parseInt(el.getAttribute('data-hours')||'0',10)||0 }); }); }); document.querySelectorAll('.wel-tgl').forEach(ch=>{ ch.addEventListener('change', (e)=>{ const el=e.currentTarget; el.disabled=true; setWelActive(el.getAttribute('data-id'), el.checked).finally(()=>{ el.disabled=false; }); }); }); }
     function startSSE(){
       const es = new EventSource('/api/economy/supply/stream');
       es.addEventListener('supply', (ev) => {
@@ -373,12 +347,12 @@
     loadTxs();
     loadXP();
     loadAdminUsers();
-    fetchWelcomeStatus();
+    loadWelcomeEvents();
     loadFullUsers();
-    document.getElementById('wel-refresh').addEventListener('click', fetchWelcomeStatus);
-    const applyBtn = document.getElementById('wel-apply'); if (applyBtn) applyBtn.addEventListener('click', activateWelcome);
-    document.getElementById('wel-disable').addEventListener('click', disableWelcome);
-    const welTgl = document.getElementById('wel-toggle'); if (welTgl) welTgl.addEventListener('change', onWelToggle);
+    const welRef = document.getElementById('wel-refresh'); if (welRef) welRef.addEventListener('click', loadWelcomeEvents);
+    const welNew = document.getElementById('wel-new'); if (welNew) welNew.addEventListener('click', ()=> openWelModal(null));
+    const welCancel = document.getElementById('wel-m-cancel'); if (welCancel) welCancel.addEventListener('click', closeWelModal);
+    const welSave = document.getElementById('wel-m-save'); if (welSave) welSave.addEventListener('click', saveWelModal);
     if (typeof fetchCircInitStatus === 'function') {
       fetchCircInitStatus();
       const cr=document.getElementById('circ-refresh'); if(cr){ cr.addEventListener('click', fetchCircInitStatus); }
