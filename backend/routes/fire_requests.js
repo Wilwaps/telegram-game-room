@@ -42,6 +42,15 @@ async function notifyAdminNewRequest(req, { request }) {
 
 function getSessUserId(req){
   try{
+    // Preferir id de sesión ya resuelto por middleware global (cookies o x-session-id)
+    if (req.sessionUserId) return String(req.sessionUserId);
+    // Fallback: header x-session-id directo
+    const sidHeader = String(req.headers['x-session-id'] || '').trim();
+    if (sidHeader) {
+      const sessH = auth.getSession(sidHeader);
+      if (sessH && sessH.userId) return String(sessH.userId);
+    }
+    // Último recurso: leer cookie sid
     const raw = String(req.headers.cookie || '');
     let sid='';
     for(const part of raw.split(/;\s*/)){ const [k,v]=part.split('='); if(k==='sid'){ sid=v; break; } }
