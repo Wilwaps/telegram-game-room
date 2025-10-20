@@ -4,17 +4,24 @@ const store = require('../services/memoryStore');
 const inbox = require('../services/messageStore');
 const { preferSessionUserId } = require('../middleware/sessionUser');
 let welcomeRepo = null; try { welcomeRepo = require('../repos/welcomeRepo'); } catch(_) { welcomeRepo = null; }
+let userRepo = null; try { userRepo = require('../repos/userRepo'); } catch(_) { userRepo = null; }
 
 router.get('/:userId', async (req, res) => {
   try {
     const userId = String(req.params.userId || '').trim();
     if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
-    // Asegurar existencia de usuario (mem) para compatibilidad
-    let u = store.getUser(userId) || store.ensureUser(userId);
+    const effId = preferSessionUserId(req, userId);
+    let u = store.getUser(effId) || store.ensureUser(effId);
+    try{
+      if (userRepo && /^tg:/i.test(effId)){
+        const tg = effId.slice(3);
+        try { await userRepo.upsertTelegramUser({ tgId: tg }); } catch(_){ }
+      }
+    }catch(_){ }
     // Premio bienvenida con Postgres (solo TG/db) y persistente
     try {
       if (welcomeRepo) {
-        const award = await welcomeRepo.awardIfEligible(userId);
+        const award = await welcomeRepo.awardIfEligible(effId);
         if (award && award.awarded) {
           try {
             const ev = await welcomeRepo.getEvent();
@@ -22,7 +29,7 @@ router.get('/:userId', async (req, res) => {
             const fallback = `🎉 Bienvenido/a. Has recibido ${award.coinsAwarded} monedas y ${award.firesAwarded} 🔥 de regalo.`;
             const tail = award.until ? `Válido hasta ${new Date(award.until).toLocaleString()}.` : '';
             const text = [baseMsg || fallback, tail].filter(Boolean).join(' ');
-            inbox.send({ toUserId: userId, text });
+            inbox.send({ toUserId: effId, text });
           } catch (_) {}
         }
       }
@@ -31,7 +38,7 @@ router.get('/:userId', async (req, res) => {
     let firesDb = null, coinsDb = null;
     try{
       if (welcomeRepo) {
-        const bal = await welcomeRepo.getWalletExtBalances(userId);
+        const bal = await welcomeRepo.getWalletExtBalances(effId);
         if (bal){ firesDb = Number(bal.fires||0); coinsDb = Number(bal.coins||0); }
       }
     }catch(_){ }

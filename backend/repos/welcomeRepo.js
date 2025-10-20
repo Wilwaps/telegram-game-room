@@ -196,7 +196,8 @@ let supplyRepo = null; try { supplyRepo = require('./supplyRepo'); } catch(_) { 
 
 async function awardIfEligible(userExt){
   const ext = String(userExt||'');
-  if (!ext.startsWith('tg:')) return { awarded:false };
+  // Aceptar tg:, db:, em:. Ignorar anon:
+  if (!/^((tg|db|em):)/i.test(ext)) return { awarded:false };
   const ev = await getCurrentEvent();
   const now = Date.now();
   if (!ev.active || now < Number(ev.startsAt||0) || now > Number(ev.endsAt||0)) return { awarded:false };
