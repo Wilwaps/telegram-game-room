@@ -97,6 +97,17 @@
     async function loadBalance(){
       try{
         myId = (window.AppUser && window.AppUser.resolveUserId && window.AppUser.resolveUserId()) || null;
+        // Si aún no tenemos TG/DB (ej. arranque del WebView) intentar resolver desde la sesión del backend
+        if (!myId || String(myId).startsWith('anon:')){
+          try{
+            const rm = await fetch('/api/auth/me', { headers: { 'Cache-Control':'no-store' } });
+            if (rm.ok){
+              const jm = await rm.json();
+              const sidUid = (jm && jm.user && (jm.user.userId || jm.user.user_id)) || jm?.userId;
+              if (sidUid) myId = String(sidUid);
+            }
+          }catch(_){ }
+        }
         const r = await fetch(`/api/profile/${encodeURIComponent(myId)}`);
         const j = await r.json();
         const fires = (j && j.success && j.user && j.user.fires) ? Number(j.user.fires) : 0;

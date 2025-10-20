@@ -66,6 +66,25 @@ async function accept({ id, adminUserName }){
     const bal = Number(row.fires_balance||0); if (bal < amt) throw new Error('insufficient_fires');
     await client.query('UPDATE wallets SET fires_balance = fires_balance - $2, updated_at=NOW() WHERE id=$1', [row.id, amt]);
     await client.query('INSERT INTO wallet_transactions(wallet_id, type, amount_fire, reference, meta, created_at) VALUES ($1,$2,$3,$4,$5,NOW())', [row.id, 'market_redeem', -amt, String(id), { marketRedeemId: String(id) }]);
+    // Auditoría supply: registrar burn por canje de mercado
+    try {
+      await client.query(`CREATE TABLE IF NOT EXISTS supply_txs(
+        id BIGSERIAL PRIMARY KEY,
+        ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        type TEXT NOT NULL,
+        amount NUMERIC(24,2) NOT NULL DEFAULT 0,
+        user_ext TEXT,
+        user_id UUID,
+        event_id INTEGER,
+        reference TEXT,
+        meta JSONB,
+        actor TEXT
+      )`);
+    } catch(_) {}
+    try {
+      await client.query('INSERT INTO supply_txs(ts,type,amount,user_ext,user_id,reference,meta,actor) VALUES (NOW(),$1,$2,$3,$4,$5,$6,$7)',
+        ['burn_market_redeem', amt, String(rec.user_ext||''), dbUserId, String(id), { marketRedeemId: String(id) }, String(adminUserName||'admin')]);
+    } catch(_) {}
     await client.query('UPDATE market_redeems SET status=\'accepted\', processed_by=$2, processed_at=NOW() WHERE id=$1', [id, String(adminUserName||'admin')]);
     await client.query('COMMIT');
     return { ok:true };
