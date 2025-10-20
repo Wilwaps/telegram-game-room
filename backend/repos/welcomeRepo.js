@@ -206,16 +206,13 @@ async function awardIfEligible(userExt){
   await ensureWallet(dbUserId);
   const coins = Math.max(0, Number(ev.coins||0));
   const fires = Math.max(0, Number(ev.fires||0));
-  // Control de supply: si hay fuegos a otorgar, verificar y emitir
-  if (fires>0 && supplyRepo){
-    const ok = await supplyRepo.canEmit(fires);
-    if (!ok) return { awarded:false };
-    const em = await supplyRepo.emit(fires);
-    if (!em || !em.ok) return { awarded:false };
-  }
   const client = await db.pool.connect();
   try{
     await client.query('BEGIN');
+    if (fires>0){
+      const upd = await client.query('UPDATE fire_supply SET emitted = emitted + $1, updated_at=NOW() WHERE id=1 AND emitted + $1 <= total_max RETURNING emitted,total_max',[fires]);
+      if (!upd.rows || !upd.rows[0]){ await client.query('ROLLBACK'); return { awarded:false }; }
+    }
     if (coins>0){
       const w = await client.query('SELECT id FROM wallets WHERE user_id=$1 FOR UPDATE',[dbUserId]);
       const wid = w.rows?.[0]?.id; if (wid){
@@ -229,6 +226,10 @@ async function awardIfEligible(userExt){
         await client.query('UPDATE wallets SET fires_balance = fires_balance + $2, updated_at=NOW() WHERE id=$1',[wid2, fires]);
         await client.query('INSERT INTO wallet_transactions(wallet_id,type,amount_fire,reference,meta,created_at) VALUES ($1,$2,$3,$4,$5,NOW())',[wid2,'welcome_bonus', fires, 'welcome', { userExt: ext }]);
       }
+    }
+    if (fires>0){
+      const evId = ev.id || null;
+      await client.query('INSERT INTO supply_txs(ts,type,amount,user_ext,user_id,event_id,reference,meta,actor) VALUES (NOW(),$1,$2,$3,$4,$5,$6,$7,$8)', ['welcome_bonus', fires, ext, dbUserId, evId, 'welcome', { coinsAwarded: coins }, 'system']);
     }
     await client.query('COMMIT');
   }catch(e){ try{ await client.query('ROLLBACK'); }catch(_){} throw e; }
