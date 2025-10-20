@@ -185,6 +185,19 @@ async function ensureWallet(dbUserId){
   await db.query('INSERT INTO wallets(user_id, fires_balance, coins_balance, updated_at) VALUES ($1,0,0,NOW()) ON CONFLICT (user_id) DO NOTHING', [dbUserId]);
 }
 
+async function ensureFireSupply(client){
+  await client.query(`CREATE TABLE IF NOT EXISTS fire_supply(
+    id SMALLINT PRIMARY KEY DEFAULT 1,
+    total_max NUMERIC(24,2) NOT NULL DEFAULT 1000000000,
+    emitted NUMERIC(24,2) NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  )`);
+  const chk = await client.query('SELECT 1 FROM fire_supply WHERE id=1');
+  if (!chk.rows || !chk.rows[0]){
+    await client.query('INSERT INTO fire_supply(id,total_max,emitted,updated_at) VALUES (1,1000000000,0,NOW())');
+  }
+}
+
 async function getWalletExtBalances(userExt){
   const id = await mapExtToDbUserId(userExt); if (!id) return null;
   const rs = await db.query('SELECT fires_balance, coins_balance FROM wallets WHERE user_id=$1', [id]);
@@ -210,6 +223,7 @@ async function awardIfEligible(userExt){
   const client = await db.pool.connect();
   try{
     await client.query('BEGIN');
+    await ensureFireSupply(client);
     if (fires>0){
       const upd = await client.query('UPDATE fire_supply SET emitted = emitted + $1, updated_at=NOW() WHERE id=1 AND emitted + $1 <= total_max RETURNING emitted,total_max',[fires]);
       if (!upd.rows || !upd.rows[0]){ await client.query('ROLLBACK'); return { awarded:false }; }
