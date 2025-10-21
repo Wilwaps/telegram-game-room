@@ -219,7 +219,7 @@ class MemoryStore extends EventEmitter {
   }
 
   // Sincroniza (si está disponible) los saldos desde la billetera externa (Postgres)
-  // Solo para IDs externos tg:/db:/em:. No reduce saldos locales; solo eleva si el DB es mayor.
+  // Solo para IDs externos tg:/db:/em:. Sincronización bidireccional completa.
   async syncFromExtWallet(userId) {
     try {
       const id = String(userId || '').trim();
@@ -232,8 +232,9 @@ class MemoryStore extends EventEmitter {
       const coins = Math.max(0, Number(bal.coins || 0));
       const fires = Math.max(0, Number(bal.fires || 0));
       if (u) {
-        if (coins > Math.max(0, Number(u.coins || 0))) u.coins = coins;
-        if (fires > Math.max(0, Number(u.fires || 0))) u.fires = fires;
+        // Sincronización bidireccional: actualiza siempre con el valor de DB
+        u.coins = coins;
+        u.fires = fires;
         this.users.set(id, u);
       }
       return { ok: true, coins: (u && u.coins) || 0, fires: (u && u.fires) || 0 };

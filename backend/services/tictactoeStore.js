@@ -123,65 +123,74 @@ class TTTStore extends EventEmitter {
     try {
       // Sincronizar saldos desde billetera externa si aplica (tg:/db:/em:) y si está habilitado
       try { if (this.dbWalletEnabled && typeof mem.syncFromExtWallet === 'function') { await mem.syncFromExtWallet(r.players.X); await mem.syncFromExtWallet(r.players.O); } } catch(_){ }
-      // Primero intentamos debitar en DB (si disponible), luego movemos en memoria al pot
+      // Si DB está habilitado, solo debitar en DB. Si no, solo en memoria.
       if (ct === 'coins') {
-        // Debito DB (opcional)
         if (this.dbWalletEnabled && walletRepo && typeof walletRepo.debitCoinsByExt === 'function') {
+          // Modo DB: solo debitar en DB
           if (!r.paidFlags.X) {
             const dx = await walletRepo.debitCoinsByExt(r.players.X, cv, { type: 'ttt_wager_debit', reference: r.id, meta: { roomId: r.id, round: r.round } });
             if (!dx || !dx.ok) { logger.info && logger.info(`[TTT] debitCoins X failed`, { roomId: r.id, user: r.players.X, error: dx && dx.error }); return false; }
+            r.paidFlags.X = true;
+            r._dbPot.type = 'coins';
+            r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
           }
           if (!r.paidFlags.O) {
             const dox = await walletRepo.debitCoinsByExt(r.players.O, cv, { type: 'ttt_wager_debit', reference: r.id, meta: { roomId: r.id, round: r.round } });
             if (!dox || !dox.ok) {
-              // Revertir X si acabamos de debitarlo aquí y aún no estaba marcado como pagado
-              try { if (!r.paidFlags.X) await walletRepo.creditCoinsByExt(r.players.X, cv, { type: 'ttt_wager_refund', reference: r.id, meta: { roomId: r.id, round: r.round } }); } catch(_){}
+              // Revertir X si fue debitado en este intento
+              try { if (r.paidFlags.X) { await walletRepo.creditCoinsByExt(r.players.X, cv, { type: 'ttt_wager_refund', reference: r.id, meta: { roomId: r.id, round: r.round } }); r.paidFlags.X = false; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0) - cv); } } catch(_){}
               logger.info && logger.info(`[TTT] debitCoins O failed`, { roomId: r.id, user: r.players.O, error: dox && dox.error });
               return false;
             }
+            r.paidFlags.O = true;
+            r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
+          }
+        } else {
+          // Modo memoria: transferir al pot en memoria
+          if (!r.paidFlags.X) {
+            const rx = mem.transferCoins({ fromUserId: r.players.X, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
+            if (!rx || !rx.ok) { logger.info && logger.info(`[TTT] mem.transferCoins X failed`, { roomId: r.id }); return false; }
+            r.paidFlags.X = true;
+          }
+          if (!r.paidFlags.O) {
+            const ro = mem.transferCoins({ fromUserId: r.players.O, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
+            if (!ro || !ro.ok) { logger.info && logger.info(`[TTT] mem.transferCoins O failed`, { roomId: r.id }); return false; }
+            r.paidFlags.O = true;
           }
         }
-        // Memoria (si no estaba pagado)
-        if (!r.paidFlags.X) {
-          const rx = mem.transferCoins({ fromUserId: r.players.X, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
-          if (!rx || !rx.ok) { logger.info && logger.info(`[TTT] mem.transferCoins X failed`, { roomId: r.id }); return false; }
-          r.paidFlags.X = true;
-          r._dbPot.type = 'coins'; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
-        }
-        if (!r.paidFlags.O) {
-          const ro = mem.transferCoins({ fromUserId: r.players.O, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
-          if (!ro || !ro.ok) { logger.info && logger.info(`[TTT] mem.transferCoins O failed`, { roomId: r.id }); return false; }
-          r.paidFlags.O = true;
-          r._dbPot.type = 'coins'; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
-        }
       } else if (ct === 'fuego') {
-        // Debito DB (opcional)
         if (this.dbWalletEnabled && walletRepo && typeof walletRepo.debitFiresByExt === 'function') {
+          // Modo DB: solo debitar en DB
           if (!r.paidFlags.X) {
             const dx = await walletRepo.debitFiresByExt(r.players.X, cv, { type: 'ttt_wager_debit', reference: r.id, meta: { roomId: r.id, round: r.round } });
             if (!dx || !dx.ok) { logger.info && logger.info(`[TTT] debitFires X failed`, { roomId: r.id, user: r.players.X, error: dx && dx.error }); return false; }
+            r.paidFlags.X = true;
+            r._dbPot.type = 'fuego';
+            r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
           }
           if (!r.paidFlags.O) {
             const dox = await walletRepo.debitFiresByExt(r.players.O, cv, { type: 'ttt_wager_debit', reference: r.id, meta: { roomId: r.id, round: r.round } });
             if (!dox || !dox.ok) {
-              try { if (!r.paidFlags.X) await walletRepo.creditFiresByExt(r.players.X, cv, { type: 'ttt_wager_refund', reference: r.id, meta: { roomId: r.id, round: r.round } }); } catch(_){ }
+              // Revertir X si fue debitado en este intento
+              try { if (r.paidFlags.X) { await walletRepo.creditFiresByExt(r.players.X, cv, { type: 'ttt_wager_refund', reference: r.id, meta: { roomId: r.id, round: r.round } }); r.paidFlags.X = false; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0) - cv); } } catch(_){ }
               logger.info && logger.info(`[TTT] debitFires O failed`, { roomId: r.id, user: r.players.O, error: dox && dox.error });
               return false;
             }
+            r.paidFlags.O = true;
+            r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
           }
-        }
-        // Memoria (si no estaba pagado)
-        if (!r.paidFlags.X) {
-          const rx = mem.transferFires({ fromUserId: r.players.X, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
-          if (!rx || !rx.ok) { logger.info && logger.info(`[TTT] mem.transferFires X failed`, { roomId: r.id }); return false; }
-          r.paidFlags.X = true;
-          r._dbPot.type = 'fuego'; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
-        }
-        if (!r.paidFlags.O) {
-          const ro = mem.transferFires({ fromUserId: r.players.O, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
-          if (!ro || !ro.ok) { logger.info && logger.info(`[TTT] mem.transferFires O failed`, { roomId: r.id }); return false; }
-          r.paidFlags.O = true;
-          r._dbPot.type = 'fuego'; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
+        } else {
+          // Modo memoria: transferir al pot en memoria
+          if (!r.paidFlags.X) {
+            const rx = mem.transferFires({ fromUserId: r.players.X, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
+            if (!rx || !rx.ok) { logger.info && logger.info(`[TTT] mem.transferFires X failed`, { roomId: r.id }); return false; }
+            r.paidFlags.X = true;
+          }
+          if (!r.paidFlags.O) {
+            const ro = mem.transferFires({ fromUserId: r.players.O, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
+            if (!ro || !ro.ok) { logger.info && logger.info(`[TTT] mem.transferFires O failed`, { roomId: r.id }); return false; }
+            r.paidFlags.O = true;
+          }
         }
       }
       if (r.paidFlags.X && r.paidFlags.O) {
@@ -204,45 +213,43 @@ class TTTStore extends EventEmitter {
     try {
       if (r.winner) {
         const winId = r.winner === 'X' ? r.players.X : r.players.O;
-        if (potCoins > 0) mem.transferCoins({ fromUserId: potId, toUserId: winId, amount: potCoins, reason: 'ttt_wager_win' });
-        if (potFires > 0) mem.transferFires({ fromUserId: potId, toUserId: winId, amount: potFires, reason: 'ttt_wager_win' });
-        // DB credit (opcional)
-        try{
-          const amt = Math.max(0, Number(r?._dbPot?.amount||0))*1;
-          if (this.dbWalletEnabled && amt>0 && r._dbPot && r._dbPot.type && walletRepo){
-            if (r._dbPot.type === 'fuego' && typeof walletRepo.creditFiresByExt === 'function') {
-              walletRepo.creditFiresByExt(winId, amt, { type:'ttt_wager_win', reference: r.id, meta: { roomId: r.id, round: r.round } });
-            } else if (r._dbPot.type === 'coins' && typeof walletRepo.creditCoinsByExt === 'function') {
-              walletRepo.creditCoinsByExt(winId, amt, { type:'ttt_wager_win', reference: r.id, meta: { roomId: r.id, round: r.round } });
-            }
+        // Si DB está habilitado, usar el pot DB. Si no, usar memoria
+        if (this.dbWalletEnabled && r._dbPot && r._dbPot.type && walletRepo) {
+          const amt = Math.max(0, Number(r._dbPot.amount||0))*2; // *2 porque ambos jugadores pagaron
+          if (r._dbPot.type === 'fuego' && typeof walletRepo.creditFiresByExt === 'function') {
+            walletRepo.creditFiresByExt(winId, amt, { type:'ttt_wager_win', reference: r.id, meta: { roomId: r.id, round: r.round } });
+          } else if (r._dbPot.type === 'coins' && typeof walletRepo.creditCoinsByExt === 'function') {
+            walletRepo.creditCoinsByExt(winId, amt, { type:'ttt_wager_win', reference: r.id, meta: { roomId: r.id, round: r.round } });
           }
-        }catch(_){ }
+        } else {
+          // Modo memoria: transferir desde pot
+          if (potCoins > 0) mem.transferCoins({ fromUserId: potId, toUserId: winId, amount: potCoins, reason: 'ttt_wager_win' });
+          if (potFires > 0) mem.transferFires({ fromUserId: potId, toUserId: winId, amount: potFires, reason: 'ttt_wager_win' });
+        }
       } else {
-        const halfC = Math.floor(potCoins / 2);
-        const halfF = Math.floor(potFires / 2);
-        if (potCoins > 0) {
-          if (r.players.X) mem.transferCoins({ fromUserId: potId, toUserId: r.players.X, amount: halfC, reason: 'ttt_wager_draw' });
-          if (r.players.O) mem.transferCoins({ fromUserId: potId, toUserId: r.players.O, amount: potCoins - halfC, reason: 'ttt_wager_draw' });
-        }
-        if (potFires > 0) {
-          if (r.players.X) mem.transferFires({ fromUserId: potId, toUserId: r.players.X, amount: halfF, reason: 'ttt_wager_draw' });
-          if (r.players.O) mem.transferFires({ fromUserId: potId, toUserId: r.players.O, amount: potFires - halfF, reason: 'ttt_wager_draw' });
-        }
-        // DB split credit (opcional)
-        try{
-          const amt = Math.max(0, Number(r?._dbPot?.amount||0))*1;
-          if (this.dbWalletEnabled && amt>0 && r._dbPot && r._dbPot.type && walletRepo){
-            const h = Math.floor(amt/2);
-            const rest = amt - h;
-            if (r._dbPot.type === 'fuego' && typeof walletRepo.creditFiresByExt === 'function') {
-              if (r.players.X) walletRepo.creditFiresByExt(r.players.X, h, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
-              if (r.players.O) walletRepo.creditFiresByExt(r.players.O, rest, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
-            } else if (r._dbPot.type === 'coins' && typeof walletRepo.creditCoinsByExt === 'function') {
-              if (r.players.X) walletRepo.creditCoinsByExt(r.players.X, h, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
-              if (r.players.O) walletRepo.creditCoinsByExt(r.players.O, rest, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
-            }
+        // Empate: dividir entre ambos
+        if (this.dbWalletEnabled && r._dbPot && r._dbPot.type && walletRepo) {
+          const amt = Math.max(0, Number(r._dbPot.amount||0)); // Cada uno recupera lo que apostó
+          if (r._dbPot.type === 'fuego' && typeof walletRepo.creditFiresByExt === 'function') {
+            if (r.players.X) walletRepo.creditFiresByExt(r.players.X, amt, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            if (r.players.O) walletRepo.creditFiresByExt(r.players.O, amt, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
+          } else if (r._dbPot.type === 'coins' && typeof walletRepo.creditCoinsByExt === 'function') {
+            if (r.players.X) walletRepo.creditCoinsByExt(r.players.X, amt, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            if (r.players.O) walletRepo.creditCoinsByExt(r.players.O, amt, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
           }
-        }catch(_){ }
+        } else {
+          // Modo memoria: dividir pot
+          const halfC = Math.floor(potCoins / 2);
+          const halfF = Math.floor(potFires / 2);
+          if (potCoins > 0) {
+            if (r.players.X) mem.transferCoins({ fromUserId: potId, toUserId: r.players.X, amount: halfC, reason: 'ttt_wager_draw' });
+            if (r.players.O) mem.transferCoins({ fromUserId: potId, toUserId: r.players.O, amount: potCoins - halfC, reason: 'ttt_wager_draw' });
+          }
+          if (potFires > 0) {
+            if (r.players.X) mem.transferFires({ fromUserId: potId, toUserId: r.players.X, amount: halfF, reason: 'ttt_wager_draw' });
+            if (r.players.O) mem.transferFires({ fromUserId: potId, toUserId: r.players.O, amount: potFires - halfF, reason: 'ttt_wager_draw' });
+          }
+        }
       }
     } catch (_) {}
     // limpiar pot DB de la ronda
