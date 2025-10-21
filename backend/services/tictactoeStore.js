@@ -108,15 +108,17 @@ class TTTStore extends EventEmitter {
     out.sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
     return out;
   }
-  chargeAndMaybeStart(r) {
-    if (!r) return;
-    if (!(r.players && r.players.X && r.players.O)) return;
-    if (r.status === 'playing') return;
+  async chargeAndMaybeStart(r) {
+    if (!r) return false;
+    if (!(r.players && r.players.X && r.players.O)) return false;
+    if (r.status === 'playing') return true;
     const ct = String(r.costType||'coins');
     const cv = Math.max(1, Number(r.costValue||1) || 1);
     const potId = this.potUserId(r.id);
     if (!r.paidFlags) r.paidFlags = { X:false, O:false };
     try {
+      // Sincronizar saldos desde billetera externa si aplica (tg:/db:/em:)
+      try { if (typeof mem.syncFromExtWallet === 'function') { await mem.syncFromExtWallet(r.players.X); await mem.syncFromExtWallet(r.players.O); } } catch(_){ }
       if (ct === 'coins') {
         if (!r.paidFlags.X) {
           const rx = mem.transferCoins({ fromUserId: r.players.X, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
@@ -409,7 +411,7 @@ class TTTStore extends EventEmitter {
     this.emit('room_update_' + r.id, s);
     return s;
   }
-  startGame(roomId, userId){
+  async startGame(roomId, userId){
     const r = this.rooms.get(String(roomId));
     if (!r) throw new Error('room_not_found');
     if (!r.players.X || !r.players.O) throw new Error('both_required');
@@ -417,7 +419,7 @@ class TTTStore extends EventEmitter {
     if (seat !== 'X') throw new Error('only_host_can_start');
     if (!r.ready || !r.ready.O) throw new Error('opponent_not_ready');
     r.paidFlags = { X:false, O:false };
-    const ok = this.chargeAndMaybeStart(r);
+    const ok = await this.chargeAndMaybeStart(r);
     const s = this.getState(roomId);
     this.emit('room_update_' + r.id, s);
     if (!ok) throw new Error('payment_failed');

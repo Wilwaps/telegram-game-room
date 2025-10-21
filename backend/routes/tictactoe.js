@@ -5,7 +5,7 @@ const { preferSessionUserId } = require('../middleware/sessionUser');
 
 router.post('/rooms', (req, res) => {
   try {
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, String(req.body && req.body.userId || '').trim());
     const visibility = (req.body && req.body.visibility) || undefined;
     const costType = (req.body && req.body.costType) || undefined;
     const costValue = (req.body && req.body.costValue) || undefined;
@@ -35,7 +35,7 @@ router.get('/my-rooms', (req, res) => {
 router.post('/join-code', (req, res) => {
   try {
     const code = String(req.body && req.body.code || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, String(req.body && req.body.userId || '').trim());
     if (!code || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
     const state = store.findByCode(code);
     if (!state) return res.status(404).json({ success: false, error: 'room_not_found' });
@@ -63,7 +63,7 @@ router.get('/code/:code', (req, res) => {
 router.post('/rooms/:id/join', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, String(req.body && req.body.userId || '').trim());
     const codeFromBody = String(req.body && req.body.code || '').trim();
     if (!roomId || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
     const cur = store.getState(roomId);
@@ -87,7 +87,7 @@ router.post('/rooms/:id/join', (req, res) => {
 router.post('/rooms/:id/move', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, String(req.body && req.body.userId || '').trim());
     const index = Number(req.body && req.body.index);
     if (!roomId || !userId || !Number.isFinite(index)) return res.status(400).json({ success: false, error: 'invalid_params' });
     const state = store.move({ roomId, userId, index });
@@ -172,7 +172,7 @@ router.get('/public-rooms', (req, res) => {
 router.post('/rooms/:id/rematch', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, String(req.body && req.body.userId || '').trim());
     if (!userId) return res.status(400).json({ success: false, error: 'invalid_user' });
     const state = store.rematch(roomId, userId);
     res.json({ success: true, state });
@@ -187,7 +187,7 @@ router.post('/rooms/:id/rematch', (req, res) => {
 router.post('/rooms/:id/ready', (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, String(req.body && req.body.userId || '').trim());
     const ready = !!(req.body && req.body.ready);
     if (!roomId || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
     const state = store.setReady(roomId, userId, ready);
@@ -200,12 +200,12 @@ router.post('/rooms/:id/ready', (req, res) => {
 });
 
 // POST /api/games/tictactoe/rooms/:id/start
-router.post('/rooms/:id/start', (req, res) => {
+router.post('/rooms/:id/start', async (req, res) => {
   try {
     const roomId = String(req.params.id || '').trim();
-    const userId = String(req.body && req.body.userId || '').trim();
+    const userId = preferSessionUserId(req, String(req.body && req.body.userId || '').trim());
     if (!roomId || !userId) return res.status(400).json({ success: false, error: 'invalid_params' });
-    const state = store.startGame(roomId, userId);
+    const state = await store.startGame(roomId, userId);
     res.json({ success: true, state });
   } catch (e) {
     const msg = e && e.message || 'start_error';

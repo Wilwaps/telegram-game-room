@@ -1,6 +1,7 @@
 const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
+let welcomeRepo = null; try { welcomeRepo = require('../repos/welcomeRepo'); } catch(_) { welcomeRepo = null; }
 
 class MemoryStore extends EventEmitter {
   constructor() {
@@ -10,6 +11,11 @@ class MemoryStore extends EventEmitter {
       circulating: 100_000,
       burned: 0
     };
+    // Flags de entorno para QA/DEV: auto-sembrar saldos iniciales
+    this.isProd = String(process.env.NODE_ENV || 'development') === 'production';
+    this.devAutoSeed = String(process.env.ECONOMY_DEV_AUTO_SEED || 'true').toLowerCase() === 'true';
+    this.devSeedCoins = Math.max(0, parseInt(process.env.ECONOMY_DEV_SEED_COINS || '100', 10) || 0);
+    this.devSeedFires = Math.max(0, parseInt(process.env.ECONOMY_DEV_SEED_FIRES || '0', 10) || 0);
     this.users = new Map(); // userId -> { userId, userName, fires, coins, createdAt, lastSeenAt, firstSeenAt, currentSessionStart, lastDurationMs, lastDevice, devices }
     this.sponsors = new Map(); // userId -> { userId, key, description }
     this.userTx = new Map(); // userId -> [tx]
@@ -184,10 +190,24 @@ class MemoryStore extends EventEmitter {
     if (!id) return null;
     const now = Date.now();
     if (!this.users.has(id)) {
-      this.users.set(id, { userId: id, userName: id, fires: 0, coins: 0, createdAt: now, lastSeenAt: now, firstSeenAt: now, currentSessionStart: now, lastDurationMs: 0, devices: [] });
+      const c0 = (!this.isProd && this.devAutoSeed) ? this.devSeedCoins : 0;
+      const f0 = (!this.isProd && this.devAutoSeed) ? this.devSeedFires : 0;
+      this.users.set(id, { userId: id, userName: id, fires: f0, coins: c0, createdAt: now, lastSeenAt: now, firstSeenAt: now, currentSessionStart: now, lastDurationMs: 0, devices: [] });
     } else {
       const u = this.users.get(id);
-      if (u) { u.lastSeenAt = now; this.users.set(id, u); }
+      if (u) {
+        u.lastSeenAt = now;
+        // Sembrar una sola vez si el usuario ya existía con saldo 0 (solo DEV/QA)
+        if (!this.isProd && this.devAutoSeed) {
+          if (this.devSeedCoins > 0 && Math.max(0, Number(u.coins || 0)) <= 0) {
+            u.coins = this.devSeedCoins;
+          }
+          if (this.devSeedFires > 0 && Math.max(0, Number(u.fires || 0)) <= 0) {
+            u.fires = this.devSeedFires;
+          }
+        }
+        this.users.set(id, u);
+      }
     }
     return this.users.get(id);
   }
@@ -196,6 +216,30 @@ class MemoryStore extends EventEmitter {
     const id = String(userId || '').trim();
     if (!id) return null;
     return this.users.get(id) || null;
+  }
+
+  // Sincroniza (si está disponible) los saldos desde la billetera externa (Postgres)
+  // Solo para IDs externos tg:/db:/em:. No reduce saldos locales; solo eleva si el DB es mayor.
+  async syncFromExtWallet(userId) {
+    try {
+      const id = String(userId || '').trim();
+      if (!id) return null;
+      if (!welcomeRepo) return null;
+      if (!/^(tg:|db:|em:)/i.test(id)) return null;
+      const u = this.ensureUser(id);
+      const bal = await welcomeRepo.getWalletExtBalances(id);
+      if (!bal) return null;
+      const coins = Math.max(0, Number(bal.coins || 0));
+      const fires = Math.max(0, Number(bal.fires || 0));
+      if (u) {
+        if (coins > Math.max(0, Number(u.coins || 0))) u.coins = coins;
+        if (fires > Math.max(0, Number(u.fires || 0))) u.fires = fires;
+        this.users.set(id, u);
+      }
+      return { ok: true, coins: (u && u.coins) || 0, fires: (u && u.fires) || 0 };
+    } catch (_) {
+      return null;
+    }
   }
 
   listUsers({ search = '', limit = 20, cursor = 0 } = {}) {
