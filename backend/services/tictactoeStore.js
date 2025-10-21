@@ -1,5 +1,7 @@
 const EventEmitter = require('events');
 const mem = require('./memoryStore');
+let walletRepo = null; try { walletRepo = require('../repos/walletRepo'); } catch(_) { walletRepo = null; }
+let logger = null; try { logger = require('../config/logger'); } catch(_) { logger = console; }
 
 class TTTStore extends EventEmitter {
   constructor() {
@@ -39,6 +41,7 @@ class TTTStore extends EventEmitter {
       round: 1,
       lastWinner: null,
       paidFlags: { X: false, O: false },
+      _dbPot: { type: null, amount: 0 },
       rematchVotes: { X: false, O: false },
       ready: { X: false, O: false },
       pauseBudgetMs: { X: 30000, O: 30000 }
@@ -119,27 +122,65 @@ class TTTStore extends EventEmitter {
     try {
       // Sincronizar saldos desde billetera externa si aplica (tg:/db:/em:)
       try { if (typeof mem.syncFromExtWallet === 'function') { await mem.syncFromExtWallet(r.players.X); await mem.syncFromExtWallet(r.players.O); } } catch(_){ }
+      // Primero intentamos debitar en DB (si disponible), luego movemos en memoria al pot
       if (ct === 'coins') {
+        // Debito DB
+        if (walletRepo && typeof walletRepo.debitCoinsByExt === 'function') {
+          if (!r.paidFlags.X) {
+            const dx = await walletRepo.debitCoinsByExt(r.players.X, cv, { type: 'ttt_wager_debit', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            if (!dx || !dx.ok) { logger.info && logger.info(`[TTT] debitCoins X failed`, { roomId: r.id, user: r.players.X, error: dx && dx.error }); return false; }
+          }
+          if (!r.paidFlags.O) {
+            const dox = await walletRepo.debitCoinsByExt(r.players.O, cv, { type: 'ttt_wager_debit', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            if (!dox || !dox.ok) {
+              // Revertir X si acabamos de debitarlo aquí y aún no estaba marcado como pagado
+              try { if (!r.paidFlags.X) await walletRepo.creditCoinsByExt(r.players.X, cv, { type: 'ttt_wager_refund', reference: r.id, meta: { roomId: r.id, round: r.round } }); } catch(_){}
+              logger.info && logger.info(`[TTT] debitCoins O failed`, { roomId: r.id, user: r.players.O, error: dox && dox.error });
+              return false;
+            }
+          }
+        }
+        // Memoria (si no estaba pagado)
         if (!r.paidFlags.X) {
           const rx = mem.transferCoins({ fromUserId: r.players.X, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
-          if (!rx || !rx.ok) return;
+          if (!rx || !rx.ok) { logger.info && logger.info(`[TTT] mem.transferCoins X failed`, { roomId: r.id }); return false; }
           r.paidFlags.X = true;
+          r._dbPot.type = 'coins'; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
         }
         if (!r.paidFlags.O) {
           const ro = mem.transferCoins({ fromUserId: r.players.O, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
-          if (!ro || !ro.ok) return;
+          if (!ro || !ro.ok) { logger.info && logger.info(`[TTT] mem.transferCoins O failed`, { roomId: r.id }); return false; }
           r.paidFlags.O = true;
+          r._dbPot.type = 'coins'; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
         }
       } else if (ct === 'fuego') {
+        // Debito DB
+        if (walletRepo && typeof walletRepo.debitFiresByExt === 'function') {
+          if (!r.paidFlags.X) {
+            const dx = await walletRepo.debitFiresByExt(r.players.X, cv, { type: 'ttt_wager_debit', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            if (!dx || !dx.ok) { logger.info && logger.info(`[TTT] debitFires X failed`, { roomId: r.id, user: r.players.X, error: dx && dx.error }); return false; }
+          }
+          if (!r.paidFlags.O) {
+            const dox = await walletRepo.debitFiresByExt(r.players.O, cv, { type: 'ttt_wager_debit', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            if (!dox || !dox.ok) {
+              try { if (!r.paidFlags.X) await walletRepo.creditFiresByExt(r.players.X, cv, { type: 'ttt_wager_refund', reference: r.id, meta: { roomId: r.id, round: r.round } }); } catch(_){}
+              logger.info && logger.info(`[TTT] debitFires O failed`, { roomId: r.id, user: r.players.O, error: dox && dox.error });
+              return false;
+            }
+          }
+        }
+        // Memoria (si no estaba pagado)
         if (!r.paidFlags.X) {
           const rx = mem.transferFires({ fromUserId: r.players.X, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
-          if (!rx || !rx.ok) return;
+          if (!rx || !rx.ok) { logger.info && logger.info(`[TTT] mem.transferFires X failed`, { roomId: r.id }); return false; }
           r.paidFlags.X = true;
+          r._dbPot.type = 'fuego'; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
         }
         if (!r.paidFlags.O) {
           const ro = mem.transferFires({ fromUserId: r.players.O, toUserId: potId, amount: cv, reason: 'ttt_wager_pot' });
-          if (!ro || !ro.ok) return;
+          if (!ro || !ro.ok) { logger.info && logger.info(`[TTT] mem.transferFires O failed`, { roomId: r.id }); return false; }
           r.paidFlags.O = true;
+          r._dbPot.type = 'fuego'; r._dbPot.amount = Math.max(0, Number(r._dbPot.amount||0)) + cv;
         }
       }
       if (r.paidFlags.X && r.paidFlags.O) {
@@ -147,6 +188,7 @@ class TTTStore extends EventEmitter {
         r.lastMoveAt = Date.now();
         r.turnDeadline = r.lastMoveAt + this.turnTimeoutMs;
         r.rematchVotes = { X:false, O:false };
+        logger.info && logger.info(`[TTT] Start OK`, { roomId: r.id, costType: ct, costValue: cv, dbPot: r._dbPot });
         return true;
       }
     } catch (_) {}
@@ -163,6 +205,17 @@ class TTTStore extends EventEmitter {
         const winId = r.winner === 'X' ? r.players.X : r.players.O;
         if (potCoins > 0) mem.transferCoins({ fromUserId: potId, toUserId: winId, amount: potCoins, reason: 'ttt_wager_win' });
         if (potFires > 0) mem.transferFires({ fromUserId: potId, toUserId: winId, amount: potFires, reason: 'ttt_wager_win' });
+        // DB credit
+        try{
+          const amt = Math.max(0, Number(r?._dbPot?.amount||0))*1;
+          if (amt>0 && r._dbPot && r._dbPot.type && walletRepo){
+            if (r._dbPot.type === 'fuego' && typeof walletRepo.creditFiresByExt === 'function') {
+              walletRepo.creditFiresByExt(winId, amt, { type:'ttt_wager_win', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            } else if (r._dbPot.type === 'coins' && typeof walletRepo.creditCoinsByExt === 'function') {
+              walletRepo.creditCoinsByExt(winId, amt, { type:'ttt_wager_win', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            }
+          }
+        }catch(_){ }
       } else {
         const halfC = Math.floor(potCoins / 2);
         const halfF = Math.floor(potFires / 2);
@@ -174,8 +227,25 @@ class TTTStore extends EventEmitter {
           if (r.players.X) mem.transferFires({ fromUserId: potId, toUserId: r.players.X, amount: halfF, reason: 'ttt_wager_draw' });
           if (r.players.O) mem.transferFires({ fromUserId: potId, toUserId: r.players.O, amount: potFires - halfF, reason: 'ttt_wager_draw' });
         }
+        // DB split credit
+        try{
+          const amt = Math.max(0, Number(r?._dbPot?.amount||0))*1;
+          if (amt>0 && r._dbPot && r._dbPot.type && walletRepo){
+            const h = Math.floor(amt/2);
+            const rest = amt - h;
+            if (r._dbPot.type === 'fuego' && typeof walletRepo.creditFiresByExt === 'function') {
+              if (r.players.X) walletRepo.creditFiresByExt(r.players.X, h, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
+              if (r.players.O) walletRepo.creditFiresByExt(r.players.O, rest, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            } else if (r._dbPot.type === 'coins' && typeof walletRepo.creditCoinsByExt === 'function') {
+              if (r.players.X) walletRepo.creditCoinsByExt(r.players.X, h, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
+              if (r.players.O) walletRepo.creditCoinsByExt(r.players.O, rest, { type:'ttt_wager_draw', reference: r.id, meta: { roomId: r.id, round: r.round } });
+            }
+          }
+        }catch(_){ }
       }
     } catch (_) {}
+    // limpiar pot DB de la ronda
+    try { if (r && r._dbPot) r._dbPot = { type:null, amount:0 }; } catch(_){ }
   }
   joinRoom(roomId, userId) {
     const r = this.rooms.get(String(roomId));

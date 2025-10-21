@@ -70,4 +70,21 @@ async function creditCoinsByExt(userExt, amount, { type='manual_credit', referen
   finally{ client.release(); }
 }
 
-module.exports = { mapExtToDbUserId, ensureWallet, getBalancesByExt, creditFiresByExt, debitFiresByExt, creditCoinsByExt };
+async function debitCoinsByExt(userExt, amount, { type='manual_debit', reference='', meta={} }={}){
+  const amt = Math.max(0, Number(amount||0)); if (!amt) return { ok:false };
+  const dbUserId = await mapExtToDbUserId(userExt); if (!dbUserId) return { ok:false };
+  const client = await db.pool.connect();
+  try{
+    await client.query('BEGIN');
+    const w = await client.query('SELECT id, coins_balance FROM wallets WHERE user_id=$1 FOR UPDATE',[dbUserId]);
+    const row = w.rows?.[0]; if (!row) throw new Error('wallet_missing');
+    const bal = Number(row.coins_balance||0); if (bal < amt) throw new Error('insufficient_coins');
+    await client.query('UPDATE wallets SET coins_balance = coins_balance - $2, updated_at=NOW() WHERE id=$1',[row.id, amt]);
+    await client.query('INSERT INTO wallet_transactions(wallet_id,type,amount_coin,reference,meta,created_at) VALUES ($1,$2,$3,$4,$5,NOW())',[row.id, type, -amt, String(reference||''), meta||{}]);
+    await client.query('COMMIT');
+    return { ok:true };
+  }catch(err){ try{ await client.query('ROLLBACK'); }catch(_){} return { ok:false, error: err.message||'debit_error' }; }
+  finally{ client.release(); }
+}
+
+module.exports = { mapExtToDbUserId, ensureWallet, getBalancesByExt, creditFiresByExt, debitFiresByExt, creditCoinsByExt, debitCoinsByExt };
