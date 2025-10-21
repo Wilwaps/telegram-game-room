@@ -320,11 +320,11 @@ app.listen(PORT, () => {
     logger.error('Failed to start TTT tick loop', err);
   }
   try {
-    if (authService && typeof authService.getUserByEmail === 'function' && typeof authService.createEmailUser === 'function') {
+    if (auth && typeof auth.getUserByEmail === 'function' && typeof auth.createEmailUser === 'function') {
       const email = 'pruebatote@example.com';
-      const exist = authService.getUserByEmail(email);
+      const exist = auth.getUserByEmail(email);
       if (!exist) {
-        const rec = authService.createEmailUser({ name: 'pruebatote', email, password: 'pruebatote' });
+        const rec = auth.createEmailUser({ name: 'pruebatote', email, password: 'pruebatote' });
         rec.verified = true;
         try { store.setUserContact({ userId: rec.internalId, email }); } catch (_) {}
         logger.info('Seed QA user created: pruebatote@example.com / pruebatote');
