@@ -898,6 +898,10 @@
       if (j && j.success) { rematchBtn.disabled = true; rematchBtn.textContent = 'Esperando rival...'; }
     }catch(_){ }
   });
+  if (modeCoins) modeCoins.addEventListener('click', async ()=>{ await patchBoardOptions({ costType:'coins' }); });
+  if (modeFuego) modeFuego.addEventListener('click', async ()=>{ await patchBoardOptions({ costType:'fuego' }); });
+  if (modeInc) modeInc.addEventListener('click', async ()=>{ const v = Math.max(1, boardCostValue + 1); if (modeValue) modeValue.textContent = String(v); await patchBoardOptions({ costValue: v }); });
+  if (modeDec) modeDec.addEventListener('click', async ()=>{ const v = Math.max(1, boardCostValue - 1); if (modeValue) modeValue.textContent = String(v); await patchBoardOptions({ costValue: v }); });
   if (readyBtn) readyBtn.addEventListener('click', async ()=>{
     if (!roomId) return;
     try{

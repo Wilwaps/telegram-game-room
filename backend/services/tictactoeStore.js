@@ -398,6 +398,32 @@ class TTTStore extends EventEmitter {
     this.emit('room_update_' + r.id, s);
     return s;
   }
+  setReady(roomId, userId, ready){
+    const r = this.rooms.get(String(roomId));
+    if (!r) throw new Error('room_not_found');
+    const seat = this.who(r, userId);
+    if (!seat) throw new Error('not_in_room');
+    if (!r.ready) r.ready = { X:false, O:false };
+    r.ready[seat] = !!ready;
+    const s = this.getState(roomId);
+    this.emit('room_update_' + r.id, s);
+    return s;
+  }
+  startGame(roomId, userId){
+    const r = this.rooms.get(String(roomId));
+    if (!r) throw new Error('room_not_found');
+    if (!r.players.X || !r.players.O) throw new Error('both_required');
+    const seat = this.who(r, userId);
+    if (seat !== 'X') throw new Error('only_host_can_start');
+    if (!r.ready || !r.ready.O) throw new Error('opponent_not_ready');
+    r.paidFlags = { X:false, O:false };
+    const ok = this.chargeAndMaybeStart(r);
+    const s = this.getState(roomId);
+    this.emit('room_update_' + r.id, s);
+    if (!ok) throw new Error('payment_failed');
+    r.ready = { X:false, O:false };
+    return s;
+  }
   tick() {
     const now = Date.now();
     for (const r of this.rooms.values()) {
