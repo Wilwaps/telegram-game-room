@@ -2,6 +2,8 @@
   try{
     if (document.getElementById('appFooterNav')) return;
     var path = location.pathname || '/';
+    var juegosHref = '/games';
+    try{ if (window.__TTT_V2__ === true || String(window.__TTT_V2__) === 'true') { juegosHref = '/games/tictactoe'; } }catch(_){ }
     function isActive(key){
       if (key==='profile') return path.startsWith('/profile');
       if (key==='lobby') return path.startsWith('/lobby');
@@ -37,7 +39,7 @@
     }
     inner.appendChild(item('/profile','person','Perfil','profile','--tw-bg-accent:#facc15; --tw-bg-background-dark:#0B0E14'));
     inner.appendChild(item('/lobby','door_open','Lobby','lobby','--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14'));
-    inner.appendChild(item('/games','sports_esports','Juegos','juegos','--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14'));
+    inner.appendChild(item(juegosHref,'sports_esports','Juegos','juegos','--tw-bg-accent:#22d3ee; --tw-bg-background-dark:#0B0E14'));
     inner.appendChild(item('/raffles','confirmation_number','Rifas','raffles','--tw-bg-accent:#facc15; --tw-bg-background-dark:#0B0E14'));
     inner.appendChild(item('/market','storefront','Mercado','market','--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14'));
     inner.appendChild(item('#','groups','Rol',null,'--tw-bg-accent:#a78bfa; --tw-bg-background-dark:#0B0E14'));
