@@ -35,12 +35,23 @@
       // Cache efímero (8s) para navegación inmediata / prefetch
       const TTL = 8000;
       const now = Date.now();
-      const hit = cache.get(url);
+      let skipCache = false;
+      let fetchUrl = url;
+      try{
+        const u = new URL(url, location.origin);
+        // Evitar caché para TTT: queremos la versión más reciente siempre
+        if (u.pathname.startsWith('/games/tictactoe')){
+          skipCache = true;
+          const sep = u.search ? '&' : '?';
+          fetchUrl = u.pathname + u.search + sep + '_v=' + String(now % 1000000);
+        }
+      }catch(_){ }
+      const hit = (!skipCache) ? cache.get(fetchUrl) : null;
       if (hit && (now - (hit.ts||0) < TTL) && typeof hit.text === 'string') return hit.text;
-      const r = await fetch(url, { headers: { 'X-Requested-With': 'AppShell', 'Cache-Control': 'no-cache' }, signal });
+      const r = await fetch(fetchUrl, { headers: { 'X-Requested-With': 'AppShell', 'Cache-Control': 'no-cache' }, signal });
       if (!r.ok) throw new Error('http_'+r.status);
       const text = await r.text();
-      try{ cache.set(url, { text, ts: now }); }catch(_){ }
+      try{ cache.set(fetchUrl, { text, ts: now }); }catch(_){ }
       return text;
     }catch(_){ return null; }
   }

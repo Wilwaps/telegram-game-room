@@ -156,7 +156,9 @@ app.use(express.static(path.resolve(__dirname, '../public')));
 app.get('/config.js', (req, res) => {
   try {
     res.set('Content-Type', 'application/javascript');
-    res.send(`window.__SENTRY_DSN__=${JSON.stringify(process.env.SENTRY_DSN || '')};window.__APP_ENV__=${JSON.stringify(process.env.NODE_ENV || 'development')};`);
+    const v2 = String(process.env.TTT_V2||'false').toLowerCase()==='true';
+    const dbw = String(process.env.TTT_DB_WALLET||'false').toLowerCase()==='true';
+    res.send(`window.__SENTRY_DSN__=${JSON.stringify(process.env.SENTRY_DSN || '')};window.__APP_ENV__=${JSON.stringify(process.env.NODE_ENV || 'development')};window.__TTT_V2__=${v2};window.__TTT_DB_WALLET__=${dbw};`);
   } catch (e) { res.status(200).type('application/javascript').send(''); }
 });
 
@@ -219,6 +221,7 @@ app.get('/games', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../public/games.html'));
 });
 app.get('/games/tictactoe', (req, res) => {
+  try { res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'); } catch(_){}
   res.sendFile(path.resolve(__dirname, '../public/tictactoe.html'));
 });
 app.get('/games/bingo', (req, res) => {
