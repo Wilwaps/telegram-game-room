@@ -210,7 +210,9 @@ router.post('/rooms/:id/start', async (req, res) => {
   } catch (e) {
     const msg = e && e.message || 'start_error';
     const code = (msg === 'room_not_found') ? 404 : 400;
-    res.status(code).json({ success: false, error: msg });
+    let reason = null;
+    try { const st = store.getState(String(req.params.id || '').trim()); reason = st && st.lastFailReason || null; } catch(_) { reason = null; }
+    res.status(code).json({ success: false, error: msg, reason });
   }
 });
 

@@ -918,7 +918,29 @@
       startBtn.disabled = true;
       const r = await fetch(`/api/games/tictactoe/rooms/${encodeURIComponent(roomId)}/start`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: myId }) });
       const j = await r.json();
-      if (!j || !j.success){ const msg = (j && j.error) || 'No se pudo iniciar'; if (msg==='payment_failed') { setStatus('No se pudo iniciar: saldo insuficiente'); } else { setStatus('No se pudo iniciar'); } setTimeout(()=> setStatus(''), 1700); }
+      if (!j || !j.success){
+        const msg = (j && j.error) || 'start_error';
+        const reason = (j && j.reason) || '';
+        let text = 'No se pudo iniciar';
+        if (msg === 'payment_failed') {
+          if (reason === 'insufficient_coins') text = 'No se pudo iniciar: saldo de monedas insuficiente';
+          else if (reason === 'insufficient_fires') text = 'No se pudo iniciar: saldo de fuego insuficiente';
+          else if (reason === 'wallet_missing') text = 'No se pudo iniciar: wallet no encontrada en DB';
+          else if (reason === 'db_timeout') text = 'No se pudo iniciar: timeout de DB';
+          else if (reason === 'debit_error') text = 'No se pudo iniciar: error de débito en DB';
+          else text = 'No se pudo iniciar: saldo insuficiente';
+        } else if (msg === 'opponent_not_ready') {
+          text = 'No se pudo iniciar: el invitado no está listo';
+        } else if (msg === 'only_host_can_start') {
+          text = 'Solo el anfitrión puede iniciar';
+        } else if (msg === 'both_required') {
+          text = 'Se requieren ambos jugadores';
+        } else if (msg === 'room_not_found') {
+          text = 'Sala no encontrada';
+        }
+        setStatus(text);
+        setTimeout(()=> setStatus(''), 2500);
+      }
     }catch(_){ setStatus('Error de red'); setTimeout(()=> setStatus(''), 1500); }
     finally { try{ startBtn.disabled = false; }catch(_){ } }
   });
