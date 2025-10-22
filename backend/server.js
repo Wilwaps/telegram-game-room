@@ -14,7 +14,7 @@ const economyExtRoutes = require('./routes/economy_ext');
 const telegramRoutes = require('./routes/telegram');
 const profileRoutes = require('./routes/profile');
 const tttRoutes = require('./routes/tictactoe');
-const tttStore = require('./services/tictactoeStore');
+let tttStore = null; try { tttStore = (String(process.env.TTT_V2||'false').toLowerCase()==='true') ? require('./services/ttt2/roomService') : require('./services/tictactoeStore'); } catch(_) { tttStore = require('./services/tictactoeStore'); }
 const bingoRoutes = require('./routes/bingo');
 const fireRequestsRoutes = require('./routes/fire_requests');
 const rafflesRoutes = require('./routes/raffles');

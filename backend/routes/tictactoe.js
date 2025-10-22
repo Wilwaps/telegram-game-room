@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const store = require('../services/tictactoeStore');
+let store = null; try { store = (String(process.env.TTT_V2||'false').toLowerCase()==='true') ? require('../services/ttt2/roomService') : require('../services/tictactoeStore'); } catch(_) { store = require('../services/tictactoeStore'); }
 const { preferSessionUserId } = require('../middleware/sessionUser');
 
 router.post('/rooms', (req, res) => {
